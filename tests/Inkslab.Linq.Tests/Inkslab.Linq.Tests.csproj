@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<ItemGroup>
+	  <ProjectReference Include="..\..\src\Inkslab.Linq.MySql\Inkslab.Linq.MySql.csproj" />
+	</ItemGroup>
+
+</Project>

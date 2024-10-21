@@ -1,0 +1,19 @@
+using Inkslab.Linq.Annotations;
+using System;
+using System.ComponentModel;
+
+namespace Inkslab.Linq.Tests
+{
+    [Table("user")]
+    public class User
+    {
+        [Key]
+        [Field("id")]
+        [ReadOnly(true)]
+        public int Id { get; set; }
+        [Field("name")]
+        public string Name { get; set; }
+        [Field("date")]
+        public DateTime Date { get; set; }
+    }
+}

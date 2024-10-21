@@ -1,0 +1,11 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	
+	<ItemGroup>
+	  <PackageReference Include="MySqlConnector" Version="2.3.7" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\Inkslab.Linq\Inkslab.Linq.csproj" />
+	</ItemGroup>
+	
+</Project>

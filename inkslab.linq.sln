@@ -1,0 +1,73 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.33627.172
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{3BC9EABC-248D-4AD5-A7F1-DC856EB302AA}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{8DC8AE30-1F46-4918-A519-E2382F78071A}"
+	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
+		appveyor.yml = appveyor.yml
+		build.ps1 = build.ps1
+		Directory.Build.props = Directory.Build.props
+		inkslab-mini.jpg = inkslab-mini.jpg
+		inkslab-original.jpg = inkslab-original.jpg
+		inkslab.jpg = inkslab.jpg
+		LICENSE = LICENSE
+		README.md = README.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{6F18ACB7-0EFA-4E61-92C1-8CA72A6778C9}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Inkslab.Linq", "src\Inkslab.Linq\Inkslab.Linq.csproj", "{855A976D-4355-4A20-B6F6-5ABFDC45410A}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Inkslab.Linq.Tests", "tests\Inkslab.Linq.Tests\Inkslab.Linq.Tests.csproj", "{7B52187D-2234-4814-AFC8-0704A4EB5EDE}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Inkslab.Transcations", "src\Inkslab.Transcations\Inkslab.Transcations.csproj", "{E1B10397-AFFE-435D-BFDE-854842FA225C}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Inkslab.Linq.MySql", "src\Inkslab.Linq.MySql\Inkslab.Linq.MySql.csproj", "{6EBFBC51-1B7E-4AF7-8763-833044E31AC2}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Inkslab.Linq.SqlServer", "src\Inkslab.Linq.SqlServer\Inkslab.Linq.SqlServer.csproj", "{240ABEFC-E5A3-4A9D-9C28-DE7F6365B0E1}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{855A976D-4355-4A20-B6F6-5ABFDC45410A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{855A976D-4355-4A20-B6F6-5ABFDC45410A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{855A976D-4355-4A20-B6F6-5ABFDC45410A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{855A976D-4355-4A20-B6F6-5ABFDC45410A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7B52187D-2234-4814-AFC8-0704A4EB5EDE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7B52187D-2234-4814-AFC8-0704A4EB5EDE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7B52187D-2234-4814-AFC8-0704A4EB5EDE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7B52187D-2234-4814-AFC8-0704A4EB5EDE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E1B10397-AFFE-435D-BFDE-854842FA225C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E1B10397-AFFE-435D-BFDE-854842FA225C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E1B10397-AFFE-435D-BFDE-854842FA225C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E1B10397-AFFE-435D-BFDE-854842FA225C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6EBFBC51-1B7E-4AF7-8763-833044E31AC2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6EBFBC51-1B7E-4AF7-8763-833044E31AC2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6EBFBC51-1B7E-4AF7-8763-833044E31AC2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6EBFBC51-1B7E-4AF7-8763-833044E31AC2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{240ABEFC-E5A3-4A9D-9C28-DE7F6365B0E1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{240ABEFC-E5A3-4A9D-9C28-DE7F6365B0E1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{240ABEFC-E5A3-4A9D-9C28-DE7F6365B0E1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{240ABEFC-E5A3-4A9D-9C28-DE7F6365B0E1}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{855A976D-4355-4A20-B6F6-5ABFDC45410A} = {3BC9EABC-248D-4AD5-A7F1-DC856EB302AA}
+		{7B52187D-2234-4814-AFC8-0704A4EB5EDE} = {6F18ACB7-0EFA-4E61-92C1-8CA72A6778C9}
+		{E1B10397-AFFE-435D-BFDE-854842FA225C} = {3BC9EABC-248D-4AD5-A7F1-DC856EB302AA}
+		{6EBFBC51-1B7E-4AF7-8763-833044E31AC2} = {3BC9EABC-248D-4AD5-A7F1-DC856EB302AA}
+		{240ABEFC-E5A3-4A9D-9C28-DE7F6365B0E1} = {3BC9EABC-248D-4AD5-A7F1-DC856EB302AA}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {3E68E973-1591-4DAC-A9F0-BDAE6156F2B5}
+	EndGlobalSection
+EndGlobal

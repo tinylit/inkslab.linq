@@ -1,0 +1,45 @@
+version: 1.1.{build}
+branches:
+  only:
+  - main
+skip_tags: true
+skip_commits:
+  files:
+    - '**/*.md'
+    - '**/*.txt'
+    - '**/*.png'
+    - '**/*.jpg'
+    - '**/*.svg'
+    - '**/*.json'
+    - '**/*.config'
+    - '**/*.csproj'
+    - '**/*.csproj.user'
+    - 'Tests/'
+image: Visual Studio 2022
+configuration: Release
+clone_depth: 5
+environment:
+  connectionStrings:
+    secure: LLO7BwZrM0cdun+apcoIROmd88IfT+/RnjAP5dq931TS3bNWSmEm7o7XnOJx1S/ibdUVfqSxZiGZwpBrEt//23t2F7OKA11ekHObkJ6UCxPMazQFaxYIzeqgVa7hXG5Q
+before_build:
+- cmd: nuget restore
+build:
+  verbosity: minimal
+before_package:
+- ps: .\build.ps1
+artifacts:
+- path: .\.nupkgs\*.nupkg
+deploy:
+- provider: NuGet
+  api_key:
+    secure: aoovsYPSuByCeavEcYD/9VfPL22gPZUFXxz6/H7Yo5P354zkq3wUL7yc9Zr9m3/T
+  skip_symbols: false
+  on:
+    branch: main
+notifications:
+- provider: Email
+  to:
+  - m.hyl@foxmail.com
+  subject: inkslab.linq
+  on_build_success: true
+  on_build_failure: true

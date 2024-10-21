@@ -1,0 +1,87 @@
+<Project>
+	<PropertyGroup>
+		<TargetFrameworks Condition="'$(LibraryFrameworks)'==''">netstandard2.1;net6.0;</TargetFrameworks>
+		<TargetFrameworks Condition="'$(LibraryFrameworks)'!=''">$(LibraryFrameworks)</TargetFrameworks>
+		<!-- 版本 -->
+		<Version>1.2.0</Version>
+		<!-- 语法提示 -->
+		<Features>strict</Features>
+		<!-- 语法版本 -->
+		<LangVersion>9.0</LangVersion>
+		<!-- 提升警告为异常 -->
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+
+		<Authors>影子和树</Authors>
+		<Company>TINYLIT</Company>
+		<Copyright>2022 TINYLIT.</Copyright>
+		<RepositoryType>git</RepositoryType>
+		<PackageIcon>inkslab-mini.jpg</PackageIcon>
+		<PackageLicenseFile>LICENSE</PackageLicenseFile>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<RepositoryUrl>https://github.com/tinylit/inkslab.linq</RepositoryUrl>
+		<PackageProjectUrl>https://github.com/tinylit/inkslab.linq</PackageProjectUrl>
+
+		<!-- Docker -->
+		<DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+		<DockerfileContext>..\..</DockerfileContext>
+		<!-- 生成 xml 文件。 -->
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<DocumentationFile Condition="$(Configuration) == 'Release' AND $(RuntimeIdentifier) == ''">bin/$(Configuration)/$(TargetFramework)/publish/$(MSBuildProjectName).xml</DocumentationFile>
+		<DocumentationFile Condition="$(Configuration) == 'Release' AND $(RuntimeIdentifier) != ''">bin/$(Configuration)/$(TargetFramework)/$(RuntimeIdentifier)/publish/$(MSBuildProjectName).xml</DocumentationFile>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<None Include="..\..\README.md">
+			<Pack>True</Pack>
+			<PackagePath>\</PackagePath>
+		</None>
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="..\..\LICENSE">
+			<Pack>True</Pack>
+			<PackagePath>\</PackagePath>
+		</None>
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="..\..\inkslab-mini.jpg">
+			<Pack>True</Pack>
+			<PackagePath>\</PackagePath>
+		</None>
+	</ItemGroup>
+	
+	<!-- 单元测试。 -->
+	<PropertyGroup>
+		<IsTestProject>$(MSBuildProjectName.EndsWith('.Tests'))</IsTestProject>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="$(IsTestProject)">
+		<TargetFramework>net6.0</TargetFramework>
+		<TargetFrameworks>net6.0</TargetFrameworks>
+		<IsPackable>false</IsPackable>
+		<Features>suggest</Features>
+		<NoWarn>$(NoWarn);xUnit1041;MSB3106;</NoWarn>
+		<TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+		<GenerateDocumentationFile>false</GenerateDocumentationFile>
+	</PropertyGroup>
+
+	<Choose>
+		<When Condition="$(IsTestProject)">
+			<ItemGroup>
+				<PackageReference Include="Inkslab.Map" Version="1.2.13" />
+				<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.1.0" />
+				<PackageReference Include="xunit" Version="2.9.0" />
+				<PackageReference Include="xunitPlus" Version="1.2.6" />
+				<PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+					<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+					<PrivateAssets>all</PrivateAssets>
+				</PackageReference>
+				<PackageReference Include="coverlet.collector" Version="3.1.2">
+					<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+					<PrivateAssets>all</PrivateAssets>
+				</PackageReference>
+			</ItemGroup>
+		</When>
+	</Choose>
+</Project>

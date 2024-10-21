@@ -20,6 +20,7 @@ namespace Inkslab.Transcations
     {
         private static readonly AsyncLocal<TransactionHolder> _transactionCurrent = new AsyncLocal<TransactionHolder>();
 
+        private readonly List<IDelivery> _deliveries = new List<IDelivery>();
         private readonly List<ITransaction> _transactions = new List<ITransaction>(1);
 
         /// <summary>
@@ -85,6 +86,32 @@ namespace Inkslab.Transcations
                 }
             }
         }
+
+        /// <summary>
+        /// 委托，若当前存在事务，则在事务提交成功时，交付；否则，自动完成。
+        /// </summary>
+        /// <param name="delivery">交付。</param>
+        /// <exception cref="ArgumentNullException">参数“<paramref name="delivery"/>”为<see langword="null"/>！</exception>
+        public static void Delegation(IDelivery delivery)
+        {
+            if (delivery is null)
+            {
+                throw new ArgumentNullException(nameof(delivery));
+            }
+
+            var transaction = Current;
+
+            if (transaction is null)
+            {
+                delivery.Done();
+            }
+            else
+            {
+                transaction.Delivery(delivery);
+            }
+        }
+
+        private void Delivery(IDelivery delivery) => _deliveries.Add(delivery);
 
         /// <summary>
         /// 事务唯一标识（父子事务时，和父事务一致）。
@@ -165,6 +192,14 @@ namespace Inkslab.Transcations
 
                     throw;
                 }
+
+                if (_deliveries.Count > 0)
+                {
+                    foreach (var delivery in _deliveries)
+                    {
+                        delivery.Done();
+                    }
+                }
             }
             finally
             {
@@ -238,7 +273,6 @@ namespace Inkslab.Transcations
                 TransactionCompleted.Invoke(this, new TransactionEventArgs(this));
             }
         }
-
 
         private bool disposed;
 

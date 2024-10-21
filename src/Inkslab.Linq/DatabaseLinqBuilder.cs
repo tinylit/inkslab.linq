@@ -32,5 +32,29 @@ namespace Inkslab.Linq
 
             return this;
         }
+
+        /// <summary>
+        /// 使用数据库。
+        /// </summary>
+        /// <typeparam name="TConnectionStrings">数据库链接。</typeparam>
+        /// <param name="connectionStrings">数据库链接。</param>
+        /// <param name="configureServices">配置其它注入。</param>
+        /// <remarks>
+        /// 请在项目中，通过注入“<see cref="IDatabase{TConnectionStrings}"/>”访问数据库。
+        /// </remarks>
+        /// <returns>数据库构建器。</returns>
+        public DatabaseLinqBuilder UseDatabase<TConnectionStrings>(TConnectionStrings connectionStrings, Action<IServiceCollection> configureServices = null) where TConnectionStrings : class, IConnectionStrings
+        {
+            if (connectionStrings is null)
+            {
+                throw new ArgumentNullException(nameof(connectionStrings));
+            }
+
+            _services.AddSingleton(connectionStrings);
+
+            configureServices?.Invoke(_services);
+
+            return this;
+        }
     }
 }

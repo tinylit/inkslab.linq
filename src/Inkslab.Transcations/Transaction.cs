@@ -69,7 +69,7 @@ namespace Inkslab.Transcations
 
                 if (holder is null)
                 {
-                    _transactionCurrent.Value = new TransactionHolder { Transaction = value };
+
                 }
                 else
                 {
@@ -107,11 +107,23 @@ namespace Inkslab.Transcations
             }
             else
             {
-                transaction.Delivery(delivery);
+                transaction.RegisterDelivery(delivery);
             }
         }
 
-        private void Delivery(IDelivery delivery) => _deliveries.Add(delivery);
+        /// <summary>
+        /// 注册交付。
+        /// </summary>
+        /// <param name="delivery">交付。</param>
+        public void RegisterDelivery(IDelivery delivery)
+        {
+            if (delivery is null)
+            {
+                throw new ArgumentNullException(nameof(delivery));
+            }
+
+            _deliveries.Add(delivery);
+        }
 
         /// <summary>
         /// 事务唯一标识（父子事务时，和父事务一致）。

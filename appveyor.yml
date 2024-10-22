@@ -1,4 +1,4 @@
-version: 1.2.0.{build}
+version: 1.2.{build}
 branches:
   only:
   - main
@@ -18,13 +18,11 @@ skip_commits:
 image: Visual Studio 2022
 configuration: Release
 clone_depth: 5
-environment:
-  connectionStrings:
-    secure: LLO7BwZrM0cdun+apcoIROmd88IfT+/RnjAP5dq931TS3bNWSmEm7o7XnOJx1S/ibdUVfqSxZiGZwpBrEt//23t2F7OKA11ekHObkJ6UCxPMazQFaxYIzeqgVa7hXG5Q
 before_build:
 - cmd: nuget restore
 build:
   verbosity: minimal
+test: off
 before_package:
 - ps: .\build.ps1
 artifacts:

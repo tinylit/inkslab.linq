@@ -474,7 +474,7 @@ namespace System.Linq
         /// <summary>
         ///     The <see cref="QueryableExtentions" /> for
         ///     <see
-        ///         cref="QueryableExtentions.Ignore{TSource}(IQueryable{TSource}, Inkslab.Linq.Enums.SupportLevel)" />
+        ///         cref="QueryableExtentions.Ignore{TSource}(IQueryable{TSource})" />
         /// </summary>
         public static MethodInfo Ignore { get; }
         /// <summary>

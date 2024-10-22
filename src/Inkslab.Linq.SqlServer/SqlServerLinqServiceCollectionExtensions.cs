@@ -12,15 +12,14 @@ namespace Microsoft.Extensions.DependencyInjection
     public static class SqlServerLinqServiceCollectionExtensions
     {
         /// <summary>
-        /// 使用Linq。
+        /// 使用 SqlServer 数据库引擎。
         /// </summary>
         /// <param name="services">服务池。</param>
-        /// <param name="connectionStrings">数据库链接。</param>
         /// <returns>服务池。</returns>
-        public static DatabaseLinqBuilder UseSqlServer(this IServiceCollection services, string connectionStrings)
+        public static DatabaseLinqBuilder UseSqlServer(this IServiceCollection services)
         {
             return services.AddSingleton<IBulkAssistant, SqlServerBulkAssistant>()
-                 .UseLinq<SqlServerAdapter>(connectionStrings, connectionString =>
+                 .UseEngine<SqlServerAdapter>(connectionString =>
                  {
                      return new SqlConnection(connectionString);
                  });

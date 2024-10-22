@@ -158,18 +158,12 @@ namespace System.Linq
         /// </summary>
         /// <typeparam name="TSource">资源类型。</typeparam>
         /// <param name="source">查询器。</param>
-        /// <param name="level">支持级别。</param>
         /// <returns>忽略仓储。</returns>
-        internal static IQueryable<TSource> Ignore<TSource>(IQueryable<TSource> source, SupportLevel level)
+        internal static IQueryable<TSource> Ignore<TSource>(IQueryable<TSource> source)
         {
             if (source is null)
             {
                 throw new ArgumentNullException(nameof(source));
-            }
-
-            if (!Enum.IsDefined(typeof(SupportLevel), level))
-            {
-                throw new ArgumentOutOfRangeException(nameof(level));
             }
 
             throw new NotImplementedException();

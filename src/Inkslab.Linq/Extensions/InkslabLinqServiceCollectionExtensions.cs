@@ -71,46 +71,39 @@ namespace Microsoft.Extensions.DependencyInjection
         }
 
         /// <summary>
-        /// 使用Linq。
+        /// 使用引擎。
         /// </summary>
         /// <param name="services">服务池。</param>
-        /// <param name="connectionStrings">数据库链接。</param>
         /// <param name="factory">数据库工厂。</param>
         /// <returns>服务池。</returns>
-        public static DatabaseLinqBuilder UseLinq<TDbAdapter>(this IServiceCollection services, string connectionStrings, DbProviderFactory factory) where TDbAdapter : class, IDbAdapter
+        public static DatabaseLinqBuilder UseEngine<TDbAdapter>(this IServiceCollection services, DbProviderFactory factory) where TDbAdapter : class, IDbAdapter
         {
             if (factory is null)
             {
                 throw new ArgumentNullException(nameof(factory));
             }
 
-            return services.UseLinq<TDbAdapter>(connectionStrings, connectionString =>
+            return services.UseEngine<TDbAdapter>(connectionString =>
             {
                 var connection = factory.CreateConnection();
 
-                connection.ConnectionString = connectionStrings;
+                connection.ConnectionString = connectionString;
 
                 return connection;
             });
         }
 
         /// <summary>
-        /// 使用Linq。
+        /// 使用引擎。
         /// </summary>
         /// <param name="services">服务池。</param>
-        /// <param name="connectionStrings">数据库链接。</param>
         /// <param name="factory">数据库工厂。</param>
         /// <returns>服务池。</returns>
-        public static DatabaseLinqBuilder UseLinq<TDbAdapter>(this IServiceCollection services, string connectionStrings, Func<string, DbConnection> factory) where TDbAdapter : class, IDbAdapter
+        public static DatabaseLinqBuilder UseEngine<TDbAdapter>(this IServiceCollection services, Func<string, DbConnection> factory) where TDbAdapter : class, IDbAdapter
         {
             if (services is null)
             {
                 throw new ArgumentNullException(nameof(services));
-            }
-
-            if (string.IsNullOrEmpty(connectionStrings))
-            {
-                throw new ArgumentException($"“{nameof(connectionStrings)}”不能为 null 或空。", nameof(connectionStrings));
             }
 
             if (factory is null)
@@ -120,19 +113,13 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.AddSingleton<IDbAdapter, TDbAdapter>()
                 .AddSingleton(static services => services.GetRequiredService<IDbAdapter>().Settings)
-                .AddSingleton<IConnectionStrings>(new ConnectionStrings(connectionStrings))
                 .AddSingleton<IDbConnectionFactory>(new DbConnectionFactory(factory))
                 .AddSingleton<IDbConnectionPipeline, DbConnectionPipeline>()
                 .AddSingleton<IDatabaseExecutor, DatabaseExecutor>()
-                .AddSingleton<IDatabase, Database>()
-                .AddSingleton(typeof(IDatabase<>), typeof(Database<>))
-                .AddScoped(typeof(IQueryable<>), typeof(Queryable<>))
-                .AddScoped(typeof(IRepository<>), typeof(Repository<>));
+                .AddSingleton(typeof(IDatabase<>), typeof(Database<>));
 
             services.TryAddSingleton<IBulkAssistant, BulkAssistant>();
             services.TryAddSingleton<IConnections, DefaultConnections>();
-            services.TryAddSingleton(typeof(IRepositoryRouter<>), typeof(RepositoryRouter<>));
-            services.TryAddSingleton<IRepositoryExecutor, RepositoryExecutor>();
 
             return new DatabaseLinqBuilder(services);
         }

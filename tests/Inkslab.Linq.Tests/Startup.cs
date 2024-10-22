@@ -15,7 +15,8 @@ namespace Inkslab.Linq.Tests
         {
             var connectionStrings = Environment.GetEnvironmentVariable("connectionStrings");
 
-            services.UseMySql(connectionStrings ?? "server=mysql.local.com;uid=root;pwd=yyy@123*;database=framework;AllowLoadLocalInfile=true");
+            services.UseMySql()
+                .UseLinq(connectionStrings ?? "server=mysql.local.com;uid=root;pwd=yyy@123*;database=framework;AllowLoadLocalInfile=true");
 
             services.AddLogging(builder => builder.AddDebug().SetMinimumLevel(LogLevel.Debug));
 

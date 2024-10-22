@@ -348,6 +348,8 @@ namespace Inkslab.Linq
                 return entries.ToArray();
             }
 
+            public abstract void CheckValid();
+
             public abstract CommandSql GetCommandSql();
         }
 
@@ -361,9 +363,6 @@ namespace Inkslab.Linq
                     .ToHashSet(StringComparer.OrdinalIgnoreCase);
             }
 
-            /// <summary>
-            /// 忽略。
-            /// </summary>
             public bool Ignore { get; set; }
 
             public DataTable Combination()
@@ -394,6 +393,164 @@ namespace Inkslab.Linq
                 }
 
                 return dt;
+            }
+
+            public (string, DataTable, string, Dictionary<string, object>, string) IgnoreCombination()
+            {
+                var entries = GetEntries();
+
+                var sb = new StringBuilder(128);
+                var insertArgs = new Dictionary<string, object>();
+
+                var temporaryName = $"bulk_{Guid.NewGuid():N}_i";
+
+                #region 构造插入语句。
+                sb.Append("INSERT ");
+
+                if (Ignore)
+                {
+                    sb.Append("IGNORE ");
+                }
+
+                sb.Append("INTO ");
+
+                if (Schema?.Length > 0)
+                {
+                    sb.Append(Settings.Name(Schema))
+                        .Append('.');
+                }
+
+                sb.Append(Settings.Name(Name))
+                    .Append('(')
+                    .Append(string.Join(',', entries.Select(x => x.ColumnName)))
+                    .Append(')')
+                    .AppendLine()
+                    .Append("SELECT ")
+                    .Append(string.Join(',', entries.Select(x => x.ColumnName)))
+                    .Append(" FROM ")
+                    .Append(Settings.Name(temporaryName));
+
+                #endregion
+
+                string insertSql = sb.ToString();
+
+                //! 清除更新语句内容，复用容量。
+                sb.Clear();
+
+                #region 创建表
+
+                sb.Append("CREATE ");
+
+                if (Settings.Engine == DatabaseEngine.MySQL)
+                {
+                    sb.Append("TEMPORARY ");
+                }
+
+                sb.Append("TABLE ")
+                    .Append(Settings.Name(temporaryName))
+                    .Append('(');
+
+                for (int i = 0; i < entries.Length; i++)
+                {
+                    var entry = entries[i];
+
+                    if (i > 0)
+                    {
+                        sb.Append(',');
+                    }
+
+                    sb.Append(Settings.Name(entry.ColumnName))
+                        .Append(' ')
+                        .Append(Type.GetTypeCode(entry.ColumnType) switch
+                        {
+                            TypeCode.Boolean => "bit",
+                            TypeCode.Char => "char(1)",
+                            TypeCode.Byte => "tinyint",
+                            TypeCode.SByte when Settings.Engine == DatabaseEngine.MySQL => "tinyint unsigned",
+                            TypeCode.SByte or TypeCode.Int16 => "smallint",
+                            TypeCode.UInt16 when Settings.Engine == DatabaseEngine.MySQL => "smallint unsigned",
+                            TypeCode.UInt16 or TypeCode.Int32 => "int",
+                            TypeCode.UInt32 when Settings.Engine == DatabaseEngine.MySQL => "int unsigned",
+                            TypeCode.UInt32 or TypeCode.Int64 => "bigint",
+                            TypeCode.UInt64 when Settings.Engine == DatabaseEngine.MySQL => "bigint unsigned",
+                            TypeCode.Single => "float",
+                            TypeCode.Double => "double",
+                            TypeCode.Decimal => "decimal",
+                            TypeCode.DateTime => "datetime",
+                            TypeCode.String => Settings.Engine == DatabaseEngine.MySQL ? "varchar(1024)" : "nvarchar(1024)",
+                            _ => throw new NotSupportedException($"列“{entry.ColumnName}”的类型“{entry.ColumnType}”不支持批处理！"),
+                        });
+
+                    if (!entry.Nullable)
+                    {
+                        sb.Append(" NOT");
+                    }
+
+                    sb.Append(" NULL");
+                }
+
+                sb.Append(')');
+
+                #endregion
+
+                string createSql = sb.ToString();
+
+                //! 清除更新语句内容，复用容量。
+                sb.Clear();
+
+                #region 删除表。
+                sb.Append("DROP ");
+
+                if (Settings.Engine == DatabaseEngine.MySQL)
+                {
+                    sb.Append("TEMPORARY ");
+                }
+
+                sb.Append("TABLE ")
+                    .Append(Settings.Name(temporaryName))
+                    .Append(';');
+
+                #endregion
+
+                string dropSql = sb.ToString();
+
+                var dt = new DataTable(temporaryName);
+
+                #region 组装数据。
+
+                Array.ForEach(entries, entry =>
+                {
+                    dt.Columns.Add(entry.ColumnName, entry.ColumnType)
+                        .AllowDBNull = entry.Nullable;
+                });
+
+                foreach (var entity in Entities)
+                {
+                    if (entity is null)
+                    {
+                        throw new InvalidOperationException("实体不能为空！");
+                    }
+
+                    var dr = dt.NewRow();
+
+                    Array.ForEach(entries, entry =>
+                    {
+                        dr[entry.ColumnName] = entry.GetValue(entity) ?? DBNull.Value;
+                    });
+
+                    dt.Rows.Add(dr);
+                }
+                #endregion
+
+                return (createSql, dt, insertSql, insertArgs, dropSql);
+            }
+
+            public override void CheckValid()
+            {
+                if (Fields.Count == 0)
+                {
+                    throw new InvalidOperationException("未指定插入字段！");
+                }
             }
 
             public override CommandSql GetCommandSql()
@@ -519,11 +676,6 @@ namespace Inkslab.Linq
                     {
                         conditions.Add(version.Key);
                     }
-                }
-
-                if (Fields.Count == 0)
-                {
-                    throw new InvalidOperationException("未指定更新字段！");
                 }
 
                 var entries = GetEntries(_allFields);
@@ -862,6 +1014,14 @@ namespace Inkslab.Linq
                 return (createSql, dt, updateSql, updateArgs, dropSql);
             }
 
+            public override void CheckValid()
+            {
+                if (Fields.Count == 0)
+                {
+                    throw new InvalidOperationException("未指定更新字段！");
+                }
+            }
+
             public override CommandSql GetCommandSql()
             {
                 var conditions = new HashSet<string>(_instance.Keys, StringComparer.OrdinalIgnoreCase);
@@ -876,11 +1036,6 @@ namespace Inkslab.Linq
                     }
 
                     conditions.Add(version.Key);
-                }
-
-                if (Fields.Count == 0)
-                {
-                    throw new InvalidOperationException("未指定更新字段！");
                 }
 
                 var updateEntries = GetEntries();
@@ -1232,6 +1387,11 @@ namespace Inkslab.Linq
                 return new CommandSql(sb.ToString(), parameters, Timeout);
             }
 
+            public override void CheckValid()
+            {
+
+            }
+
             public (string, DataTable, string, Dictionary<string, object>, string) Combination()
             {
                 if (!SkipIdempotentValid)
@@ -1468,7 +1628,6 @@ namespace Inkslab.Linq
         {
             private readonly IDatabaseExecutor _executor;
             private readonly IConnectionStrings _connectionStrings;
-            private readonly IDbCorrectSettings _settings;
 
             private readonly InsertCommand _command;
 
@@ -1476,7 +1635,6 @@ namespace Inkslab.Linq
             {
                 _executor = executor;
                 _connectionStrings = connectionStrings;
-                _settings = settings;
 
                 _command = new InsertCommand(entities, settings);
             }
@@ -1507,57 +1665,103 @@ namespace Inkslab.Linq
 
             public int Execute()
             {
+                _command.CheckValid();
+
                 if (_command.IsEmpty)
                 {
                     return 0;
                 }
 
-                if (_command.RequiredBulk)
+                if (!_command.RequiredBulk)
+                {
+                    var commandSql = _command.GetCommandSql();
+
+                    return _executor.Execute(_connectionStrings.Strings, commandSql);
+                }
+
+                if (_command.Ignore)
+                {
+                    int influenceSkipRows = 0;
+
+                    var (createSql, dt, insertSql, insertArgs, dropSql) = _command.IgnoreCombination();
+
+                    return _executor.ExecuteMultiple(_connectionStrings.Strings, executor =>
+                    {
+                        influenceSkipRows += executor.Execute(createSql);
+
+                        try
+                        {
+                            influenceSkipRows += executor.WriteToServer(dt);
+
+                            executor.Execute(insertSql, insertArgs);
+                        }
+                        finally
+                        {
+                            influenceSkipRows += executor.Execute(dropSql);
+                        }
+
+                    }, _command.Timeout) - influenceSkipRows;
+                }
+                else
                 {
                     var dt = _command.Combination();
 
-                    return _executor.WriteToServer(_connectionStrings.Strings, dt);
+                    return _executor.WriteToServer(_connectionStrings.Strings, dt, _command.Timeout);
                 }
-
-                var commandSql = _command.GetCommandSql();
-
-                return _executor.Execute(_connectionStrings.Strings, commandSql);
             }
 
             public async Task<int> ExecuteAsync(CancellationToken cancellationToken = default)
             {
+                _command.CheckValid();
+
                 if (_command.IsEmpty)
                 {
                     return 0;
                 }
 
-                if (_command.RequiredBulk)
+                if (!_command.RequiredBulk)
+                {
+                    var commandSql = _command.GetCommandSql();
+
+                    return await _executor.ExecuteAsync(_connectionStrings.Strings, commandSql, cancellationToken);
+                }
+
+                if (_command.Ignore)
+                {
+                    int influenceSkipRows = 0;
+
+                    var (createSql, dt, insertSql, insertArgs, dropSql) = _command.IgnoreCombination();
+
+                    return await _executor.ExecuteMultipleAsync(_connectionStrings.Strings, async executor =>
+                    {
+                        influenceSkipRows += await executor.ExecuteAsync(createSql);
+
+                        try
+                        {
+                            influenceSkipRows += await executor.WriteToServerAsync(dt);
+
+                            await executor.ExecuteAsync(insertSql, insertArgs);
+                        }
+                        finally
+                        {
+                            influenceSkipRows += await executor.ExecuteAsync(dropSql);
+                        }
+
+                    }, _command.Timeout, cancellationToken) - influenceSkipRows;
+                }
+                else
                 {
                     var dt = _command.Combination();
 
                     return await _executor.WriteToServerAsync(_connectionStrings.Strings, dt, _command.Timeout, cancellationToken);
                 }
-
-                var commandSql = _command.GetCommandSql();
-
-                return await _executor.ExecuteAsync(_connectionStrings.Strings, commandSql, cancellationToken);
             }
 
-            public IInsertableIgnore<TEntity> Ignore(SupportLevel level)
+            public IInsertableIgnore<TEntity> Ignore()
             {
-                if (_settings.Engine == DatabaseEngine.MySQL)
-                {
-                    _command.Ignore = true;
+                _command.Ignore = true;
 
-                    return this;
-                }
-
-                if (level == SupportLevel.Auto)
-                {
-                    return this;
-                }
-
-                throw new DSyntaxErrorException($"数据库“{_settings.Engine}”不支持忽略插入！");
+                return this;
             }
 
             public IInsertableByLimit<TEntity> Limit(string[] columns)
@@ -1616,6 +1820,8 @@ namespace Inkslab.Linq
 
             public int Execute()
             {
+                _command.CheckValid();
+
                 if (_command.IsEmpty)
                 {
                     return 0;
@@ -1652,6 +1858,8 @@ namespace Inkslab.Linq
 
             public async Task<int> ExecuteAsync(CancellationToken cancellationToken = default)
             {
+                _command.CheckValid();
+
                 if (_command.IsEmpty)
                 {
                     return 0;
@@ -1769,6 +1977,8 @@ namespace Inkslab.Linq
 
             public int Execute()
             {
+                _command.CheckValid();
+
                 if (_command.IsEmpty)
                 {
                     return 0;
@@ -1805,6 +2015,8 @@ namespace Inkslab.Linq
 
             public async Task<int> ExecuteAsync(CancellationToken cancellationToken = default)
             {
+                _command.CheckValid();
+
                 if (_command.IsEmpty)
                 {
                     return 0;

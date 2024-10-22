@@ -110,9 +110,8 @@ namespace Inkslab.Linq
         /// <summary>
         /// 忽略。
         /// </summary>
-        /// <param name="level">支持级别。</param>
         /// <returns>忽略仓储。</returns>
-        IRepositoryIgnore<TEntity> Ignore(SupportLevel level = SupportLevel.Auto);
+        IRepositoryIgnore<TEntity> Ignore();
     }
 
     /// <summary>

@@ -13,6 +13,7 @@ namespace Inkslab.Linq.Tests
         public int Id { get; set; }
         [Field("name")]
         public string Name { get; set; }
+        [Version]
         [Field("date")]
         public DateTime Date { get; set; }
     }

@@ -10,6 +10,7 @@ namespace Inkslab.Linq.Abilities
     /// 删除能力。
     /// </summary>
     /// <typeparam name="TEntity">实体类型。</typeparam>
+    [Ignore]
     public interface IUpdateable<TEntity> : IUpdateableDataSharding<TEntity>
     {
         /// <summary>
@@ -60,6 +61,7 @@ namespace Inkslab.Linq.Abilities
     /// 更新能力。
     /// </summary>
     /// <typeparam name="TEntity"></typeparam>
+    [Ignore]
     public interface IUpdateableByLimit<TEntity> : IUpdateableTimeout<TEntity>
     {
         /// <summary>

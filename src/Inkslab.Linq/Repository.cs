@@ -132,9 +132,9 @@ namespace Inkslab.Linq
         }
 
         /// <inheritdoc/>
-        public IRepositoryIgnore<TEntity> Ignore(SupportLevel level = SupportLevel.Auto)
+        public IRepositoryIgnore<TEntity> Ignore()
         {
-            return new Repository<TEntity>(_executor, _router, Call(null, _ignoreFn, new Expression[2] { _node, Constant(level) }));
+            return new Repository<TEntity>(_executor, _router, Call(null, _ignoreFn, new Expression[1] { _node }));
         }
 
         /// <summary>

@@ -687,25 +687,13 @@ namespace Inkslab.Linq
                         }
 
                         break;
-                    case nameof(QueryableExtentions.Ignore) when Engine == DatabaseEngine.MySQL:
+                    case nameof(QueryableExtentions.Ignore):
 
                         Writer.Keyword(SqlKeyword.IGNORE);
 
                         base.Visit(node.Arguments[0]);
 
                         break;
-                    case nameof(QueryableExtentions.Ignore):
-
-                        var level = node.Arguments[1].GetValueFromExpression<SupportLevel>();
-
-                        if (level == SupportLevel.Auto)
-                        {
-                            base.Visit(node.Arguments[0]);
-
-                            break;
-                        }
-
-                        throw new DSyntaxErrorException($"数据库“{Engine}”不支持忽略插入！");
                     default:
                         base.LinqCore(node);
 

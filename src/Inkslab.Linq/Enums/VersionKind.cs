@@ -1,7 +1,7 @@
 namespace Inkslab.Linq.Enums
 {
     /// <summary>
-    /// 版本类型。
+    /// 幂等版本类型。
     /// </summary>
     public enum VersionKind
     {

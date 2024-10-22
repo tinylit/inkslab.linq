@@ -112,7 +112,7 @@ namespace Inkslab.Transcations
         }
 
         /// <summary>
-        /// 注册交付。
+        /// 注册交付，将在事务提交成功时，触发“<see cref="IDelivery.Done()"/>”方法完成交付。
         /// </summary>
         /// <param name="delivery">交付。</param>
         public void RegisterDelivery(IDelivery delivery)

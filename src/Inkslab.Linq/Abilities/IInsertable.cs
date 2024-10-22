@@ -1,5 +1,4 @@
 ﻿using Inkslab.Annotations;
-using Inkslab.Linq.Enums;
 using System;
 using System.Linq.Expressions;
 using System.Threading;
@@ -11,20 +10,21 @@ namespace Inkslab.Linq.Abilities
     /// 删除能力。
     /// </summary>
     /// <typeparam name="TEntity">实体类型。</typeparam>
+    [Ignore]
     public interface IInsertable<TEntity> : IInsertableIgnore<TEntity>
     {
         /// <summary>
-        /// 插入主键或唯一键冲突时，忽略。
+        /// 生成 “INSERT IGNORE INTO”语法。
         /// </summary>
-        /// <param name="level">支持级别。</param>
         /// <returns>忽略插入器。</returns>
-        IInsertableIgnore<TEntity> Ignore(SupportLevel level = SupportLevel.Auto);
+        IInsertableIgnore<TEntity> Ignore();
     }
 
     /// <summary>
-    /// 插入主键或唯一键冲突时，忽略。
+    /// 生成 “INSERT IGNORE INTO”语法。
     /// </summary>
     /// <typeparam name="TEntity">实体类型。</typeparam>
+    [Ignore]
     public interface IInsertableIgnore<TEntity> : IInsertableDataSharding<TEntity>
     {
         /// <summary>

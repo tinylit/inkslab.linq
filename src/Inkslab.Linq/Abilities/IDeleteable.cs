@@ -8,6 +8,7 @@ namespace Inkslab.Linq.Abilities
     /// 删除能力。
     /// </summary>
     /// <typeparam name="TEntity">实体类型。</typeparam>
+    [Ignore]
     public interface IDeleteable<TEntity> : IDeleteableDataSharding<TEntity>
     {
         /// <summary>

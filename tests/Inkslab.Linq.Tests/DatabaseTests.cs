@@ -88,7 +88,7 @@ namespace Inkslab.Linq.Tests
         [Fact]
         public void QueryMultipleTest()
         {
-            string sql = "SELECT * FROM `dbo`.`user` WHERE id IN @ids LIMIT 5,10;SELECT COUNT(1) FROM `user` WHERE id IN @ids";
+            string sql = "SELECT * FROM `user` WHERE id IN @ids LIMIT 5,10;SELECT COUNT(1) FROM `user` WHERE id IN @ids";
 
             using (var reader = _database.QueryMultiple(sql, new { ids = new int[] { 1, 2 } }))
             {

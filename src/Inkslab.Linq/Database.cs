@@ -39,7 +39,7 @@ namespace Inkslab.Linq
         private static readonly Regex _literalTokens = new Regex(@"(?<![\p{L}\p{N}@_])\{=([\p{L}\p{N}_][\p{L}\p{N}@_]*)\}", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.CultureInvariant | RegexOptions.Compiled);
         private static readonly Regex _smellsLikeOleDb = new Regex(@"(?<![\p{L}\p{N}@_])[?@:]([\p{L}\p{N}_][\p{L}\p{N}@_]*)", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.CultureInvariant | RegexOptions.Compiled);
         private static readonly Regex _inlistTokens = new Regex(@"[\x20\r\n\t\f]+IN[\x20\r\n\t\f]+(?<![\p{L}\p{N}@_])(\{=(?<name>[\p{L}\p{N}_][\p{L}\p{N}@_]*)\}|[?@:](?<name>[\p{L}\p{N}_][\p{L}\p{N}@_]*))", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.CultureInvariant | RegexOptions.Compiled);
-        private static readonly Regex _libraryTokens = new Regex("(?<table>[\\x20\\r\\n\\t\\f](from|join|into|table|exists)[\\x20\\r\\n\\t\\f]+)?(((`(?<schema>[^`]+?)`)|\\[(?<schema>[^\\]]+?)\\]|\\\"(?<schema>[^\"]+?)\\\")\\.)*((`(?<name>[^`]+?)`)|\\[(?<name>[^\\]]+?)\\]|\\\"(?<name>[^\"]+?)\\\")", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex _libraryTokens = new Regex("(`(?<name>[^`]+?)`)|(\\[(?<name>[^\\]]+?)\\])|(\\\"(?<name>[^\"]+?)\\\")", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         /// <summary>
         /// 数据库。
@@ -207,13 +207,7 @@ namespace Inkslab.Linq
         public int WriteToServer(DataTable dt, int? commandTimeout = null) => _executor.WriteToServer(_connectionStrings.Strings, dt, commandTimeout);
 
         /// <inheritdoc/>
-        public int ExecuteMultiple(Action<IMultipleExecutor> multipleAction, int? commandTimeout = null) => _executor.ExecuteMultiple(_connectionStrings.Strings, multipleAction, commandTimeout);
-
-        /// <inheritdoc/>
         public Task<int> WriteToServerAsync(DataTable dt, int? commandTimeout = null, CancellationToken cancellationToken = default) => _executor.WriteToServerAsync(_connectionStrings.Strings, dt, commandTimeout, cancellationToken);
-
-        /// <inheritdoc/>
-        public Task<int> ExecuteMultipleAsync(Func<IAsyncMultipleExecutor, Task> multipleAction, int? commandTimeout = null, CancellationToken cancellationToken = default) => _executor.ExecuteMultipleAsync(_connectionStrings.Strings, multipleAction, commandTimeout, cancellationToken);
 
         private CommandSql MakeCommandSql(string sql, Dictionary<string, object> dictionaries, int? commandTimeout = null)
         {
@@ -243,45 +237,7 @@ namespace Inkslab.Linq
             //? 字段名称或表名称处理。
             var librarySql = _libraryTokens.Replace(sql, mt =>
             {
-                var nameGrp = mt.Groups["name"];
-                var tableGrp = mt.Groups["table"];
-                var schemaGrp = mt.Groups["schema"];
-
-                if (schemaGrp.Success)
-                {
-                    var sb = new StringBuilder(mt.Length);
-
-                    if (tableGrp.Success)
-                    {
-                        sb.Append(tableGrp.Value);
-                    }
-
-                    for (int i = 0; i < schemaGrp.Captures.Count; i++)
-                    {
-                        var capture = schemaGrp.Captures[i];
-
-                        if (tableGrp.Success
-                            && _settings.Engine != DatabaseEngine.SqlServer
-                            && string.Equals(capture.Value, "dbo", StringComparison.OrdinalIgnoreCase))
-                        {
-                            continue;
-                        }
-
-                        sb.Append(_settings.Name(capture.Value));
-
-                        sb.Append('.');
-                    }
-
-                    return sb.Append(_settings.Name(nameGrp.Value))
-                        .ToString();
-                }
-
-                if (tableGrp.Success)
-                {
-                    return string.Concat(tableGrp.Value, _settings.Name(nameGrp.Value));
-                }
-
-                return _settings.Name(nameGrp.Value);
+                return _settings.Name(mt.Groups["name"].Value);
             });
 
             var nonnullSql = _smellsLikeOleDb.Replace(librarySql, mt => //? 提取参数并把参数值为“null”的参数替换为“null”。
@@ -439,8 +395,7 @@ namespace Inkslab.Linq
 
             foreach (var formatter in _settings.Formatters)
             {
-                commandSql = formatter.RegularExpression
-                                .Replace(commandSql, formatter.Evaluator);
+                commandSql = formatter.Format(commandSql);
             }
 
             return new CommandSql(commandSql, parameters, commandTimeout);
@@ -517,7 +472,6 @@ namespace Inkslab.Linq
             _dictionaryType = typeof(Dictionary<string, object>);
             _dictionaryAdd = _dictionaryType.GetMethod("Add", BindingFlags.Public | BindingFlags.Instance, null, new Type[] { Types.String, Types.Object }, null);
         }
-
 
         private static readonly Lfu<Type, Func<object, Dictionary<string, object>>> _lru = new Lfu<Type, Func<object, Dictionary<string, object>>>(type =>
         {

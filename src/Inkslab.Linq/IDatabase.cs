@@ -95,14 +95,6 @@ namespace Inkslab.Linq
         int WriteToServer(DataTable dt, int? commandTimeout = null);
 
         /// <summary>
-        /// 多执行异步处理器。
-        /// </summary>
-        /// <param name="multipleAction">执行方法。</param>
-        /// <param name="commandTimeout">超时时间。</param>
-        /// <returns>影响行。</returns>
-        int ExecuteMultiple(Action<IMultipleExecutor> multipleAction, int? commandTimeout = null);
-
-        /// <summary>
         /// 查询唯一的数据。
         /// </summary>
         /// <typeparam name="T">元素类型。</typeparam>
@@ -184,14 +176,5 @@ namespace Inkslab.Linq
         /// <param name="commandTimeout">超时时间。</param>
         /// <param name="cancellationToken">取消。</param>
         Task<int> WriteToServerAsync(DataTable dt, int? commandTimeout = null, CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// 多执行异步处理器。
-        /// </summary>
-        /// <param name="multipleAction">执行方法。</param>
-        /// <param name="commandTimeout">超时时间。</param>
-        /// <param name="cancellationToken">取消。</param>
-        /// <returns>影响行。</returns>
-        Task<int> ExecuteMultipleAsync(Func<IAsyncMultipleExecutor, Task> multipleAction, int? commandTimeout = null, CancellationToken cancellationToken = default);
     }
 }

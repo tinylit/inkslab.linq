@@ -184,7 +184,7 @@ namespace Inkslab.Linq
         /// 构造函数。
         /// </summary>
         /// <param name="regex">正则。</param>
-        public AdapterFormatter(Regex regex) => RegularExpression = regex;
+        public AdapterFormatter(Regex regex) => RegularExpression = regex ?? throw new ArgumentNullException(nameof(regex));
 
         /// <summary>
         /// 未能解决时，抛出异常。（默认：true）。
@@ -201,7 +201,7 @@ namespace Inkslab.Linq
         /// </summary>
         /// <param name="match">匹配到的内容。</param>
         /// <returns></returns>
-        public string Evaluator(Match match)
+        protected virtual string Evaluator(Match match)
         {
             foreach (Adapter mvc in _adapterCachings)
             {
@@ -218,5 +218,12 @@ namespace Inkslab.Linq
 
             return match.Value;
         }
+
+        /// <summary>
+        /// 格式化。
+        /// </summary>
+        /// <param name="tsql">T-SQL</param>
+        /// <returns>格式化的结果。</returns>
+        public string Format(string tsql) => RegularExpression.Replace(tsql, Evaluator);
     }
 }

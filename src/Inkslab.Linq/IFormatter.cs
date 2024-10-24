@@ -1,5 +1,3 @@
-using System.Text.RegularExpressions;
-
 namespace Inkslab.Linq
 {
     /// <summary>
@@ -8,15 +6,10 @@ namespace Inkslab.Linq
     public interface IFormatter
     {
         /// <summary>
-        /// 表达式。
+        /// 格式化。
         /// </summary>
-        Regex RegularExpression { get; }
-
-        /// <summary>
-        /// 替换内容。
-        /// </summary>
-        /// <param name="match">匹配到的内容。</param>
-        /// <returns></returns>
-        string Evaluator(Match match);
+        /// <param name="tsql">T-SQL</param>
+        /// <returns>格式化的结果。</returns>
+        string Format(string tsql);
     }
 }

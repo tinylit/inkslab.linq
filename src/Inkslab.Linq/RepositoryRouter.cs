@@ -1693,7 +1693,7 @@ namespace Inkslab.Linq
                         {
                             influenceSkipRows += executor.WriteToServer(dt);
 
-                            executor.Execute(insertSql, insertArgs);
+                            executor.Execute(new CommandSql(insertSql, insertArgs));
                         }
                         finally
                         {
@@ -1740,7 +1740,7 @@ namespace Inkslab.Linq
                         {
                             influenceSkipRows += await executor.WriteToServerAsync(dt);
 
-                            await executor.ExecuteAsync(insertSql, insertArgs);
+                            await executor.ExecuteAsync(new CommandSql(insertSql, insertArgs));
                         }
                         finally
                         {
@@ -1846,7 +1846,7 @@ namespace Inkslab.Linq
                     {
                         influenceSkipRows += executor.WriteToServer(dt);
 
-                        executor.Execute(updateSql, updateArgs);
+                        executor.Execute(new CommandSql(updateSql, updateArgs));
                     }
                     finally
                     {
@@ -1884,7 +1884,7 @@ namespace Inkslab.Linq
                     {
                         influenceSkipRows += await executor.WriteToServerAsync(dt);
 
-                        await executor.ExecuteAsync(updateSql, updateArgs);
+                        await executor.ExecuteAsync(new CommandSql(updateSql, updateArgs));
                     }
                     finally
                     {
@@ -2003,7 +2003,7 @@ namespace Inkslab.Linq
                     {
                         influenceSkipRows += executor.WriteToServer(dt);
 
-                        executor.Execute(updateSql, updateArgs);
+                        executor.Execute(new CommandSql(updateSql, updateArgs));
                     }
                     finally
                     {
@@ -2041,7 +2041,7 @@ namespace Inkslab.Linq
                     {
                         influenceSkipRows += await executor.WriteToServerAsync(dt);
 
-                        await executor.ExecuteAsync(updateSql, updateArgs);
+                        await executor.ExecuteAsync(new CommandSql(updateSql, updateArgs));
                     }
                     finally
                     {

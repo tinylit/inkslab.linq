@@ -20,7 +20,7 @@ namespace Inkslab.Linq
         /// <param name="text">SQL。</param>
         /// <param name="parameters">参数。</param>
         /// <param name="timeout">超时时间。</param>
-        public CommandSql(string text, IDictionary<string, object> parameters = null, int? timeout = null)
+        public CommandSql(string text, IReadOnlyDictionary<string, object> parameters = null, int? timeout = null)
         {
             if (string.IsNullOrEmpty(text))
             {
@@ -40,12 +40,12 @@ namespace Inkslab.Linq
         /// <summary>
         /// 参数。
         /// </summary>
-        public IDictionary<string, object> Parameters { get; }
+        public IReadOnlyDictionary<string, object> Parameters { get; }
 
         /// <summary>
         /// 超时时间。
         /// </summary>
-        public int? Timeout { get; }
+        public int? Timeout { set; get; }
 
         /// <summary>
         /// 转字符串。
@@ -97,6 +97,12 @@ namespace Inkslab.Linq
                 return m.Value;
             });
         }
+
+        /// <summary>
+        /// 隐式转换。
+        /// </summary>
+        /// <param name="sql">不需要参数的T-SQL执行脚本。</param>
+        public static implicit operator CommandSql(string sql) => new CommandSql(sql);
     }
 
     /// <summary>
@@ -130,12 +136,12 @@ namespace Inkslab.Linq
         /// <summary>
         /// 是否包含默认值。
         /// </summary>
-        public bool HasDefaultValue { get; }
+        public bool HasDefaultValue { set; get; }
 
         /// <summary>
         /// 默认值。
         /// </summary>
-        public TElement DefaultValue { get; }
+        public TElement DefaultValue { set; get; }
 
         /// <summary>
         /// 自定义错误。
@@ -145,6 +151,6 @@ namespace Inkslab.Linq
         /// <summary>
         /// 未找到数据异常消息。
         /// </summary>
-        public string NoElementError { get; }
+        public string NoElementError { set; get; }
     }
 }

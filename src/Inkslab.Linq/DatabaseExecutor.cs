@@ -17,7 +17,7 @@ using static System.Linq.Expressions.Expression;
 namespace Inkslab.Linq
 {
     /// <summary>
-    /// 数据库执行器。
+    /// 数据库执行器，T-SQL 会直接执行，不会处理和适配。
     /// </summary>
     public class DatabaseExecutor : IDatabaseExecutor
     {
@@ -767,7 +767,7 @@ namespace Inkslab.Linq
 
                             while (await reader.ReadAsync(cancellationToken))
                             {
-                                if (map.IsInvalid(reader))
+                                if (await map.IsInvalidAsync(reader, cancellationToken))
                                 {
                                     continue;
                                 }
@@ -796,10 +796,8 @@ namespace Inkslab.Linq
 
             public int InfluenceRows { private set; get; }
 
-            public int Execute(string sql, IDictionary<string, object> parameters = null, int? commandTimeout = null)
+            public int Execute(CommandSql commandSql)
             {
-                var commandSql = new CommandSql(sql, parameters, commandTimeout);
-
                 if (_logger.IsEnabled(LogLevel.Debug))
                 {
                     _logger.LogDebug(commandSql.ToString());
@@ -868,18 +866,11 @@ namespace Inkslab.Linq
 
             public int InfluenceRows { private set; get; }
 
-            public int Execute(string sql, IDictionary<string, object> parameters = null, int? commandTimeout = null)
+            public int Execute(CommandSql commandSql)
             {
-                if (string.IsNullOrEmpty(sql))
-                {
-                    throw new ArgumentException($"“{nameof(sql)}”不能为 null 或空。", nameof(sql));
-                }
-
-                commandTimeout = commandTimeout.HasValue
-                    ? Math.Min(_commandTimeout - (int)(_stopwatch.ElapsedMilliseconds / 1000), commandTimeout.Value)
+                commandSql.Timeout = commandSql.Timeout.HasValue
+                    ? Math.Min(_commandTimeout - (int)(_stopwatch.ElapsedMilliseconds / 1000), commandSql.Timeout.Value)
                     : _commandTimeout - (int)(_stopwatch.ElapsedMilliseconds / 1000);
-
-                var commandSql = new CommandSql(sql, parameters, commandTimeout);
 
                 if (_logger.IsEnabled(LogLevel.Debug))
                 {
@@ -957,10 +948,8 @@ namespace Inkslab.Linq
 
             public int InfluenceRows { private set; get; }
 
-            public async Task<int> ExecuteAsync(string sql, IDictionary<string, object> parameters = null, int? timeout = null)
+            public async Task<int> ExecuteAsync(CommandSql commandSql)
             {
-                var commandSql = new CommandSql(sql, parameters, timeout);
-
                 if (_logger.IsEnabled(LogLevel.Debug))
                 {
                     _logger.LogDebug(commandSql.ToString());
@@ -1030,13 +1019,11 @@ namespace Inkslab.Linq
 
             public int InfluenceRows { private set; get; }
 
-            public async Task<int> ExecuteAsync(string sql, IDictionary<string, object> parameters = null, int? commandTimeout = null)
+            public async Task<int> ExecuteAsync(CommandSql commandSql)
             {
-                commandTimeout = commandTimeout.HasValue
-                    ? Math.Min(_commandTimeout - (int)(_stopwatch.ElapsedMilliseconds / 1000), commandTimeout.Value)
+                commandSql.Timeout = commandSql.Timeout.HasValue
+                    ? Math.Min(_commandTimeout - (int)(_stopwatch.ElapsedMilliseconds / 1000), commandSql.Timeout.Value)
                     : _commandTimeout - (int)(_stopwatch.ElapsedMilliseconds / 1000);
-
-                var commandSql = new CommandSql(sql, parameters, commandTimeout);
 
                 if (_logger.IsEnabled(LogLevel.Debug))
                 {
@@ -1187,7 +1174,7 @@ namespace Inkslab.Linq
 
                     while (index == gridIndex && await _reader.ReadAsync(cancellationToken))
                     {
-                        if (!map.IsInvalid(_reader))
+                        if (!await map.IsInvalidAsync(_reader, cancellationToken))
                         {
                             yield return map.Map(_reader);
                         }
@@ -1425,15 +1412,155 @@ namespace Inkslab.Linq
         {
             private const int COLLECT_PER_ITEMS = 1000;
 
-            private static readonly MethodInfo _mapGeneric;
+            private static readonly MethodInfo _equals;
+            private static readonly MethodInfo _concat;
+            private static readonly MethodInfo _typeCode;
+            private static readonly ConstructorInfo _errorCtor;
+            private static readonly HashSet<string> _nameHooks = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "GetBoolean",
+                "GetByte",
+                "GetByteArray",
+                "GetChar",
+                "GetDateOnly",
+                "GetDateTime",
+                "GetDateTimeOffset",
+                "GetDecimal",
+                "GetDouble",
+                "GetDoubleArray",
+                "GetFloat",
+                "GetFloatArray",
+                "GetGuid",
+                "GetInt16",
+                "GetInt16Array",
+                "GetInt32",
+                "GetInt64",
+                "GetSByte",
+                "GetStream",
+                "GetString",
+                "GetTextReader",
+                "GetTimeOnly",
+                "GetTimeSpan",
+                "GetUInt16",
+                "GetUInt32",
+                "GetUInt64",
+                // ----------- MySQL ------------
+                "GetMySqlDateTime",
+                "GetMySqlDecimal",
+                "GetMySqlGeometry",
+                // ----------- SqlServer ------------
+                "GetSqlBinary",
+                "GetSqlBoolean",
+                "GetSqlByte",
+                "GetSqlBytes",
+                "GetSqlChars",
+                "GetSqlDateTime",
+                "GetSqlDecimal",
+                "GetSqlDouble",
+                "GetSqlGuid",
+                "GetSqlInt16",
+                "GetSqlInt32",
+                "GetSqlInt64",
+                "GetSqlMoney",
+                "GetSqlSingle",
+                "GetSqlString",
+                // ----------- Oracle ------------
+                "GetOracleBFile",
+                "GetOracleBinary",
+                "GetOracleBlob",
+                "GetOracleBoolean",
+                "GetOracleClob",
+                "GetOracleDate",
+                "GetOracleDecimal",
+                "GetOracleIntervalDS",
+                "GetOracleIntervalYM",
+                "GetOracleRef",
+                "GetOracleRefCursor",
+                "GetOracleString",
+                "GetOracleTimeStamp",
+                "GetOracleTimeStampLTZ",
+                "GetOracleTimeStampTZ"
+                // ----------- Npgsql ------------
+            };
+            private static readonly Dictionary<Type, Dictionary<Type, TypeCode>> _typeTransforms = new Dictionary<Type, Dictionary<Type, TypeCode>>
+            {
+                [typeof(bool)] = new Dictionary<Type, TypeCode>
+                {
+                    [typeof(char)] = TypeCode.Char,
+                    [typeof(string)] = TypeCode.String,
+                    [typeof(byte)] = TypeCode.Byte,
+                    [typeof(short)] = TypeCode.Int16,
+                    [typeof(int)] = TypeCode.Int32,
+                    [typeof(long)] = TypeCode.Int64
+                },
+                [typeof(int)] = new Dictionary<Type, TypeCode>
+                {
+                    [typeof(byte)] = TypeCode.Byte,
+                    [typeof(short)] = TypeCode.Int16,
+                    [typeof(ushort)] = TypeCode.UInt16,
+                    [typeof(long)] = TypeCode.Int64 // 兼容 MySQL COUNT([*]) 返回的是长整型。
+                },
+                [typeof(long)] = new Dictionary<Type, TypeCode>
+                {
+                    [typeof(byte)] = TypeCode.Byte,
+                    [typeof(short)] = TypeCode.Int16,
+                    [typeof(ushort)] = TypeCode.UInt16,
+                    [typeof(int)] = TypeCode.Int32,
+                    [typeof(uint)] = TypeCode.UInt32
+                },
+                [typeof(float)] = new Dictionary<Type, TypeCode>
+                {
+                    [typeof(byte)] = TypeCode.Byte,
+                    [typeof(short)] = TypeCode.Int16,
+                    [typeof(ushort)] = TypeCode.UInt16,
+                    [typeof(int)] = TypeCode.Int32,
+                    [typeof(uint)] = TypeCode.UInt32,
+                    [typeof(long)] = TypeCode.Int64,
+                    [typeof(ulong)] = TypeCode.UInt64
+                },
+                [typeof(double)] = new Dictionary<Type, TypeCode>
+                {
+                    [typeof(byte)] = TypeCode.Byte,
+                    [typeof(short)] = TypeCode.Int16,
+                    [typeof(ushort)] = TypeCode.UInt16,
+                    [typeof(int)] = TypeCode.Int32,
+                    [typeof(uint)] = TypeCode.UInt32,
+                    [typeof(long)] = TypeCode.Int64,
+                    [typeof(ulong)] = TypeCode.UInt64,
+                    [typeof(float)] = TypeCode.Single
+                },
+                [typeof(decimal)] = new Dictionary<Type, TypeCode>
+                {
+                    [typeof(byte)] = TypeCode.Byte,
+                    [typeof(short)] = TypeCode.Int16,
+                    [typeof(ushort)] = TypeCode.UInt16,
+                    [typeof(int)] = TypeCode.Int32,
+                    [typeof(uint)] = TypeCode.UInt32,
+                    [typeof(long)] = TypeCode.Int64,
+                    [typeof(ulong)] = TypeCode.UInt64,
+                    [typeof(float)] = TypeCode.Single,
+                    [typeof(double)] = TypeCode.Decimal
+                }
+            };
 
             static MapAdaper()
             {
-                _mapGeneric = typeof(Mapper).GetMethod(
-                    nameof(Mapper.Map),
-                    1,
-                    new Type[] { typeof(object) }
+                _errorCtor = typeof(NotSupportedException).GetConstructor(new Type[] { Types.String });
+
+                _equals = typeof(MapAdaper).GetMethod(
+                    nameof(Equals),
+                    BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.DeclaredOnly
                 );
+                _concat = Types.String.GetMethod(
+                    nameof(string.Concat),
+                    BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly,
+                    null,
+                    new Type[] { Types.String, Types.String, Types.String },
+                    null);
+
+                var type = typeof(Type);
+
+                _typeCode = type.GetMethod(nameof(Type.GetTypeCode), BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly, null, new Type[] { type }, null);
             }
 
             private int refCount = 0;
@@ -1448,18 +1575,7 @@ namespace Inkslab.Linq
             private readonly MethodInfo _getName;
             private readonly MethodInfo _getValue;
             private readonly MethodInfo _getFieldType;
-            private readonly Dictionary<Type, MethodInfo> _typeMap;
-            private static readonly Dictionary<Type, object> _typeToBools = new Dictionary<Type, object>
-            {
-                [typeof(byte)] = (byte)1,
-                [typeof(int)] = 1,
-                [typeof(long)] = 1L,
-                [typeof(float)] = 1F,
-                [typeof(double)] = 1D,
-                [typeof(decimal)] = 1M
-            };
-
-            public MethodInfo EqualMethod { get; }
+            private readonly Dictionary<Type, MethodInfo> _typeMap = new Dictionary<Type, MethodInfo>(16);
 
             private static bool Equals(string a, string b)
             {
@@ -1468,7 +1584,7 @@ namespace Inkslab.Linq
 
             public MapAdaper(Type type)
             {
-                var types = new Type[] { typeof(int) };
+                var types = new Type[] { Types.Int32 };
 
                 _type = type;
 
@@ -1480,28 +1596,30 @@ namespace Inkslab.Linq
 
                 _getFieldType = type.GetMethod("GetFieldType", types);
 
-                _typeMap = new Dictionary<Type, MethodInfo>
+                foreach (var methodInfo in type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
                 {
-                    [typeof(bool)] = type.GetMethod("GetBoolean", types),
-                    [typeof(byte)] = type.GetMethod("GetByte", types),
-                    [typeof(char)] = type.GetMethod("GetChar", types),
-                    [typeof(short)] = type.GetMethod("GetInt16", types),
-                    [typeof(int)] = type.GetMethod("GetInt32", types),
-                    [typeof(long)] = type.GetMethod("GetInt64", types),
-                    [typeof(float)] = type.GetMethod("GetFloat", types),
-                    [typeof(double)] = type.GetMethod("GetDouble", types),
-                    [typeof(decimal)] = type.GetMethod("GetDecimal", types),
-                    [typeof(Guid)] = type.GetMethod("GetGuid", types),
-                    [typeof(DateTime)] = type.GetMethod("GetDateTime", types),
-                    [typeof(string)] = type.GetMethod("GetString", types),
-                    [typeof(object)] = type.GetMethod("GetValue", types)
-                };
+                    if (!_nameHooks.Contains(methodInfo.Name))
+                    {
+                        continue;
+                    }
 
-                EqualMethod = typeof(MapAdaper).GetMethod(
-                    nameof(Equals),
-                    BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.DeclaredOnly
-                );
+                    var parameterInfos = methodInfo.GetParameters();
+
+                    if (parameterInfos.Length != 1)
+                    {
+                        continue;
+                    }
+
+                    var parameterInfo = parameterInfos[0];
+
+                    if (parameterInfo.ParameterType == Types.Int32)
+                    {
+                        _typeMap.TryAdd(methodInfo.ReturnType, methodInfo);
+                    }
+                }
             }
+
+            public static MethodInfo IgnoreCaseEquals => _equals;
 
             public ParameterExpression DbVariable() => Parameter(_type);
 
@@ -1510,42 +1628,104 @@ namespace Inkslab.Linq
 
             public Expression ToSolve(Type propertyType, ParameterExpression dbVar, Expression iVar)
             {
-                if (_typeMap.TryGetValue(propertyType, out MethodInfo methodInfo))
-                {
-                    if (propertyType.IsValueType && propertyType == typeof(bool))
-                    {
-                        return Condition(
-                            Equal(Call(dbVar, _getFieldType, iVar), Constant(propertyType)),
-                            Call(dbVar, methodInfo, iVar),
-                            Switch(
-                                Call(dbVar, _getFieldType, iVar),
-                                Call(
-                                    _mapGeneric.MakeGenericMethod(propertyType),
-                                    Call(dbVar, _getValue, iVar)
-                                ),
-                                _typeToBools.Select(x => SwitchCase(
-                                            Equal(Call(dbVar, _typeMap[x.Key], iVar), Constant(x.Value)),
-                                            Constant(x.Key)
-                                        )
-                                ).ToArray()
-                            )
-                        );
-                    }
+                var throwUnary = Throw(New(_errorCtor, Call(_concat, Constant("数据库字段“"), GetName(dbVar, iVar), Constant("”的类型和实体属性的类型映射不被支持，请检查映射实体的属性类型！"))));
 
-                    return Condition(
-                        Equal(Call(dbVar, _getFieldType, iVar), Constant(propertyType)),
-                        Call(dbVar, methodInfo, iVar),
-                        Call(
-                            _mapGeneric.MakeGenericMethod(propertyType),
-                            Call(dbVar, _getValue, iVar)
-                        )
-                    );
+                if (!_typeMap.TryGetValue(propertyType, out MethodInfo originalFn))
+                {
+                    return throwUnary;
                 }
 
-                return Call(
-                    _mapGeneric.MakeGenericMethod(propertyType),
-                    Call(dbVar, _getValue, iVar)
-                );
+                if (propertyType == Types.Object)
+                {
+                    return Call(dbVar, originalFn, iVar);
+                }
+
+                var typeVar = Variable(typeof(Type));
+                var valueVar = Variable(propertyType);
+
+                var variables = new List<ParameterExpression>
+                {
+                    typeVar,
+                    valueVar
+                };
+
+                var expressions = new List<Expression>
+                {
+                    Assign(typeVar, Call(dbVar, _getFieldType, iVar))
+                };
+
+                if (!propertyType.IsValueType || !_typeTransforms.TryGetValue(propertyType, out var transforms))
+                {
+                    expressions.Add(IfThenElse(Equal(typeVar, Constant(propertyType)), Assign(valueVar, Call(dbVar, originalFn, iVar)), throwUnary));
+
+                    expressions.Add(valueVar);
+
+                    return Block(propertyType, variables, expressions);
+                }
+
+                var switchCases = new List<SwitchCase>(transforms.Count);
+
+                if (propertyType == Types.Boolean)
+                {
+                    foreach (var (key, typeCode) in transforms)
+                    {
+                        if (_typeMap.TryGetValue(key, out var transformFn))
+                        {
+                            object comparisonValue = typeCode switch
+                            {
+                                TypeCode.Boolean => true,
+                                TypeCode.Char => '1',
+                                TypeCode.Int32 => 1,
+                                TypeCode.UInt32 => 1U,
+                                TypeCode.Int64 => 1L,
+                                TypeCode.UInt64 => 1UL,
+                                TypeCode.Single => 1F,
+                                TypeCode.Double => 1D,
+                                TypeCode.Decimal => 1M,
+                                TypeCode.String => "1",
+                                _ => System.Convert.ChangeType(1, key),
+                            };
+
+                            switchCases.Add(SwitchCase(Assign(valueVar, Equal(Call(dbVar, transformFn, iVar), Constant(comparisonValue, key))), Constant(typeCode)));
+                        }
+                    }
+
+                    expressions.Add(IfThenElse(Equal(typeVar, Constant(propertyType)),
+                        Assign(valueVar, Call(dbVar, originalFn, iVar)),
+                        Switch(
+                            typeof(void),
+                            Call(_typeCode, typeVar),
+                            throwUnary,
+                            null,
+                            switchCases.ToArray()
+                        )));
+
+                    expressions.Add(valueVar);
+
+                    return Block(propertyType, variables, expressions);
+                }
+
+                foreach (var (key, typeCode) in transforms)
+                {
+                    if (_typeMap.TryGetValue(key, out var transformFn))
+                    {
+                        switchCases.Add(SwitchCase(Expression.Convert(Call(dbVar, transformFn, iVar), propertyType), Constant(typeCode)));
+                    }
+                }
+
+                expressions.Add(IfThenElse(Equal(typeVar, Constant(propertyType)),
+                    Assign(valueVar, Call(dbVar, originalFn, iVar)),
+                    Switch(
+                         typeof(void),
+                        Call(_typeCode, typeVar),
+                        throwUnary,
+                        null,
+                        switchCases.ToArray()
+                    )));
+
+                expressions.Add(valueVar);
+
+                return Block(propertyType, variables, expressions);
             }
 
             public Expression IsDbNull(ParameterExpression dbVar, Expression iVar) =>
@@ -1589,6 +1769,7 @@ namespace Inkslab.Linq
                                                     _mappers.TryRemove(key, out _);
                                                 }
                                             }
+                                            catch { }
                                             finally
                                             {
                                                 recovering = false;
@@ -1747,7 +1928,7 @@ namespace Inkslab.Linq
                 var body = Switch(
                     _adaper.GetName(dbVar, iVar),
                     null,
-                    _adaper.EqualMethod,
+                    MapAdaper.IgnoreCaseEquals,
                     listCases
                 );
 
@@ -1942,6 +2123,8 @@ namespace Inkslab.Linq
             object Map(DbDataReader reader);
 
             bool IsInvalid(DbDataReader reader);
+
+            Task<bool> IsInvalidAsync(DbDataReader reader, CancellationToken cancellationToken);
         }
 
         private class DbMapper<T> : IDbMapper
@@ -1958,6 +2141,11 @@ namespace Inkslab.Linq
             public T Map(DbDataReader reader) => _read.Invoke(reader);
 
             public bool IsInvalid(DbDataReader reader) => _useDefault && reader.IsDBNull(0);
+
+            public Task<bool> IsInvalidAsync(DbDataReader reader, CancellationToken cancellationToken)
+            {
+                return _useDefault ? reader.IsDBNullAsync(0, cancellationToken) : Task.FromResult(false);
+            }
 
             object IDbMapper.Map(DbDataReader reader) => _read.Invoke(reader);
         }

@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Data;
+﻿using System.Data;
 using System.Threading.Tasks;
 
 namespace Inkslab.Linq
@@ -12,11 +11,9 @@ namespace Inkslab.Linq
         /// <summary>
         /// 执行命令。
         /// </summary>
-        /// <param name="sql">T-SQL 命令。</param>
-        /// <param name="parameters">参数。</param>
-        /// <param name="commandTimeout">超时时间。</param>
+        /// <param name="commandSql">T-SQL 命令。</param>
         /// <returns>执行影响行。</returns>
-        Task<int> ExecuteAsync(string sql, IDictionary<string, object> parameters = null, int? commandTimeout = null);
+        Task<int> ExecuteAsync(CommandSql commandSql);
 
         /// <summary>
         /// 批量处理。

@@ -108,5 +108,13 @@ namespace Inkslab.Linq.Tests
                 await reader.ReadAsync<int>(RowStyle.Single);
             }
         }
+
+        [Fact]
+        public void IDENTITY()
+        {
+            string sql = "INSERT INTO `user`(`name`,`date`) VALUES(@name,@now);SELECT @@IDENTITY;";
+
+            var i = _database.Single<long?>(sql, new { name = "测试", now = DateTime.Now });
+        }
     }
 }

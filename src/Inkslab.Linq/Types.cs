@@ -51,6 +51,11 @@ namespace Inkslab.Linq
         public static readonly Type Int32 = typeof(int);
 
         /// <summary>
+        /// <see cref="char"/>
+        /// </summary>
+        public static readonly Type Char = typeof(char);
+
+        /// <summary>
         /// <see cref="string"/>
         /// </summary>
         public static readonly Type String = typeof(string);

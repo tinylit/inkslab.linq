@@ -1415,7 +1415,10 @@ namespace Inkslab.Linq
             private static readonly MethodInfo _equals;
             private static readonly MethodInfo _concat;
             private static readonly MethodInfo _typeCode;
+            private static readonly MethodInfo _charToString;
+            private static readonly MethodInfo _stringToChar;
             private static readonly ConstructorInfo _errorCtor;
+            private static readonly ConstructorInfo _errorOutOfRangeCtor;
             private static readonly HashSet<string> _nameHooks = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             {
                 "GetBoolean",
@@ -1488,25 +1491,94 @@ namespace Inkslab.Linq
                 {
                     [typeof(char)] = TypeCode.Char,
                     [typeof(string)] = TypeCode.String,
+                    [typeof(sbyte)] = TypeCode.SByte,
                     [typeof(byte)] = TypeCode.Byte,
                     [typeof(short)] = TypeCode.Int16,
+                    [typeof(ushort)] = TypeCode.UInt16,
                     [typeof(int)] = TypeCode.Int32,
-                    [typeof(long)] = TypeCode.Int64
+                    [typeof(uint)] = TypeCode.UInt32,
+                    [typeof(long)] = TypeCode.Int64,
+                    [typeof(ulong)] = TypeCode.UInt64
+                },
+                [typeof(sbyte)] = new Dictionary<Type, TypeCode>
+                {
+                    [typeof(byte)] = TypeCode.Byte,
+                    [typeof(short)] = TypeCode.Int16,
+                    [typeof(ushort)] = TypeCode.UInt16,
+                    [typeof(int)] = TypeCode.Int32,
+                    [typeof(uint)] = TypeCode.UInt32,
+                    [typeof(long)] = TypeCode.Int64,
+                    [typeof(ulong)] = TypeCode.UInt64
+                },
+                [typeof(byte)] = new Dictionary<Type, TypeCode>
+                {
+                    [typeof(sbyte)] = TypeCode.SByte,
+                    [typeof(short)] = TypeCode.Int16,
+                    [typeof(ushort)] = TypeCode.UInt16,
+                    [typeof(int)] = TypeCode.Int32,
+                    [typeof(uint)] = TypeCode.UInt32,
+                    [typeof(long)] = TypeCode.Int64,
+                    [typeof(ulong)] = TypeCode.UInt64
+                },
+                [typeof(short)] = new Dictionary<Type, TypeCode>
+                {
+                    [typeof(sbyte)] = TypeCode.SByte,
+                    [typeof(byte)] = TypeCode.Byte,
+                    [typeof(ushort)] = TypeCode.UInt16,
+                    [typeof(int)] = TypeCode.Int32,
+                    [typeof(uint)] = TypeCode.UInt32,
+                    [typeof(long)] = TypeCode.Int64,
+                    [typeof(ulong)] = TypeCode.UInt64
+                },
+                [typeof(ushort)] = new Dictionary<Type, TypeCode>
+                {
+                    [typeof(sbyte)] = TypeCode.SByte,
+                    [typeof(byte)] = TypeCode.Byte,
+                    [typeof(short)] = TypeCode.UInt16,
+                    [typeof(int)] = TypeCode.Int32,
+                    [typeof(uint)] = TypeCode.UInt32,
+                    [typeof(long)] = TypeCode.Int64,
+                    [typeof(ulong)] = TypeCode.UInt64
                 },
                 [typeof(int)] = new Dictionary<Type, TypeCode>
                 {
+                    [typeof(sbyte)] = TypeCode.SByte,
                     [typeof(byte)] = TypeCode.Byte,
                     [typeof(short)] = TypeCode.Int16,
                     [typeof(ushort)] = TypeCode.UInt16,
-                    [typeof(long)] = TypeCode.Int64 // 兼容 MySQL COUNT([*]) 返回的是长整型。
+                    [typeof(uint)] = TypeCode.UInt32,
+                    [typeof(long)] = TypeCode.Int64,
+                    [typeof(ulong)] = TypeCode.UInt64
                 },
-                [typeof(long)] = new Dictionary<Type, TypeCode>
+                [typeof(uint)] = new Dictionary<Type, TypeCode>
                 {
+                    [typeof(sbyte)] = TypeCode.SByte,
                     [typeof(byte)] = TypeCode.Byte,
                     [typeof(short)] = TypeCode.Int16,
                     [typeof(ushort)] = TypeCode.UInt16,
                     [typeof(int)] = TypeCode.Int32,
-                    [typeof(uint)] = TypeCode.UInt32
+                    [typeof(long)] = TypeCode.Int64,
+                    [typeof(ulong)] = TypeCode.UInt64
+                },
+                [typeof(long)] = new Dictionary<Type, TypeCode>
+                {
+                    [typeof(sbyte)] = TypeCode.SByte,
+                    [typeof(byte)] = TypeCode.Byte,
+                    [typeof(short)] = TypeCode.Int16,
+                    [typeof(ushort)] = TypeCode.UInt16,
+                    [typeof(int)] = TypeCode.Int32,
+                    [typeof(uint)] = TypeCode.UInt32,
+                    [typeof(ulong)] = TypeCode.UInt64
+                },
+                [typeof(ulong)] = new Dictionary<Type, TypeCode>
+                {
+                    [typeof(sbyte)] = TypeCode.SByte,
+                    [typeof(byte)] = TypeCode.Byte,
+                    [typeof(short)] = TypeCode.Int16,
+                    [typeof(ushort)] = TypeCode.UInt16,
+                    [typeof(int)] = TypeCode.Int32,
+                    [typeof(uint)] = TypeCode.UInt32,
+                    [typeof(long)] = TypeCode.Int64
                 },
                 [typeof(float)] = new Dictionary<Type, TypeCode>
                 {
@@ -1516,7 +1588,9 @@ namespace Inkslab.Linq
                     [typeof(int)] = TypeCode.Int32,
                     [typeof(uint)] = TypeCode.UInt32,
                     [typeof(long)] = TypeCode.Int64,
-                    [typeof(ulong)] = TypeCode.UInt64
+                    [typeof(ulong)] = TypeCode.UInt64,
+                    [typeof(double)] = TypeCode.Double,
+                    [typeof(decimal)] = TypeCode.Decimal
                 },
                 [typeof(double)] = new Dictionary<Type, TypeCode>
                 {
@@ -1527,7 +1601,8 @@ namespace Inkslab.Linq
                     [typeof(uint)] = TypeCode.UInt32,
                     [typeof(long)] = TypeCode.Int64,
                     [typeof(ulong)] = TypeCode.UInt64,
-                    [typeof(float)] = TypeCode.Single
+                    [typeof(float)] = TypeCode.Single,
+                    [typeof(decimal)] = TypeCode.Decimal
                 },
                 [typeof(decimal)] = new Dictionary<Type, TypeCode>
                 {
@@ -1539,7 +1614,7 @@ namespace Inkslab.Linq
                     [typeof(long)] = TypeCode.Int64,
                     [typeof(ulong)] = TypeCode.UInt64,
                     [typeof(float)] = TypeCode.Single,
-                    [typeof(double)] = TypeCode.Decimal
+                    [typeof(double)] = TypeCode.Double
                 }
             };
 
@@ -1547,16 +1622,23 @@ namespace Inkslab.Linq
             {
                 _errorCtor = typeof(NotSupportedException).GetConstructor(new Type[] { Types.String });
 
+                _errorOutOfRangeCtor = typeof(IndexOutOfRangeException).GetConstructor(new Type[] { Types.String });
+
                 _equals = typeof(MapAdaper).GetMethod(
                     nameof(Equals),
                     BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.DeclaredOnly
                 );
+
                 _concat = Types.String.GetMethod(
                     nameof(string.Concat),
                     BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly,
                     null,
                     new Type[] { Types.String, Types.String, Types.String },
                     null);
+
+                _charToString = Types.Char.GetMethod(nameof(char.ToString), BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly, null, Type.EmptyTypes, null);
+
+                _stringToChar = Types.String.GetMethod("get_Chars", BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly, null, new Type[] { Types.Int32 }, null);
 
                 var type = typeof(Type);
 
@@ -1656,7 +1738,50 @@ namespace Inkslab.Linq
 
                 if (!propertyType.IsValueType || !_typeTransforms.TryGetValue(propertyType, out var transforms))
                 {
-                    expressions.Add(IfThenElse(Equal(typeVar, Constant(propertyType)), Assign(valueVar, Call(dbVar, originalFn, iVar)), throwUnary));
+                    if (propertyType == Types.String)
+                    {
+                        if (_typeMap.TryGetValue(Types.Char, out var transformFn))
+                        {
+                            expressions.Add(IfThenElse(Equal(typeVar, Constant(propertyType)),
+                                Assign(valueVar, Call(dbVar, originalFn, iVar)),
+                                IfThenElse(Equal(typeVar, Constant(Types.Char)),
+                                    Assign(valueVar, Call(Call(dbVar, transformFn, iVar), _charToString)),
+                                    throwUnary)));
+                        }
+                        else
+                        {
+                            expressions.Add(IfThenElse(Equal(typeVar, Constant(propertyType)), Assign(valueVar, Call(dbVar, originalFn, iVar)), throwUnary));
+                        }
+                    }
+                    else if (propertyType == Types.Char)
+                    {
+                        if (_typeMap.TryGetValue(Types.String, out var transformFn))
+                        {
+                            var stringVar = Variable(Types.String);
+
+                            expressions.Add(IfThenElse(Equal(typeVar, Constant(propertyType)),
+                                Assign(valueVar, Call(dbVar, originalFn, iVar)),
+                                IfThenElse(Equal(typeVar, Constant(Types.String)),
+                                    Block(new ParameterExpression[] { stringVar },
+                                        Assign(stringVar, Call(dbVar, transformFn, iVar)),
+                                        IfThenElse(Equal(Property(stringVar, "Length"), Constant(1)),
+                                            Assign(valueVar, Call(stringVar, _stringToChar, Constant(0))),
+                                            Throw(New(_errorOutOfRangeCtor, Call(_concat, Constant("数据库字段“"), GetName(dbVar, iVar), Constant("”的值超出了实体属性的类型容值范围，请检查映射实体的属性类型！"))))
+                                        )
+                                    ),
+                                    throwUnary)
+                                )
+                            );
+                        }
+                        else
+                        {
+                            expressions.Add(IfThenElse(Equal(typeVar, Constant(propertyType)), Assign(valueVar, Call(dbVar, originalFn, iVar)), throwUnary));
+                        }
+                    }
+                    else
+                    {
+                        expressions.Add(IfThenElse(Equal(typeVar, Constant(propertyType)), Assign(valueVar, Call(dbVar, originalFn, iVar)), throwUnary));
+                    }
 
                     expressions.Add(valueVar);
 
@@ -1705,12 +1830,70 @@ namespace Inkslab.Linq
                     return Block(propertyType, variables, expressions);
                 }
 
+                var code = Type.GetTypeCode(propertyType);
+
+                bool unsignedCode = code is TypeCode.Byte or TypeCode.UInt16 or TypeCode.UInt32 or TypeCode.UInt64;
+
+                var throwOutUnary = Throw(New(_errorOutOfRangeCtor, Call(_concat, Constant("数据库字段“"), GetName(dbVar, iVar), Constant("”的值超出了实体属性的类型容值范围，请检查映射实体的属性类型！"))));
+
                 foreach (var (key, typeCode) in transforms)
                 {
-                    if (_typeMap.TryGetValue(key, out var transformFn))
+                    if (!_typeMap.TryGetValue(key, out var transformFn))
                     {
-                        switchCases.Add(SwitchCase(Expression.Convert(Call(dbVar, transformFn, iVar), propertyType), Constant(typeCode)));
+                        continue;
                     }
+
+                    bool isGreaterThan = code >= typeCode;
+
+                    bool unsignedTypeCode = typeCode is TypeCode.Byte or TypeCode.UInt16 or TypeCode.UInt32 or TypeCode.UInt64;
+
+                    if (isGreaterThan && (!unsignedCode || unsignedTypeCode))
+                    {
+                        switchCases.Add(SwitchCase(Assign(valueVar, Expression.Convert(Call(dbVar, transformFn, iVar), propertyType)), Constant(typeCode)));
+
+                        continue;
+                    }
+
+                    BinaryExpression test;
+
+                    var transformVar = Variable(key);
+
+                    variables.Add(transformVar);
+
+                    if (!unsignedCode || unsignedTypeCode) //? 原类型有符号，数据类型无符号，或者都是无符号的。 且数据类型一定大于源类型。
+                    {
+                        if (unsignedTypeCode) //? 源类型有符号，数据类型无符号。
+                        {
+                            test = LessThanOrEqual(transformVar, Expression.Convert(Field(null, propertyType, "MaxValue"), key));
+                        }
+                        else if (unsignedCode) //? 原类型无符号，但数据类型有符号，要判断数据值是否大于等于“0”且小于等于“最大值”。
+                        {
+                            test = AndAlso(GreaterThanOrEqual(transformVar, Constant(System.Convert.ChangeType(0, key))), LessThanOrEqual(transformVar, Expression.Convert(Field(null, propertyType, "MaxValue"), key)));
+                        }
+                        else  //? 原类型有符号，但数据类型有符号，要判断数据值是否大于等于“最小值”且小于等于“最大值”。。
+                        {
+                            test = AndAlso(GreaterThanOrEqual(transformVar, Expression.Convert(Field(null, propertyType, "MinValue"), key)), LessThanOrEqual(transformVar, Expression.Convert(Field(null, propertyType, "MaxValue"), key)));
+                        }
+                    }
+                    else //? 源类型无符号，数据类型有符号。
+                    {
+                        test = GreaterThanOrEqual(transformVar, Constant(System.Convert.ChangeType(0, key)));
+
+                        if (!isGreaterThan)
+                        {
+                            test = AndAlso(test, LessThanOrEqual(transformVar, Expression.Convert(Field(null, propertyType, "MaxValue"), key)));
+                        }
+                    }
+
+                    switchCases.Add(SwitchCase(Block(transformVar,
+                            Assign(transformVar, Call(dbVar, transformFn, iVar)),
+                            IfThenElse(test,
+                                Assign(valueVar, Expression.Convert(transformVar, propertyType)),
+                                throwOutUnary)
+                            ),
+                            Constant(typeCode)
+                        )
+                    );
                 }
 
                 expressions.Add(IfThenElse(Equal(typeVar, Constant(propertyType)),

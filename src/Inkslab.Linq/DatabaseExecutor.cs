@@ -1710,77 +1710,77 @@ namespace Inkslab.Linq
 
             public Expression ToSolve(Type propertyType, ParameterExpression dbVar, Expression iVar)
             {
-                var throwUnary = Throw(New(_errorCtor, Call(_concat, Constant("数据库字段“"), GetName(dbVar, iVar), Constant("”的类型和实体属性的类型映射不被支持，请检查映射实体的属性类型！"))));
-
                 if (!_typeMap.TryGetValue(propertyType, out MethodInfo originalFn))
                 {
-                    return throwUnary;
-                }
+                    var typeArg = Variable(typeof(Type));
 
-                if (propertyType == Types.Object)
+                    return Block(new ParameterExpression[] { typeArg }, Assign(typeArg, Call(dbVar, _getFieldType, iVar)), ToSolveByTransform(propertyType, dbVar, iVar, typeArg));
+                }
+                else if (propertyType == Types.Object)
                 {
                     return Call(dbVar, originalFn, iVar);
                 }
+                else
+                {
+                    var typeArg = Variable(typeof(Type));
 
-                var typeVar = Variable(typeof(Type));
+                    return Block(new ParameterExpression[] { typeArg },
+                        Assign(typeArg, Call(dbVar, _getFieldType, iVar)),
+                        Condition(Equal(typeArg, Constant(propertyType)),
+                            Call(dbVar, originalFn, iVar),
+                            ToSolveByTransform(propertyType, dbVar, iVar, typeArg))
+                    );
+                }
+            }
+
+            private Expression ToSolveByTransform(Type propertyType, ParameterExpression dbVar, Expression iVar, ParameterExpression typeArg)
+            {
                 var valueVar = Variable(propertyType);
 
-                var variables = new List<ParameterExpression>
+                var variables = new List<ParameterExpression>(1)
                 {
-                    typeVar,
                     valueVar
                 };
 
-                var expressions = new List<Expression>
+                var throwUnary = Throw(New(_errorCtor, Call(_concat, Constant("数据库字段“"), GetName(dbVar, iVar), Constant("”的类型和实体属性的类型映射不被支持，请检查映射实体的属性类型！"))));
+
+                if (propertyType == Types.Object)
                 {
-                    Assign(typeVar, Call(dbVar, _getFieldType, iVar))
-                };
+                    return Block(propertyType, variables, throwUnary, valueVar);
+                }
+
+                var expressions = new List<Expression>(2);
 
                 if (!propertyType.IsValueType || !_typeTransforms.TryGetValue(propertyType, out var transforms))
                 {
-                    if (propertyType == Types.String)
+                    switch (Type.GetTypeCode(propertyType))
                     {
-                        if (_typeMap.TryGetValue(Types.Char, out var transformFn))
-                        {
-                            expressions.Add(IfThenElse(Equal(typeVar, Constant(propertyType)),
-                                Assign(valueVar, Call(dbVar, originalFn, iVar)),
-                                IfThenElse(Equal(typeVar, Constant(Types.Char)),
-                                    Assign(valueVar, Call(Call(dbVar, transformFn, iVar), _charToString)),
-                                    throwUnary)));
-                        }
-                        else
-                        {
-                            expressions.Add(IfThenElse(Equal(typeVar, Constant(propertyType)), Assign(valueVar, Call(dbVar, originalFn, iVar)), throwUnary));
-                        }
-                    }
-                    else if (propertyType == Types.Char)
-                    {
-                        if (_typeMap.TryGetValue(Types.String, out var transformFn))
-                        {
+                        case TypeCode.String when _typeMap.TryGetValue(Types.Char, out var transformFn):
+
+                            expressions.Add(IfThenElse(Equal(typeArg, Constant(Types.Char)), Assign(valueVar, Call(Call(dbVar, transformFn, iVar), _charToString)), throwUnary));
+
+                            break;
+                        case TypeCode.Char when _typeMap.TryGetValue(Types.String, out var transformFn):
+
                             var stringVar = Variable(Types.String);
 
-                            expressions.Add(IfThenElse(Equal(typeVar, Constant(propertyType)),
-                                Assign(valueVar, Call(dbVar, originalFn, iVar)),
-                                IfThenElse(Equal(typeVar, Constant(Types.String)),
-                                    Block(new ParameterExpression[] { stringVar },
-                                        Assign(stringVar, Call(dbVar, transformFn, iVar)),
-                                        IfThenElse(Equal(Property(stringVar, "Length"), Constant(1)),
-                                            Assign(valueVar, Call(stringVar, _stringToChar, Constant(0))),
-                                            Throw(New(_errorOutOfRangeCtor, Call(_concat, Constant("数据库字段“"), GetName(dbVar, iVar), Constant("”的值超出了实体属性的类型容值范围，请检查映射实体的属性类型！"))))
-                                        )
-                                    ),
-                                    throwUnary)
-                                )
+                            expressions.Add(IfThenElse(Equal(typeArg, Constant(Types.String)),
+                                Block(new ParameterExpression[1] { stringVar },
+                                    Assign(stringVar, Call(dbVar, transformFn, iVar)),
+                                    IfThenElse(Equal(Property(stringVar, "Length"), Constant(1)),
+                                        Assign(valueVar, Call(stringVar, _stringToChar, Constant(0))),
+                                        Throw(New(_errorOutOfRangeCtor, Call(_concat, Constant("数据库字段“"), GetName(dbVar, iVar), Constant("”的值超出了实体属性的类型容值范围，请检查映射实体的属性类型！"))))
+                                    )
+                                ),
+                                throwUnary)
                             );
-                        }
-                        else
-                        {
-                            expressions.Add(IfThenElse(Equal(typeVar, Constant(propertyType)), Assign(valueVar, Call(dbVar, originalFn, iVar)), throwUnary));
-                        }
-                    }
-                    else
-                    {
-                        expressions.Add(IfThenElse(Equal(typeVar, Constant(propertyType)), Assign(valueVar, Call(dbVar, originalFn, iVar)), throwUnary));
+
+                            break;
+                        default:
+
+                            expressions.Add(throwUnary);
+
+                            break;
                     }
 
                     expressions.Add(valueVar);
@@ -1815,15 +1815,14 @@ namespace Inkslab.Linq
                         }
                     }
 
-                    expressions.Add(IfThenElse(Equal(typeVar, Constant(propertyType)),
-                        Assign(valueVar, Call(dbVar, originalFn, iVar)),
-                        Switch(
+                    expressions.Add(Switch(
                             typeof(void),
-                            Call(_typeCode, typeVar),
+                            Call(_typeCode, typeArg),
                             throwUnary,
                             null,
                             switchCases.ToArray()
-                        )));
+                        ));
+
 
                     expressions.Add(valueVar);
 
@@ -1896,15 +1895,13 @@ namespace Inkslab.Linq
                     );
                 }
 
-                expressions.Add(IfThenElse(Equal(typeVar, Constant(propertyType)),
-                    Assign(valueVar, Call(dbVar, originalFn, iVar)),
-                    Switch(
-                         typeof(void),
-                        Call(_typeCode, typeVar),
-                        throwUnary,
-                        null,
-                        switchCases.ToArray()
-                    )));
+                expressions.Add(Switch(
+                    typeof(void),
+                    Call(_typeCode, typeArg),
+                    throwUnary,
+                    null,
+                    switchCases.ToArray()
+                ));
 
                 expressions.Add(valueVar);
 

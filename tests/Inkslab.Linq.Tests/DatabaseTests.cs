@@ -22,6 +22,14 @@ namespace Inkslab.Linq.Tests
         }
 
         [Fact]
+        public async Task Striong2CharAsync()
+        {
+            string sql = "SELECT '1'";
+
+            await _database.FirstOrDefaultAsync<char>(sql);
+        }
+
+        [Fact]
         public async Task SimpleWithArgTestAsync()
         {
             string sql = "SELECT * FROM `user` WHERE id = @id";
@@ -93,7 +101,7 @@ namespace Inkslab.Linq.Tests
             using (var reader = _database.QueryMultiple(sql, new { ids = new int[] { 1, 2 } }))
             {
                 reader.Read<User>();
-                reader.Read<int>(RowStyle.Single);
+                reader.Read<uint>(RowStyle.Single);
             }
         }
 

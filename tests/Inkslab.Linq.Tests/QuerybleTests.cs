@@ -1,5 +1,6 @@
 ﻿using Inkslab.Linq.Exceptions;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 
@@ -540,6 +541,59 @@ namespace Inkslab.Linq.Tests
         {
             var linq = from x in _users
                        where x.Id == 100 && _userExes.All(y => y.Id == x.Id && y.Age > 12)
+                       orderby x.Date, x.Name
+                       select x.Id;
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 内置包含测试。
+        /// </summary>
+        [Fact]
+        public void TestNestedContains()
+        {
+            var linq = from x in _users
+                       where x.Id == 100 && _userExes.Where(y => y.Age > 12).Select(y => y.Id).Contains(x.Id)
+                       orderby x.Date, x.Name
+                       select x.Id;
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 内置包含测试。
+        /// </summary>
+        [Fact]
+        public void TestNestedMemoryContains()
+        {
+            var ids = new List<long> { 1, 2, 5 };
+
+            var linq = from x in _users
+                       where x.Id == 100 && ids.Contains(x.Id)
+                       orderby x.Date, x.Name
+                       select x.Id;
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 内置包含测试。
+        /// </summary>
+        [Fact]
+        public void TestNestedMemoryAny()
+        {
+            int length = 50;
+
+            var users = new List<User>(length);
+
+            for (int i = 0; i < length; i++)
+            {
+                users.Add(new User { Id = i + 256, Name = $"测试：{i:000}", Date = DateTime.Now.AddMinutes(i) });
+            }
+
+            var linq = from x in _users
+                       where x.Id == 100 && users.Any(y => x.Id == y.Id)
                        orderby x.Date, x.Name
                        select x.Id;
 

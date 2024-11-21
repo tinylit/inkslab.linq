@@ -127,6 +127,8 @@ namespace Inkslab.Linq.Expressions
             {
                 case nameof(Enumerable.Any) when body.NodeType is ExpressionType.Constant or ExpressionType.MemberAccess:
                 case nameof(Enumerable.All) when body.NodeType is ExpressionType.Constant or ExpressionType.MemberAccess:
+                case "Exists" when body.NodeType is ExpressionType.Constant or ExpressionType.MemberAccess:
+                case "TrueForAll" when body.NodeType is ExpressionType.Constant or ExpressionType.MemberAccess:
                     using (var visitor = new LinqAnyAllVisitor(_visitor ?? this))
                     {
                         visitor.Startup(node);
@@ -737,13 +739,17 @@ namespace Inkslab.Linq.Expressions
 
         private void ByContains(MethodCallExpression node)
         {
-            IEnumerable valueSet = node.Arguments[0].GetValueFromExpression<IEnumerable>() ?? Enumerable.Empty<object>();
+            var @object = node.Method.IsStatic 
+                ? node.Arguments[0] 
+                : node.Object;
+
+            IEnumerable valueSet = @object.GetValueFromExpression<IEnumerable>() ?? Enumerable.Empty<object>();
 
             var enumerator = valueSet.GetEnumerator();
 
             if (enumerator.MoveNext())
             {
-                Visit(node.Arguments[1]);
+                Visit(node.Arguments[^1]);
 
                 int parameterCount = 1;
                 var maxParamterCount = Engine switch
@@ -779,7 +785,7 @@ namespace Inkslab.Linq.Expressions
 
                         Writer.WhiteSpace();
 
-                        Visit(node.Arguments[1]);
+                        Visit(node.Arguments[^1]);
 
                         Writer.Keyword(SqlKeyword.IN);
                         Writer.OpenBrace();
@@ -914,7 +920,11 @@ namespace Inkslab.Linq.Expressions
 
             public override void Startup(MethodCallExpression node)
             {
-                IEnumerable valueSet = node.Arguments[0].GetValueFromExpression<IEnumerable>() ?? Enumerable.Empty<object>();
+                var @object = node.Method.IsStatic
+                    ? node.Arguments[0]
+                    : node.Object;
+
+                IEnumerable valueSet = @object.GetValueFromExpression<IEnumerable>() ?? Enumerable.Empty<object>();
 
                 var enumerator = valueSet.GetEnumerator();
 
@@ -933,7 +943,9 @@ namespace Inkslab.Linq.Expressions
                 {
                     Writer.OpenBrace();
 
-                    Visit(node);
+                    valueCurrent = enumerator.Current;
+
+                    Visit(node.Arguments[^1]);
 
                     bool flag = node.Method.Name is (nameof(Enumerable.Any)) or (nameof(List<int>.Exists));
 
@@ -943,7 +955,7 @@ namespace Inkslab.Linq.Expressions
 
                         valueCurrent = enumerator.Current;
 
-                        Visit(node);
+                        Visit(node.Arguments[^1]);
                     }
 
                     Writer.CloseBrace();
@@ -952,6 +964,11 @@ namespace Inkslab.Linq.Expressions
                 {
                     Writer.AlwaysFalse();
                 }
+            }
+
+            protected override void PreparingParameter(LambdaExpression node)
+            {
+                //? 不准备参数。
             }
 
             protected override void Lambda<T>(Expression<T> node)

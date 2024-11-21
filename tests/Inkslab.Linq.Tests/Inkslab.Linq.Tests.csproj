@@ -6,5 +6,8 @@
 	<ItemGroup>
 	  <ProjectReference Include="..\..\src\Inkslab.Linq.MySql\Inkslab.Linq.MySql.csproj" />
 	</ItemGroup>
+	<ItemGroup>
+	  <PackageReference Update="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+	</ItemGroup>
 
 </Project>

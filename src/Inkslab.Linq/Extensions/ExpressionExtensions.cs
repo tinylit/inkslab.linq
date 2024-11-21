@@ -1,7 +1,9 @@
 ﻿using Inkslab.Linq;
 using Inkslab.Linq.Enums;
 
+#pragma warning disable IDE0130 // 命名空间与文件夹结构不匹配
 namespace System.Linq.Expressions
+#pragma warning restore IDE0130 // 命名空间与文件夹结构不匹配
 {
     /// <summary>
     /// 表达式拓展类。
@@ -88,26 +90,16 @@ namespace System.Linq.Expressions
         /// </summary>
         /// <param name="nodeType">节点类型。</param>
         /// <returns></returns>
-        internal static ExpressionType Reverse(this ExpressionType nodeType)
+        internal static ExpressionType Reverse(this ExpressionType nodeType) => nodeType switch
         {
-            switch (nodeType)
-            {
-                case ExpressionType.GreaterThan:
-                    return ExpressionType.LessThanOrEqual;
-                case ExpressionType.GreaterThanOrEqual:
-                    return ExpressionType.LessThan;
-                case ExpressionType.LessThan:
-                    return ExpressionType.GreaterThanOrEqual;
-                case ExpressionType.LessThanOrEqual:
-                    return ExpressionType.GreaterThan;
-                case ExpressionType.Equal:
-                    return ExpressionType.NotEqual;
-                case ExpressionType.NotEqual:
-                    return ExpressionType.Equal;
-                default:
-                    return nodeType;
-            }
-        }
+            ExpressionType.GreaterThan => ExpressionType.LessThanOrEqual,
+            ExpressionType.GreaterThanOrEqual => ExpressionType.LessThan,
+            ExpressionType.LessThan => ExpressionType.GreaterThanOrEqual,
+            ExpressionType.LessThanOrEqual => ExpressionType.GreaterThan,
+            ExpressionType.Equal => ExpressionType.NotEqual,
+            ExpressionType.NotEqual => ExpressionType.Equal,
+            _ => nodeType,
+        };
 
         /// <summary>
         /// 获取操作符。
@@ -212,26 +204,17 @@ namespace System.Linq.Expressions
         /// <returns></returns>
         internal static object GetValueFromExpression(this Expression node)
         {
-            if (node is null)
+            return node switch
             {
-                return null;
-            }
-
-            switch (node)
-            {
-                case ConstantExpression constant:
-                    return constant.Value;
-                case LambdaExpression lambda when lambda.Parameters.Count > 0:
-                    throw new NotSupportedException();
-                case LambdaExpression lambda:
-                    return lambda.Body is ConstantExpression body
-                        ? body.Value
-                        : lambda.Compile().DynamicInvoke();
-                case UnaryExpression unary when unary.NodeType == ExpressionType.Quote:
-                    return unary.Operand.GetValueFromExpression();
-                default:
-                    return Expression.Lambda(node).Compile().DynamicInvoke();
-            }
+                null => null,
+                ConstantExpression constant => constant.Value,
+                LambdaExpression lambda when lambda.Parameters.Count > 0 => throw new NotSupportedException(),
+                LambdaExpression lambda => lambda.Body is ConstantExpression body
+                                        ? body.Value
+                                        : lambda.Compile().DynamicInvoke(),
+                UnaryExpression unary when unary.NodeType == ExpressionType.Quote => unary.Operand.GetValueFromExpression(),
+                _ => Expression.Lambda(node).Compile().DynamicInvoke(),
+            };
         }
 
         /// <summary>
@@ -241,28 +224,18 @@ namespace System.Linq.Expressions
         /// <returns></returns>
         internal static T GetValueFromExpression<T>(this Expression node)
         {
-            if (node is null)
+            return node switch
             {
-                return default;
-            }
-
-            switch (node)
-            {
-                case ConstantExpression constant:
-                    return (T)constant.Value;
-                case Expression<Func<T>> lambda:
-                    return lambda.Compile().Invoke();
-                case LambdaExpression lambda when lambda.Parameters.Count > 0:
-                    throw new NotSupportedException();
-                case LambdaExpression lambda when lambda.Body.NodeType == ExpressionType.Constant:
-                    return lambda.Body.GetValueFromExpression<T>();
-                case UnaryExpression unary when unary.NodeType == ExpressionType.Quote:
-                    return unary.Operand.GetValueFromExpression<T>();
-                default:
-                    return Expression.Lambda<Func<T>>(node)
-                        .Compile()
-                        .Invoke();
-            }
+                null => default,
+                ConstantExpression constant => (T)constant.Value,
+                Expression<Func<T>> lambda => lambda.Compile().Invoke(),
+                LambdaExpression lambda when lambda.Parameters.Count > 0 => throw new NotSupportedException(),
+                LambdaExpression lambda when lambda.Body.NodeType == ExpressionType.Constant => lambda.Body.GetValueFromExpression<T>(),
+                UnaryExpression unary when unary.NodeType == ExpressionType.Quote => unary.Operand.GetValueFromExpression<T>(),
+                _ => Expression.Lambda<Func<T>>(node)
+                                        .Compile()
+                                        .Invoke(),
+            };
         }
 
         /// <summary>
@@ -271,15 +244,13 @@ namespace System.Linq.Expressions
         /// <returns></returns>
         internal static bool IsGrouping(this Expression node, bool isAnalyzeOnlyOneself = false)
         {
-            switch (node)
+            return node switch
             {
-                case MethodCallExpression methodCall:
-                    return methodCall.IsGrouping(isAnalyzeOnlyOneself);
-                case MemberExpression member:
-                    return member.IsGrouping(isAnalyzeOnlyOneself);
-                default:
-                    return node.Type.IsGrouping();
-            }
+                null => false,
+                MethodCallExpression methodCall => methodCall.IsGrouping(isAnalyzeOnlyOneself),
+                MemberExpression member => member.IsGrouping(isAnalyzeOnlyOneself),
+                _ => node.Type.IsGrouping(),
+            };
         }
 
         /// <summary>
@@ -340,19 +311,14 @@ namespace System.Linq.Expressions
 
         private static bool IsGrouping(Expression node)
         {
-            switch (node)
+            return node switch
             {
-                case UnaryExpression unary:
-                    return IsGrouping(unary.Operand);
-                case LambdaExpression lambda when lambda.Parameters.Count > 0:
-                    return IsGrouping(lambda.Parameters[0]);
-                case ConstantExpression constant:
-                    return constant.Type.IsGroupingQueryable();
-                case ParameterExpression parameter:
-                    return parameter.Type.IsGrouping();
-                default:
-                    return false;
-            }
+                UnaryExpression unary => IsGrouping(unary.Operand),
+                LambdaExpression lambda when lambda.Parameters.Count > 0 => IsGrouping(lambda.Parameters[0]),
+                ConstantExpression constant => constant.Type.IsGroupingQueryable(),
+                ParameterExpression parameter => parameter.Type.IsGrouping(),
+                _ => false,
+            };
         }
     }
 }

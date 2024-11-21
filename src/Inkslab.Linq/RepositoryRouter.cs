@@ -11,7 +11,9 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Threading;
 using Inkslab.Linq.Enums;
-using Inkslab.Linq.Exceptions;
+#if NET6_0_OR_GREATER
+using System.ComponentModel.DataAnnotations;
+#endif
 using static System.Linq.Expressions.Expression;
 
 namespace Inkslab.Linq
@@ -382,6 +384,9 @@ namespace Inkslab.Linq
                 {
                     var entity = Entities[i] ?? throw new InvalidOperationException("实体不能为空！");
 
+#if NET6_0_OR_GREATER
+                    Validator.ValidateObject(entity, new ValidationContext(entity), true);
+#endif
                     var dr = dt.NewRow();
 
                     Array.ForEach(entries, entry =>
@@ -524,12 +529,13 @@ namespace Inkslab.Linq
                         .AllowDBNull = entry.Nullable;
                 });
 
-                foreach (var entity in Entities)
+                for (int i = 0; i < Entities.Count; i++)
                 {
-                    if (entity is null)
-                    {
-                        throw new InvalidOperationException("实体不能为空！");
-                    }
+                    TEntity entity = Entities[i] ?? throw new InvalidOperationException("实体不能为空！");
+
+#if NET6_0_OR_GREATER
+                    Validator.ValidateObject(entity, new ValidationContext(entity), true);
+#endif
 
                     var dr = dt.NewRow();
 
@@ -586,6 +592,10 @@ namespace Inkslab.Linq
                 for (int i = 0; i < Entities.Count; i++)
                 {
                     var entity = Entities[i] ?? throw new InvalidOperationException("实体不能为空！");
+
+#if NET6_0_OR_GREATER
+                    Validator.ValidateObject(entity, new ValidationContext(entity), true);
+#endif
 
                     if (i == 0)
                     {
@@ -993,12 +1003,9 @@ namespace Inkslab.Linq
                         .AllowDBNull = entry.Nullable;
                 });
 
-                foreach (var entity in Entities)
+                for (int i = 0; i < Entities.Count; i++)
                 {
-                    if (entity is null)
-                    {
-                        throw new InvalidOperationException("实体不能为空！");
-                    }
+                    TEntity entity = Entities[i] ?? throw new InvalidOperationException("实体不能为空！");
 
                     var dr = dt.NewRow();
 

@@ -76,6 +76,15 @@ namespace Inkslab.Linq.Tests
             _userRpo.Delete();
         }
 
+        /// <summary>
+        /// 按条件删除。
+        /// </summary>
+        [Fact]
+        public void DeleteWhere()
+        {
+            _userRpo.Delete(x => x.Id < 100);
+        }
+
         [Fact]
         public void Insert()
         {

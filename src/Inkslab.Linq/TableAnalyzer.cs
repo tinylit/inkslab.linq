@@ -3,6 +3,7 @@ using Inkslab.Linq.Options;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -129,17 +130,13 @@ namespace Inkslab.Linq
 
             private static string Field(Expression node)
             {
-                switch (node)
+                return node switch
                 {
-                    case MemberExpression member:
-                        return member.Member.Name;
-                    case BlockExpression block when block.Variables.Count == 0 && block.Expressions.Count == 1:
-                        return Field(block.Expressions[0]);
-                    case GotoExpression @goto when @goto.Kind == GotoExpressionKind.Return:
-                        return Field(@goto.Value);
-                    default:
-                        throw new NotSupportedException();
-                }
+                    MemberExpression member => member.Member.Name,
+                    BlockExpression block when block.Variables.Count == 0 && block.Expressions.Count == 1 => Field(block.Expressions[0]),
+                    GotoExpression @goto when @goto.Kind == GotoExpressionKind.Return => Field(@goto.Value),
+                    _ => throw new NotSupportedException(),
+                };
             }
 
             IConfigTable<Table> IConfig<Table>.Table(string name, string schema)

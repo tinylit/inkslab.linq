@@ -36,8 +36,14 @@ namespace Inkslab.Linq
 
                 bool isPrimaryKey = propertyInfo.IsDefined(typeof(KeyAttribute), true);
 
+#if NET6_0_OR_GREATER
+                if (!isPrimaryKey)
+                {
+                    isPrimaryKey = propertyInfo.IsDefined(typeof(System.ComponentModel.DataAnnotations.KeyAttribute), true);
+                }
+#endif
                 var readOnlyAttr = propertyInfo.GetCustomAttribute<ReadOnlyAttribute>(true);
-
+                
                 bool isReadOnly = readOnlyAttr?.IsReadOnly == true;
 
                 VersionKind version = VersionKind.None;

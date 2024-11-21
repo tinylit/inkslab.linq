@@ -193,7 +193,7 @@ namespace Inkslab.Linq
             }
 
             /// <inheritdoc/>
-            protected override void StartupCore(MethodCallExpression node)
+            protected override void LinqCore(MethodCallExpression node)
             {
                 switch (node.Method.Name)
                 {
@@ -214,7 +214,7 @@ namespace Inkslab.Linq
 
                     default:
 
-                        base.StartupCore(node);
+                        base.LinqCore(node);
 
                         break;
                 }
@@ -245,7 +245,7 @@ namespace Inkslab.Linq
             }
 
             /// <inheritdoc/>
-            protected override void StartupCore(MethodCallExpression node)
+            protected override void LinqCore(MethodCallExpression node)
             {
                 switch (node.Method.Name)
                 {
@@ -339,7 +339,7 @@ namespace Inkslab.Linq
 
                     default:
 
-                        base.StartupCore(node);
+                        base.LinqCore(node);
 
                         break;
                 }
@@ -429,7 +429,7 @@ namespace Inkslab.Linq
             }
 
             /// <inheritdoc/>
-            protected override void StartupCore(MethodCallExpression node)
+            protected override void LinqCore(MethodCallExpression node)
             {
                 switch (node.Method.Name)
                 {
@@ -441,7 +441,7 @@ namespace Inkslab.Linq
 
                     default:
 
-                        base.StartupCore(node);
+                        base.LinqCore(node);
 
                         break;
                 }

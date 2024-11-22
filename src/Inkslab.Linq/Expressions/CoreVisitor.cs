@@ -712,28 +712,25 @@ namespace Inkslab.Linq.Expressions
                     break;
                 case nameof(string.Concat) when node.Arguments.Count > 1:
 
-                    ByConcat(0, node.Arguments);
+                    Writer.Write("CONCAT");
+
+                    Writer.OpenBrace();
+
+                    for (int i = 0; i < node.Arguments.Count; i++)
+                    {
+                        if (i > 0)
+                        {
+                            Writer.Delimiter();
+                        }
+
+                        Visit(node.Arguments[i]);
+                    }
+
+                    Writer.CloseBrace();
 
                     break;
                 default:
                     throw new NotSupportedException($"字符串的“{node.Method}”方法不被支持！");
-            }
-        }
-
-        private void ByConcat(int i, System.Collections.ObjectModel.ReadOnlyCollection<Expression> arguments)
-        {
-            if (i < arguments.Count - 1)
-            {
-                Writer.Write("CONCAT");
-                Writer.OpenBrace();
-                Visit(arguments[i]);
-                Writer.Delimiter();
-                ByConcat(i + 1, arguments);
-                Writer.CloseBrace();
-            }
-            else
-            {
-                Visit(arguments[i]);
             }
         }
 

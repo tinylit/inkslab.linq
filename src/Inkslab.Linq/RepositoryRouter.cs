@@ -105,7 +105,7 @@ namespace Inkslab.Linq
 
             if (_instance.Keys.Count == 0)
             {
-                throw new NotSupportedException();
+                throw new NotSupportedException("不支持无主键表的更新操作！");
             }
 
             return new Updateable(_databaseExecutor, _connectionStrings, _settings, _logger, entries);
@@ -121,7 +121,7 @@ namespace Inkslab.Linq
 
             if (_instance.Keys.Count == 0)
             {
-                throw new NotSupportedException();
+                throw new NotSupportedException("不支持无主键表的删除操作！");
             }
 
             return new Deleteable(_databaseExecutor, _connectionStrings, _settings, _logger, entries);

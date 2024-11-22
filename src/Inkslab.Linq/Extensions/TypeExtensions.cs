@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 
+#pragma warning disable IDE0130 // 命名空间与文件夹结构不匹配
 namespace System
+#pragma warning restore IDE0130 // 命名空间与文件夹结构不匹配
 {
     /// <summary>
     /// 类型拓展类。
@@ -125,12 +127,7 @@ namespace System
                 return true;
             }
 
-            if (type.IsNullable())
-            {
-                type = Nullable.GetUnderlyingType(type);
-            }
-
-            return type.IsSimple();
+            return (Nullable.GetUnderlyingType(type) ?? type).IsSimple();
         }
     }
 }

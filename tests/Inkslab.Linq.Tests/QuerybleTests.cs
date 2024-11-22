@@ -366,6 +366,26 @@ namespace Inkslab.Linq.Tests
         }
 
         [Fact]
+        public void SelectMultiCount()
+        {
+            var linq = from x in _users
+                       where x.Id == 100
+                       select new { x.Id, x.Name };
+
+            var count = linq.Count();//? 生成 SELECT COUNT(*) FROM `user` AS `x` WHERE `x`.`id` = 100
+        }
+
+        [Fact]
+        public void DistinctSelectMultiCount()
+        {
+            var linq = from x in _users
+                       where x.Id == 100
+                       select new { x.Id, x.Name };
+
+            var count = linq.Distinct().Count();//? 生成 SELECT COUNT(DISTINCT `x`.`id`, `x`.`name`) FROM `user` AS `x` WHERE `x`.`id` = 100
+        }
+
+        [Fact]
         public void DistinctSelectCount()
         {
             var linq = from x in _users
@@ -668,5 +688,14 @@ namespace Inkslab.Linq.Tests
 
             var results = linq.ToList();
         }
+
+/*        /// <summary>
+        /// 同表多个别名。
+        /// </summary>
+        [Fact]
+        public void TestLambdaMultiAliasName()
+        {
+            var user = _users.Where(x => x.Id > 100).OrderBy(z => z.DateAt).FirstOrDefault(y => y.Id < 1000);
+        }*/
     }
 }

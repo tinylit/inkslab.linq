@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Linq.Expressions;
 using Inkslab.Linq.Enums;
@@ -98,10 +99,42 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected virtual void Select(Expression node)
         {
-            using (var visitor = new SelectListVisitor(this))
+            if (isDistinct)
             {
-                visitor.Startup(node);
+                using (var visitor = new SelectListVisitor(this))
+                {
+                    visitor.Startup(node);
+                }
+            }
+            else
+            {
+                using (var visitor = new CountSelectListVisitor(this))
+                {
+                    visitor.Startup(node);
+                }
             }
         }
+
+        #region 内嵌类
+        private class CountSelectListVisitor : SelectListVisitor
+        {
+            public CountSelectListVisitor(CoreVisitor visitor) : base(visitor, false)
+            {
+
+            }
+
+            protected override void Lambda<T>(Expression<T> node)
+            {
+                if (node.Body.Type.IsCell())
+                {
+                    base.Lambda(node);
+                }
+                else
+                {
+                    Writer.Write("*");
+                }
+            }
+        }
+        #endregion
     }
 }

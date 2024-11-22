@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace Inkslab.Linq.Tests
@@ -62,7 +63,7 @@ namespace Inkslab.Linq.Tests
         /// 删除。
         /// </summary>
         [Fact]
-        public void DeleteLinq()
+        public void DeleteByLinq()
         {
             _userRpo.Where(x => _userExes.Where(y => y.RoleType == 2).Select(y => y.Id).Contains(x.Id)).Delete();
         }
@@ -80,7 +81,7 @@ namespace Inkslab.Linq.Tests
         /// 按条件删除。
         /// </summary>
         [Fact]
-        public void DeleteWhere()
+        public void DeleteByLinqWhere()
         {
             _userRpo.Delete(x => x.Id < 100);
         }

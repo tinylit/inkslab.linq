@@ -200,14 +200,6 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override void LinqRef(MethodCallExpression node, ref bool allowSelect)
-        {
-            base.LinqRef(node, ref allowSelect);
-
-            buildSelect = allowSelect;
-        }
-
-        /// <inheritdoc/>
         protected override void LinqCore(MethodCallExpression node)
         {
             var name = node.Method.Name;

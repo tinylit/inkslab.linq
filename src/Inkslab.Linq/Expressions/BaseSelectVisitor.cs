@@ -141,7 +141,7 @@ namespace Inkslab.Linq.Expressions
                     break;
                 default:
 
-                    if (node.IsGrouping(true))
+                    if (IsGrouping(node))
                     {
                         using (var visitor = new AggregateSelectVisitor(this))
                         {
@@ -188,6 +188,23 @@ namespace Inkslab.Linq.Expressions
 
                     break;
             }
+        }
+
+        private bool IsGrouping(MethodCallExpression node)
+        {
+            return node.Method.Name switch
+            {
+                nameof(Queryable.Take) or nameof(Queryable.Skip) or nameof(Queryable.TakeLast) => IsGrouping((MethodCallExpression)node.Arguments[0]),
+                _ => node.IsGrouping(true),
+            };
+        }
+
+        /// <inheritdoc/>
+        protected override void LinqRef(MethodCallExpression node, ref bool allowSelect)
+        {
+            base.LinqRef(node, ref allowSelect);
+
+            buildSelect = allowSelect;
         }
 
         /// <inheritdoc/>

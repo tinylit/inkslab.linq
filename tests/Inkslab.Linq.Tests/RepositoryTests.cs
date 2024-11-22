@@ -28,7 +28,7 @@ namespace Inkslab.Linq.Tests
                        join y in _userExes
                        on x.Id equals y.Id
                        orderby x.Id descending
-                       select new User { Name = x.Name, Date = DateTime.Now };
+                       select new User { Name = x.Name, DateAt = DateTime.Now };
 
             _userRpo.Ignore()
                 .Insert(linq);
@@ -42,7 +42,7 @@ namespace Inkslab.Linq.Tests
         {
             _userRpo.Update(x => new User
             {
-                Date = DateTime.Now
+                DateAt = DateTime.Now
             });
         }
 
@@ -52,9 +52,9 @@ namespace Inkslab.Linq.Tests
         [Fact]
         public void UpdateLinq()
         {
-            _userRpo.Where(x => _userExes.Where(y => y.Role == 2).Any(y => x.Id == y.Id)).Update(x => new User
+            _userRpo.Where(x => _userExes.Where(y => y.RoleType == 2).Any(y => x.Id == y.Id)).Update(x => new User
             {
-                Date = DateTime.Now
+                DateAt = DateTime.Now
             });
         }
 
@@ -64,7 +64,7 @@ namespace Inkslab.Linq.Tests
         [Fact]
         public void DeleteLinq()
         {
-            _userRpo.Where(x => _userExes.Where(y => y.Role == 2).Select(y => y.Id).Contains(x.Id)).Delete();
+            _userRpo.Where(x => _userExes.Where(y => y.RoleType == 2).Select(y => y.Id).Contains(x.Id)).Delete();
         }
 
         /// <summary>
@@ -94,7 +94,7 @@ namespace Inkslab.Linq.Tests
 
             for (int i = 0; i < length; i++)
             {
-                users.Add(new User { Name = $"测试：{i:000}", Date = DateTime.Now });
+                users.Add(new User { Name = $"测试：{i:000}", DateAt = DateTime.Now });
             }
 
             int rows = _userRpo.AsInsertable(users)
@@ -111,7 +111,7 @@ namespace Inkslab.Linq.Tests
 
             for (int i = 0; i < length; i++)
             {
-                users.Add(new User { Id = i + 256, Name = $"测试：{i:000}", Date = DateTime.Now.AddMinutes(i) });
+                users.Add(new User { Id = i + 256, Name = $"测试：{i:000}", DateAt = DateTime.Now.AddMinutes(i) });
             }
 
             int rows = _userRpo.AsUpdateable(users).Execute();
@@ -126,7 +126,7 @@ namespace Inkslab.Linq.Tests
 
             for (int i = 0; i < length; i++)
             {
-                users.Add(new User { Id = i + 256, Name = $"测试：{i:000}", Date = DateTime.Now.AddMinutes(i) });
+                users.Add(new User { Id = i + 256, Name = $"测试：{i:000}", DateAt = DateTime.Now.AddMinutes(i) });
             }
 
             int rows = _userRpo.AsDeleteable(users).Execute();
@@ -141,7 +141,7 @@ namespace Inkslab.Linq.Tests
 
             for (int i = 0; i < length; i++)
             {
-                users.Add(new User { Name = $"测试：{i:000}", Date = DateTime.Now });
+                users.Add(new User { Name = $"测试：{i:000}", DateAt = DateTime.Now });
             }
 
             int rows = _userRpo.AsInsertable(users)
@@ -158,7 +158,7 @@ namespace Inkslab.Linq.Tests
 
             for (int i = 0; i < length; i++)
             {
-                users.Add(new User { Id = i + 1, Name = $"测试：{i:000}", Date = DateTime.Now.AddMinutes(i) });
+                users.Add(new User { Id = i + 1, Name = $"测试：{i:000}", DateAt = DateTime.Now.AddMinutes(i) });
             }
 
             int rows = _userRpo.AsUpdateable(users).Execute();
@@ -173,7 +173,7 @@ namespace Inkslab.Linq.Tests
 
             for (int i = 0; i < length; i++)
             {
-                users.Add(new User { Id = i + 1, Name = $"测试：{i:000}", Date = DateTime.Now.AddMinutes(i) });
+                users.Add(new User { Id = i + 1, Name = $"测试：{i:000}", DateAt = DateTime.Now.AddMinutes(i) });
             }
 
             int rows = _userRpo.AsDeleteable(users).Execute();

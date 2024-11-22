@@ -1,4 +1,5 @@
-﻿using System.Linq.Expressions;
+﻿using System.Collections.Generic;
+using System.Linq.Expressions;
 using Inkslab.Linq;
 using Inkslab.Linq.Enums;
 
@@ -91,6 +92,40 @@ namespace System.Linq
                 source.Expression,
                 Expression.Constant(errMsg)
             }));
+        }
+
+        /// <summary>
+        /// 分页查询。
+        /// </summary>
+        /// <typeparam name="TSource">资源类型。</typeparam>
+        /// <param name="source">查询器。</param>
+        /// <param name="pageIndex">页码（从“1”开始）</param>
+        /// <param name="pageSize">每页条目数。</param>
+        /// <returns>分页数据。</returns>
+        public static PagedList<TSource> ToList<TSource>(this IQueryable<TSource> source, int pageIndex, int pageSize)
+        {
+            if (pageIndex < 1)
+            {
+                throw new ArgumentOutOfRangeException(nameof(pageIndex), "页码不能小于“1”。");
+            }
+
+            if (pageSize < 1)
+            {
+                throw new ArgumentOutOfRangeException(nameof(pageSize), "每页条目数不能小于“1”。");
+            }
+
+            var sources = pageIndex == 1
+                ? source.Take(pageSize).ToList()
+                : source.Skip((pageIndex - 1) * pageSize).Take(pageSize).ToList();
+
+            if (sources.Count == 0 || sources.Count == pageSize)
+            {
+                int total = source.Count();
+
+                return new PagedList<TSource>(sources, pageIndex, pageSize, total);
+            }
+
+            return new PagedList<TSource>(sources, pageIndex, pageSize, (pageIndex - 1) * pageSize + sources.Count);
         }
 
         /// <summary>

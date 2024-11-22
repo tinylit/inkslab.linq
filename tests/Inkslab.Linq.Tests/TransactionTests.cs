@@ -24,7 +24,7 @@ namespace Inkslab.Linq.Tests
             {
                 await _userRpts.UpdateAsync(x => new User
                 {
-                    Date = DateTime.Now
+                    DateAt = DateTime.Now
                 });
             }
         }
@@ -36,7 +36,7 @@ namespace Inkslab.Linq.Tests
             {
                 await _userRpts.UpdateAsync(x => new User
                 {
-                    Date = DateTime.Now
+                    DateAt = DateTime.Now
                 });
 
                 await transaction.CompleteAsync();

@@ -1910,6 +1910,11 @@ namespace Inkslab.Linq
             this IQueryable<TSource> source,
             CancellationToken cancellationToken = default)
         {
+            if (source is null)
+            {
+                throw new ArgumentNullException(nameof(source));
+            }
+
             var list = new List<TSource>();
 
             await using (var enumerator = source.AsAsyncEnumerable().GetAsyncEnumerator(cancellationToken))
@@ -1921,6 +1926,66 @@ namespace Inkslab.Linq
             }
 
             return list;
+        }
+
+        /// <summary>
+        ///     Asynchronously creates a <see cref="PagedList{T}" /> from an <see cref="IQueryable{T}" /> by enumerating it
+        ///     asynchronously.
+        /// </summary>
+        /// <remarks>
+        ///     Multiple active operations on the same context instance are not supported.  Use 'await' to ensure
+        ///     that any asynchronous operations have completed before calling another method on this context.
+        /// </remarks>
+        /// <typeparam name="TSource">
+        ///     The type of the elements of <paramref name="source" />.
+        /// </typeparam>
+        /// <param name="source">
+        ///     An <see cref="IQueryable{T}" /> to create a list from.
+        /// </param>
+        /// <param name="pageIndex">Page number (starting with "1").</param>
+        /// <param name="pageSize">Number of items per page.</param>
+        /// <param name="cancellationToken">
+        ///     A <see cref="CancellationToken" /> to observe while waiting for the task to complete.
+        /// </param>
+        /// <returns>
+        ///     A task that represents the asynchronous operation.
+        ///     The task result contains a <see cref="PagedList{T}" /> that contains elements from the input sequence.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        ///     <paramref name="source" /> is <see langword="null" />.
+        /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        ///     <paramref name="pageIndex"/> or <paramref name="pageSize"/> is less than 1.
+        /// </exception>
+        public static async Task<PagedList<TSource>> ToListAsync<TSource>(this IQueryable<TSource> source, int pageIndex, int pageSize, CancellationToken cancellationToken = default)
+        {
+            if (source is null)
+            {
+                throw new ArgumentNullException(nameof(source));
+            }
+
+            if (pageIndex < 1)
+            {
+                throw new ArgumentOutOfRangeException(nameof(pageIndex), "页码不能小于“1”。");
+            }
+
+            if (pageSize < 1)
+            {
+                throw new ArgumentOutOfRangeException(nameof(pageSize), "每页条目数不能小于“1”。");
+            }
+
+            var sources = pageIndex == 1
+                ? await source.Take(pageSize).ToListAsync(cancellationToken)
+                : await source.Skip((pageIndex - 1) * pageSize).Take(pageSize).ToListAsync(cancellationToken);
+
+            if (sources.Count == 0 || sources.Count == pageSize)
+            {
+                int total = await source.CountAsync(cancellationToken);
+
+                return new PagedList<TSource>(sources, pageIndex, pageSize, total);
+            }
+
+            return new PagedList<TSource>(sources, pageIndex, pageSize, (pageIndex - 1) * pageSize + sources.Count);
         }
 
         /// <summary>

@@ -10,10 +10,10 @@ namespace Inkslab.Linq.Tests
         [Field("id")]
         public int Id { get; set; }
         [Field("role")]
-        public int Role { get; set; }
+        public int RoleType { get; set; }
         [Field("age")]
         public int Age { get; set; }
         [Field("date")]
-        public DateTime Date { get; set; }
+        public DateTime DateAt { get; set; }
     }
 }

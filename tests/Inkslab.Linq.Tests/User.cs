@@ -15,6 +15,6 @@ namespace Inkslab.Linq.Tests
         public string Name { get; set; }
         [Version]
         [Field("date")]
-        public DateTime Date { get; set; }
+        public DateTime DateAt { get; set; }
     }
 }

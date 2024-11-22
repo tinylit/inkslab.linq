@@ -6,6 +6,12 @@ using Xunit;
 
 namespace Inkslab.Linq.Tests
 {
+    public class UserDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public int Role { get; set; }
+    }
     public class QuerybleTests
     {
         private readonly IQueryable<User> _users;
@@ -22,7 +28,7 @@ namespace Inkslab.Linq.Tests
         {
             var linq = from x in _users
                        where x.Id == 100
-                       orderby x.Date, x.Name
+                       orderby x.DateAt, x.Name
                        select x.Id;
 
             var results = linq.ToList();
@@ -48,12 +54,61 @@ namespace Inkslab.Linq.Tests
 
             var linq = from x in _users
                        where x.Id == 100
-                       group new { x.Name, x.Date } by x.Id
+                       group new { x.Name, x.DateAt } by x.Id
                         into g
                        orderby g.Key descending
-                       select new { g.Key, Total = g.Count(), Count = g.Where(x => x.Date > now).Count() };
+                       select new { g.Key, Total = g.Count(), Count = g.Where(x => x.DateAt > now).Count() };
 
             var results = linq.ToList();
+        }
+
+        [Fact]
+        public void TestGroupByToMax()
+        {
+            var now = DateTime.Now;
+
+            var linq = from x in _users
+                       where x.Id == 100
+                       group x by x.Id
+                        into g
+                       orderby g.Key descending
+                       select new { g.Key, Name = g.Max(y => y.Name), Total = g.Count() };
+
+            var results = linq.ToList();
+        }
+
+        [Fact]
+        public void TestJoinGroupByToMax()
+        {
+            var now = DateTime.Now;
+
+            var linq = from x in _users
+                       join y in _userExes
+                       on x.Id equals y.Id
+                       where x.Id == 100
+                       group x by x.Id
+                        into g
+                       orderby g.Key descending
+                       select new { g.Key, Name = g.Max(y => y.Name), Total = g.Count() };
+
+            var results = linq.ToList();
+        }
+
+        [Fact]
+        public void TestJoinGroupByTakeSkipToMax()
+        {
+            var now = DateTime.Now;
+
+            var linq = from x in _users
+                       join y in _userExes
+                       on x.Id equals y.Id
+                       where x.Id == 100
+                       group x by x.Id
+                        into g
+                       orderby g.Key descending
+                       select new { g.Key, Name = g.Max(y => y.Name), Total = g.Count() };
+
+            var results = linq.Skip(1).Take(1).ToList();
         }
 
         [Fact]
@@ -63,7 +118,7 @@ namespace Inkslab.Linq.Tests
 
             var linq = from x in _users
                        where x.Id == 100
-                       group new { x.Name, x.Date } by x.Id into g
+                       group new { x.Name, x.DateAt } by x.Id into g
                        where g.Count() > 1
                        orderby g.Key descending
                        select g.Key;
@@ -78,17 +133,17 @@ namespace Inkslab.Linq.Tests
 
             var linq = from x in _users
                        where x.Id == 100
-                       group new { x.Name, x.Date } by x.Id into g
+                       group new { x.Name, x.DateAt } by x.Id into g
                        where g.Count() > 1
                        orderby g.Key descending
                        select new
                        {
                            g.Key,
                            Total = g.Count(),
-                           Count = g.Count(x => x.Date > now),
-                           WhereCount = g.Where(x => x.Date > now).Count(),
-                           SelectCount = g.Where(x => x.Date > now).Select(x => x.Name).Count(),
-                           DistinctCount = g.Where(x => x.Date > now).Select(x => x.Name).Distinct().Count()
+                           Count = g.Count(x => x.DateAt > now),
+                           WhereCount = g.Where(x => x.DateAt > now).Count(),
+                           SelectCount = g.Where(x => x.DateAt > now).Select(x => x.Name).Count(),
+                           DistinctCount = g.Where(x => x.DateAt > now).Select(x => x.Name).Distinct().Count()
                        };
 
             var results = linq.ToList();
@@ -101,7 +156,7 @@ namespace Inkslab.Linq.Tests
 
             var linq = from x in _users
                        where x.Id == 100
-                       group new { x.Name, x.Date } by new { x.Id, x.Name } into g
+                       group new { x.Name, x.DateAt } by new { x.Id, x.Name } into g
                        where g.Count() > 1
                        orderby g.Key descending
                        select new
@@ -109,10 +164,10 @@ namespace Inkslab.Linq.Tests
                            g.Key.Id,
                            g.Key.Name,
                            Total = g.Count(),
-                           Count = g.Count(x => x.Date > now),
-                           WhereCount = g.Where(x => x.Date > now).Count(),
-                           SelectCount = g.Where(x => x.Date > now).Select(x => x.Name).Count(),
-                           DistinctCount = g.Where(x => x.Date > now).Select(x => x.Name).Distinct().Count()
+                           Count = g.Count(x => x.DateAt > now),
+                           WhereCount = g.Where(x => x.DateAt > now).Count(),
+                           SelectCount = g.Where(x => x.DateAt > now).Select(x => x.Name).Count(),
+                           DistinctCount = g.Where(x => x.DateAt > now).Select(x => x.Name).Distinct().Count()
                        };
 
             var results = linq.ToList();
@@ -125,7 +180,7 @@ namespace Inkslab.Linq.Tests
 
             var linq = from x in _users
                        where x.Id == 100
-                       group new { x.Name, x.Date } by new { x.Id, x.Name } into g
+                       group new { x.Name, x.DateAt } by new { x.Id, x.Name } into g
                        where g.Count() > 1
                        orderby g.Key descending
                        select g.Key;
@@ -141,15 +196,15 @@ namespace Inkslab.Linq.Tests
             var linq = from x in _users
                        where x.Id == 100
                        group x by x.Id into g
-                       where g.Count(x => x.Date > now) > 1
+                       where g.Count(x => x.DateAt > now) > 1
                        orderby g.Key descending
                        select new
                        {
                            g.Key,
-                           Max = g.Max(x => x.Date),
-                           WhereMax = g.Where(x => x.Date > now).Max(x => x.Id),
-                           SelectMax = g.Where(x => x.Date > now).Select(x => x.Id).Max(),
-                           DistinctMax = g.Where(x => x.Date > now).Select(x => x.Id).Distinct().Max()
+                           Max = g.Max(x => x.DateAt),
+                           WhereMax = g.Where(x => x.DateAt > now).Max(x => x.Id),
+                           SelectMax = g.Where(x => x.DateAt > now).Select(x => x.Id).Max(),
+                           DistinctMax = g.Where(x => x.DateAt > now).Select(x => x.Id).Distinct().Max()
                        };
 
             var results = linq.ToList();
@@ -162,7 +217,7 @@ namespace Inkslab.Linq.Tests
                        join y in _userExes
                        on x.Id equals y.Id
                        orderby x.Id descending
-                       select new { x.Id, y.Role };
+                       select new { x.Id, y.RoleType };
 
             var results = linq.ToList();
         }
@@ -170,11 +225,25 @@ namespace Inkslab.Linq.Tests
         [Fact]
         public void TestJoinWhere()
         {
-            var linq = from x in _users.Where(y => y.Date > DateTime.UnixEpoch)
+            var linq = from x in _users.Where(y => y.DateAt > DateTime.UnixEpoch)
                        join y in _userExes.Where(x => x.Age > 18)
                        on x.Id equals y.Id
                        orderby x.Id descending
-                       select new { x.Id, y.Role };
+                       select new UserDto { Id = x.Id, Role = y.RoleType, Name = x.Name };
+
+            var results = linq.ToList();
+        }
+
+        [Fact]
+        public void TestLeftJoinWhere()
+        {
+            var linq = from x in _users//.Where(y => y.DateAt > DateTime.UnixEpoch)
+                       join y in _userExes.Where(x => x.Age > 18)
+                       on x.Id equals y.Id
+                       into xy
+                       from c in xy.DefaultIfEmpty()
+                       orderby x.Id descending
+                       select new UserDto { Id = x.Id, Role = c.RoleType, Name = x.Name };
 
             var results = linq.ToList();
         }
@@ -187,7 +256,7 @@ namespace Inkslab.Linq.Tests
                        on x.Id equals y.Id into g
                        from z in g
                        orderby x.Id descending
-                       select new { x.Id, z.Role };
+                       select new { x.Id, z.RoleType };
 
             var results = linq.ToList();
         }
@@ -200,7 +269,7 @@ namespace Inkslab.Linq.Tests
                        on x.Id equals y.Id into g
                        from z in g.DefaultIfEmpty()
                        orderby x.Id descending
-                       select new { x.Id, z.Role };
+                       select new { x.Id, z.RoleType };
 
             var results = linq.ToList();
         }
@@ -211,7 +280,7 @@ namespace Inkslab.Linq.Tests
             var linq = from x in _users
                        from y in _userExes
                        orderby x.Id descending
-                       select new { x.Id, y.Role };
+                       select new { x.Id, y.RoleType };
 
             var results = linq.ToList();
         }
@@ -270,7 +339,7 @@ namespace Inkslab.Linq.Tests
         {
             var linq = from x in _users
                        where x.Id == 100
-                       orderby x.Date, x.Name
+                       orderby x.DateAt, x.Name
                        select x;
 
             var count = linq.Count();
@@ -322,7 +391,7 @@ namespace Inkslab.Linq.Tests
         public void GroupByDistinctCount()
         {
             var linq = from x in _users
-                       group x by new { x.Name, x.Date }
+                       group x by new { x.Name, x.DateAt }
                        into g
                        where g.Count() > 1
                        select g.Key;
@@ -335,7 +404,7 @@ namespace Inkslab.Linq.Tests
         {
             var linq = from x in _users
                        where x.Id == 100
-                       orderby x.Date, x.Name
+                       orderby x.DateAt, x.Name
                        select x;
 
             // 异常：1、需指定聚合字段。2、不支持排序。
@@ -404,13 +473,13 @@ namespace Inkslab.Linq.Tests
             var linq = from x in _users
                        join y in _userExes
                        on x.Id equals y.Id
-                       select new { x.Id, y.Role, Type = 1 };
+                       select new { x.Id, y.RoleType, Type = 1 };
 
             var linq2 = from x in _users
                         join y in _userExes
                         on x.Id equals y.Id into g
                         from z in g.DefaultIfEmpty()
-                        select new { x.Id, z.Role, Type = 2 };
+                        select new { x.Id, z.RoleType, Type = 2 };
 
             var results = linq.Union(linq2).ToList();
         }
@@ -421,16 +490,16 @@ namespace Inkslab.Linq.Tests
             var linq = from x in _users
                        join y in _userExes
                        on x.Id equals y.Id
-                       select new { x.Id, y.Role, Type = 1 };
+                       select new { x.Id, y.RoleType, Type = 1 };
 
             var linq2 = from x in _users
                         join y in _userExes
                         on x.Id equals y.Id into g
                         from z in g.DefaultIfEmpty()
-                        select new { x.Id, z.Role, Type = 2 };
+                        select new { x.Id, z.RoleType, Type = 2 };
 
             var results = linq.Concat(linq2)
-                .Select(x => string.Concat(x.Role, x.Type))
+                .Select(x => string.Concat(x.RoleType, x.Type))
                 .Distinct()
                 .ToList();
         }
@@ -441,17 +510,17 @@ namespace Inkslab.Linq.Tests
             var linq = from x in _users
                        join y in _userExes
                        on x.Id equals y.Id
-                       select new { x.Id, y.Role, Type = 1 };
+                       select new { x.Id, y.RoleType, Type = 1 };
 
             var linq2 = from x in _users
                         join y in _userExes
                         on x.Id equals y.Id into g
                         from z in g.DefaultIfEmpty()
-                        select new { x.Id, z.Role, Type = 2 };
+                        select new { x.Id, z.RoleType, Type = 2 };
 
             var results = linq.Union(linq2)
-                .Where(x => x.Role == 2)
-                .Select(x => string.Concat(x.Role, x.Type))
+                .Where(x => x.RoleType == 2)
+                .Select(x => string.Concat(x.RoleType, x.Type))
                 .Distinct()
                 .ToList();
         }
@@ -463,14 +532,14 @@ namespace Inkslab.Linq.Tests
                        join y in _userExes
                        on x.Id equals y.Id
                        orderby x.Id descending
-                       select new { x.Id, y.Role, Type = 1 };
+                       select new { x.Id, y.RoleType, Type = 1 };
 
             var linq2 = from x in _users
                         join y in _userExes
                         on x.Id equals y.Id into g
                         from z in g.DefaultIfEmpty()
                         orderby x.Id descending
-                        select new { x.Id, z.Role, Type = 2 };
+                        select new { x.Id, z.RoleType, Type = 2 };
 
             var results = linq.Take(10).Union(linq2.Take(10)).ToList();
         }
@@ -482,14 +551,14 @@ namespace Inkslab.Linq.Tests
                        join y in _userExes
                        on x.Id equals y.Id
                        orderby x.Id descending
-                       select new { x.Id, y.Role, Type = 1 };
+                       select new { x.Id, y.RoleType, Type = 1 };
 
             var linq2 = from x in _users
                         join y in _userExes
                         on x.Id equals y.Id into g
                         from z in g.DefaultIfEmpty()
                         orderby x.Id descending
-                        select new { x.Id, z.Role, Type = 2 };
+                        select new { x.Id, z.RoleType, Type = 2 };
 
             var results = linq.Take(10).Union(linq2.Take(10))
                 .OrderBy(x => x.Id)
@@ -527,7 +596,7 @@ namespace Inkslab.Linq.Tests
         {
             var linq = from x in _users
                        where x.Id == 100 && _userExes.Any(y => y.Id == x.Id && y.Age > 12)
-                       orderby x.Date, x.Name
+                       orderby x.DateAt, x.Name
                        select x.Id;
 
             var results = linq.ToList();
@@ -541,7 +610,7 @@ namespace Inkslab.Linq.Tests
         {
             var linq = from x in _users
                        where x.Id == 100 && _userExes.All(y => y.Id == x.Id && y.Age > 12)
-                       orderby x.Date, x.Name
+                       orderby x.DateAt, x.Name
                        select x.Id;
 
             var results = linq.ToList();
@@ -555,7 +624,7 @@ namespace Inkslab.Linq.Tests
         {
             var linq = from x in _users
                        where x.Id == 100 && _userExes.Where(y => y.Age > 12).Select(y => y.Id).Contains(x.Id)
-                       orderby x.Date, x.Name
+                       orderby x.DateAt, x.Name
                        select x.Id;
 
             var results = linq.ToList();
@@ -571,7 +640,7 @@ namespace Inkslab.Linq.Tests
 
             var linq = from x in _users
                        where x.Id == 100 && ids.Contains(x.Id)
-                       orderby x.Date, x.Name
+                       orderby x.DateAt, x.Name
                        select x.Id;
 
             var results = linq.ToList();
@@ -589,12 +658,12 @@ namespace Inkslab.Linq.Tests
 
             for (int i = 0; i < length; i++)
             {
-                users.Add(new User { Id = i + 256, Name = $"测试：{i:000}", Date = DateTime.Now.AddMinutes(i) });
+                users.Add(new User { Id = i + 256, Name = $"测试：{i:000}", DateAt = DateTime.Now.AddMinutes(i) });
             }
 
             var linq = from x in _users
                        where x.Id == 100 && users.Any(y => x.Id == y.Id)
-                       orderby x.Date, x.Name
+                       orderby x.DateAt, x.Name
                        select x.Id;
 
             var results = linq.ToList();

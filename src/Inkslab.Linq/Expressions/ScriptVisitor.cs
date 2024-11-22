@@ -465,7 +465,7 @@ namespace Inkslab.Linq.Expressions
 
                 Writer.OpenBrace();
 
-                using (var visitor = new SelectVisitor(this))
+                using (var visitor = new SelectVisitor(this, true))
                 {
                     visitor.Startup(node);
                 }

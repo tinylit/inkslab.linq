@@ -582,9 +582,9 @@ namespace Inkslab.Linq
         /// <param name="skipSize">跳过条目数。</param>
         public void SkipSize(int skipSize)
         {
-            if (skipSize < 1)
+            if (skipSize < 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(skipSize), "参数不能小于1。");
+                throw new ArgumentOutOfRangeException(nameof(skipSize), "参数不能小于0。");
             }
 
             this.skipSize += skipSize;

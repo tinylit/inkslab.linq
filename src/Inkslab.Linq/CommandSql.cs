@@ -62,7 +62,8 @@ namespace Inkslab.Linq
             {
                 var name = m.Groups["name"].Value;
 
-                if (Parameters.TryGetValue(name, out var value))
+                if (Parameters.TryGetValue(name, out var value) 
+                    || Parameters.TryGetValue(m.Value, out value)) //? 兼容Database操作。
                 {
                     if (value is null)
                     {

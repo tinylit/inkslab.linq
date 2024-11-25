@@ -194,7 +194,7 @@ namespace Inkslab.Linq.Expressions
         {
             return node.Method.Name switch
             {
-                nameof(Queryable.Take) or nameof(Queryable.Skip) or nameof(Queryable.TakeLast) => IsGrouping((MethodCallExpression)node.Arguments[0]),
+                nameof(Queryable.Take) or nameof(Queryable.Skip) or nameof(Queryable.TakeLast) when node.Arguments[0].NodeType == ExpressionType.Call => IsGrouping((MethodCallExpression)node.Arguments[0]),
                 _ => node.IsGrouping(true),
             };
         }

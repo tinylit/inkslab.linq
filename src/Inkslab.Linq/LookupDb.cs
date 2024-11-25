@@ -69,6 +69,15 @@ namespace Inkslab.Linq
             return DbType.Object;
         }
 
+        private static string Clean(string name)
+        {
+            return name[0] switch
+            {
+                '@' or ':' or '?' => name[1..],
+                _ => name,
+            };
+        }
+
         /// <summary>
         /// 参数适配。
         /// </summary>
@@ -80,7 +89,7 @@ namespace Inkslab.Linq
             var dbParameter = command.CreateParameter();
 
             dbParameter.Value = value is null ? DBNull.Value : value;
-            dbParameter.ParameterName = name;
+            dbParameter.ParameterName = Clean(name);
             dbParameter.Direction = ParameterDirection.Input;
 
             if (value is null)
@@ -129,7 +138,7 @@ namespace Inkslab.Linq
                 case IDbDataParameter dbDataParameter when dbParameter is IDbDataParameter parameter:
 
                     parameter.Value = dbDataParameter.Value;
-                    parameter.ParameterName = name;
+                    parameter.ParameterName = Clean(name);
                     parameter.Direction = dbDataParameter.Direction;
                     parameter.DbType = dbType ?? dbDataParameter.DbType;
                     parameter.SourceColumn = dbDataParameter.SourceColumn;
@@ -146,7 +155,7 @@ namespace Inkslab.Linq
                     break;
                 case IDataParameter dataParameter:
                     dbParameter.Value = dataParameter.Value;
-                    dbParameter.ParameterName = name;
+                    dbParameter.ParameterName = Clean(name);
                     dbParameter.Direction = dataParameter.Direction;
                     dbParameter.DbType = dbType ?? dataParameter.DbType;
                     dbParameter.SourceColumn = dataParameter.SourceColumn;
@@ -154,7 +163,7 @@ namespace Inkslab.Linq
                     break;
                 default:
                     dbParameter.Value = value ?? DBNull.Value;
-                    dbParameter.ParameterName = name;
+                    dbParameter.ParameterName = Clean(name);
                     dbParameter.Direction = direction ?? ParameterDirection.Input;
 
                     if (dbType.HasValue)

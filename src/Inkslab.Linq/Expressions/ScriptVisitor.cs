@@ -86,15 +86,19 @@ namespace Inkslab.Linq.Expressions
         /// <summary>
         /// 成员关系。
         /// </summary>
-        private readonly Dictionary<MemberInfo, ParameterExpression> _memberRelationships = new Dictionary<MemberInfo, ParameterExpression>();
+        private readonly Dictionary<MemberInfo, ParameterExpression> _memberRelationships = new Dictionary<MemberInfo, ParameterExpression>(2);
         /// <summary>
         /// 连表关系。
         /// </summary>
-        private readonly Dictionary<(Type, string), BaseSelectVisitor> _joinRelationships = new Dictionary<(Type, string), BaseSelectVisitor>();
+        private readonly Dictionary<(Type, string), BaseSelectVisitor> _joinRelationships = new Dictionary<(Type, string), BaseSelectVisitor>(2);
         /// <summary>
         /// 参数关系。
         /// </summary>
-        private readonly Dictionary<(Type, string), ParameterExpression> _parameterRelationships = new Dictionary<(Type, string), ParameterExpression>();
+        private readonly HashSet<(Type, string)> _parameterRelationships = new HashSet<(Type, string)>(2);
+        /// <summary>
+        /// 自己的参数。
+        /// </summary>
+        private readonly List<(Type, string)> _parameterOwners = new List<(Type, string)>(1);
 
         /// <inheritdoc/>
         protected ScriptVisitor(IDbAdapter adapter) : base(adapter)
@@ -572,6 +576,7 @@ namespace Inkslab.Linq.Expressions
             if (disposing)
             {
                 _uniqueNames.Clear();
+                _parameterOwners.Clear();
                 _memberRelationships.Clear();
                 _parameterRelationships.Clear();
             }
@@ -686,6 +691,8 @@ namespace Inkslab.Linq.Expressions
         /// <returns>是否刷新成功。</returns>
         protected bool ParameterRefresh(ParameterExpression parameter)
         {
+            _parameterOwners.Add((parameter.Type, parameter.Name));
+
             if (parameterRef)
             {
                 parameterRel = parameter;
@@ -780,7 +787,7 @@ namespace Inkslab.Linq.Expressions
 
             Type parameterType = node.Type;
 
-            if (_parameterRelationships.TryAdd((parameterType, relationshipName), node))
+            if (_parameterRelationships.Add((parameterType, relationshipName)))
             {
                 return _uniqueNames.Add(relationshipName);
             }
@@ -813,8 +820,12 @@ namespace Inkslab.Linq.Expressions
             switch (node)
             {
                 case ParameterExpression parameter:
-                    if (_parameterRelationships.TryGetValue((parameter.Type, parameter.Name), out parameterExpression))
+                    if (_parameterOwners.Contains((parameter.Type, parameter.Name)))
                     {
+                        parameterExpression = parameterRel;
+
+                        parameterRef = false;
+
                         return true;
                     }
 
@@ -830,8 +841,12 @@ namespace Inkslab.Linq.Expressions
                         return TryGetSourceParameter(parameterExpression, out parameterExpression);
                     }
 
-                    if (_parameterRelationships.TryGetValue((memberExpression.Type, memberExpression.Member.Name), out parameterExpression))
+                    if (_parameterOwners.Contains((memberExpression.Type, memberExpression.Member.Name)))
                     {
+                        parameterExpression = parameterRel;
+
+                        parameterRef = false;
+
                         return true;
                     }
 

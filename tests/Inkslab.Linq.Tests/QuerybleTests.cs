@@ -689,13 +689,13 @@ namespace Inkslab.Linq.Tests
             var results = linq.ToList();
         }
 
-/*        /// <summary>
+        /// <summary>
         /// 同表多个别名。
         /// </summary>
         [Fact]
         public void TestLambdaMultiAliasName()
         {
             var user = _users.Where(x => x.Id > 100).OrderBy(z => z.DateAt).FirstOrDefault(y => y.Id < 1000);
-        }*/
+        }
     }
 }

@@ -98,7 +98,12 @@ namespace Inkslab.Linq.Expressions
         /// <summary>
         /// 自己的参数。
         /// </summary>
-        private readonly List<(Type, string)> _parameterOwners = new List<(Type, string)>(1);
+        private readonly HashSet<(Type, string)> _parameterOwners = new HashSet<(Type, string)>(1);
+
+        /// <summary>
+        /// 连表查询。
+        /// </summary>
+        private readonly List<JoinVisitor> _joinVisitors = new List<JoinVisitor>(1);
 
         /// <inheritdoc/>
         protected ScriptVisitor(IDbAdapter adapter) : base(adapter)
@@ -176,10 +181,12 @@ namespace Inkslab.Linq.Expressions
                 case nameof(Queryable.Join):
                 case nameof(Queryable.SelectMany):
 
-                    using (var visitor = new JoinVisitor(this, _joinRelationships, true))
-                    {
-                        visitor.Startup(node);
-                    }
+                    var visitor = new JoinVisitor(this, _joinRelationships, true);
+
+                    _joinVisitors.Add(visitor);
+
+                    visitor.Startup(node);
+
                     break;
                 default:
 
@@ -505,10 +512,11 @@ namespace Inkslab.Linq.Expressions
                 case nameof(Queryable.Join):
                 case nameof(Queryable.SelectMany):
 
-                    using (var visitor = new JoinVisitor(this, _joinRelationships, false))
-                    {
-                        visitor.Startup(node);
-                    }
+                    var visitor = new JoinVisitor(this, _joinRelationships, false);
+
+                    _joinVisitors.Add(visitor);
+
+                    visitor.Startup(node);
 
                     break;
                 default:
@@ -579,6 +587,16 @@ namespace Inkslab.Linq.Expressions
                 _parameterOwners.Clear();
                 _memberRelationships.Clear();
                 _parameterRelationships.Clear();
+
+                if (_joinVisitors.Count > 0)
+                {
+                    foreach (var visitor in _joinVisitors)
+                    {
+                        visitor.Dispose();
+                    }
+
+                    _joinVisitors.Clear();
+                }
             }
 
             base.Dispose(disposing);
@@ -648,19 +666,21 @@ namespace Inkslab.Linq.Expressions
         /// 参数预热。
         /// </summary>
         /// <param name="node">节点。</param>
-        /// <param name="parameterRel">参数。</param>
+        /// <param name="parameterNode">参数。</param>
         /// <returns>预热参数。</returns>
         /// <exception cref="NotSupportedException">表达式不规范。</exception>
-        private static bool TryParametricPreheating(Expression node, ref ParameterExpression parameterRel)
+        private static bool TryParametricPreheating(Expression node, out ParameterExpression parameterNode)
         {
             switch (node)
             {
                 case UnaryExpression unary:
-                    return TryParametricPreheating(unary.Operand, ref parameterRel);
+                    return TryParametricPreheating(unary.Operand, out parameterNode);
                 case LambdaExpression lambda:
-                    parameterRel = lambda.Parameters[0];
+                    parameterNode = lambda.Parameters[0];
                     return true;
                 default:
+                    parameterNode = null;
+
                     return false;
             }
         }
@@ -670,12 +690,12 @@ namespace Inkslab.Linq.Expressions
         {
             if (preheatingParameter)
             {
-                if (TryParametricPreheating(node.Arguments[1], ref parameterRel))
+                if (TryParametricPreheating(node.Arguments[1], out ParameterExpression parameterNode))
                 {
                     preheatedParameter = true;
                     preheatingParameter = false;
 
-                    return true;
+                    return ParameterRefresh(parameterNode);
                 }
 
                 return false;

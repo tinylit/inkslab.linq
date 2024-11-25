@@ -695,7 +695,7 @@ namespace Inkslab.Linq.Tests
         [Fact]
         public void TestLambdaMultiAliasName()
         {
-            var user = _users.Where(x => x.Id > 100).OrderBy(z => z.DateAt).FirstOrDefault(y => y.Id < 1000);
+            var user = _users.Where(x => x.Id > 100).OrderByDescending(z => z.DateAt).FirstOrDefault(y => y.Id < 1000);
         }
     }
 }

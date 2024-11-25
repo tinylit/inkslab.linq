@@ -19,6 +19,17 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
+        protected override void Member(MemberExpression node)
+        {
+            base.Member(node);
+
+            if (_isDescending)
+            {
+                Writer.Keyword(Enums.SqlKeyword.DESC);
+            }
+        }
+
+        /// <inheritdoc/>
         protected override void Member(MemberInfo memberInfo, Expression node)
         {
             base.Member(memberInfo, node);

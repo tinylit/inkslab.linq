@@ -502,7 +502,7 @@ namespace Inkslab.Linq.Expressions
         {
             using (var visitor = new OrderByVisitor(this, isDescending))
             {
-                visitor.Visit(node);
+                visitor.Startup(node);
             }
         }
 

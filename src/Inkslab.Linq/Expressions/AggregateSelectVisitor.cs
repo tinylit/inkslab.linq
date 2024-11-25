@@ -31,6 +31,14 @@ namespace Inkslab.Linq.Expressions
         protected override void StartupCore(MethodCallExpression node) => LinqCall(node);
 
         /// <inheritdoc/>
+        protected override bool Preheat(MethodCallExpression node)
+        {
+            //? 忽略 Group By 的参数分析。
+
+            return true;
+        }
+
+        /// <inheritdoc/>
         protected override void PreparingParameter(LambdaExpression node)
         {
             //? 忽略 Group By 的参数分析。
@@ -185,7 +193,7 @@ namespace Inkslab.Linq.Expressions
         {
             using (var visitor = new OrderByVisitor(this, isDescending, true))
             {
-                visitor.Visit(node);
+                visitor.Startup(node);
             }
         }
 

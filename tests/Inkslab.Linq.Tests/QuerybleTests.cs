@@ -275,11 +275,41 @@ namespace Inkslab.Linq.Tests
         }
 
         [Fact]
+        public void TestLeftJoinSelectElementNotNullMany()
+        {
+            var linq = from x in _users
+                       join y in _userExes
+                       on x.Id equals y.Id
+                       into g
+                       from t in g.DefaultIfEmpty()
+                       join z in _userExes on x.Id equals z.Id + 1
+                       into g2
+                       from t2 in g.DefaultIfEmpty()
+                       where t == null
+                       orderby x.Id descending
+                       select new { x.Id, t2.RoleType, IsValid = t2 != null };
+
+            var results = linq.ToList();
+        }
+
+        [Fact]
         public void TestCrossJoinSelectMany()
         {
             var linq = from x in _users
                        from y in _userExes
                        orderby x.Id descending
+                       select new { x.Id, y.RoleType };
+
+            var results = linq.ToList();
+        }
+
+        [Fact]
+        public void TestCrossJoinWhereElementNullSelectMany()
+        {
+            var linq = from x in _users
+                       from y in _userExes
+                       orderby x.Id descending
+                       where x == null || y == null
                        select new { x.Id, y.RoleType };
 
             var results = linq.ToList();

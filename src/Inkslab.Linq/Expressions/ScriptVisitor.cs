@@ -449,41 +449,39 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected internal virtual void Circuity(MethodCallExpression node)
         {
-            DataSourceMode();
-
-            Writer.OpenBrace();
-
-            using (var visitor = new SelectVisitor(this))
+            switch (node.Method.Name)
             {
-                visitor.Startup(node);
+                case nameof(Queryable.SelectMany):
+                case nameof(Queryable.GroupJoin):
+                    VisitMethodCall(node);
+                    break;
+                default:
+                    DataSourceMode();
+
+                    Writer.OpenBrace();
+
+                    using (var visitor = new SelectVisitor(this, true))
+                    {
+                        visitor.Startup(node);
+                    }
+
+                    Writer.CloseBrace();
+
+                    TableAs();
+                    break;
             }
-
-            Writer.CloseBrace();
-
-            TableAs();
         }
 
         /// <inheritdoc/>
         protected internal virtual void Circuity(Expression node)
         {
-            if (node.NodeType == ExpressionType.Constant)
+            if (node.NodeType == ExpressionType.Call)
             {
-                Visit(node);
+                Circuity((MethodCallExpression)node);
             }
             else
             {
-                DataSourceMode();
-
-                Writer.OpenBrace();
-
-                using (var visitor = new SelectVisitor(this, true))
-                {
-                    visitor.Startup(node);
-                }
-
-                Writer.CloseBrace();
-
-                TableAs();
+                Visit(node);
             }
         }
 

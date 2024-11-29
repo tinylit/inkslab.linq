@@ -348,17 +348,17 @@ namespace Inkslab.Linq.Expressions
                 case ExpressionType.GreaterThanOrEqual:
                 case ExpressionType.Call when node.Type.IsBoolean():
                     return true;
+                case ExpressionType.Quote:
+                case ExpressionType.Convert:
+                case ExpressionType.ConvertChecked:
+                case ExpressionType.OnesComplement:
+                case ExpressionType.IsTrue:
+                case ExpressionType.IsFalse:
+                case ExpressionType.Not:
+                    return IsCondition(((UnaryExpression)node).Operand);
+                case ExpressionType.Lambda:
+                    return IsCondition(((LambdaExpression)node).Body);
                 default:
-                    if (node is UnaryExpression unary)
-                    {
-                        return IsCondition(unary.Operand);
-                    }
-
-                    if (node is LambdaExpression lambda)
-                    {
-                        return IsCondition(lambda.Body);
-                    }
-
                     return false;
             }
         }
@@ -1928,6 +1928,40 @@ namespace Inkslab.Linq.Expressions
                     Coalesce(left, right);
 
                     break;
+                case ExpressionType.Equal when right.NodeType == ExpressionType.Constant && left.NodeType == ExpressionType.MemberAccess && !left.Type.IsCell():
+                case ExpressionType.NotEqual when right.NodeType == ExpressionType.Constant && left.NodeType == ExpressionType.MemberAccess && !left.Type.IsCell():
+                    {
+                        var constant = (ConstantExpression)right;
+
+                        if (constant.Value is null)
+                        {
+                            if (JoinBranchElementIsNull(left, expressionType == ExpressionType.NotEqual))
+                            {
+                                break;
+                            }
+
+                            throw new DSyntaxErrorException($"不支持参数类型“{left.Type}”与“null”的比较！");
+                        }
+
+                        throw new DSyntaxErrorException($"不支持参数类型“{left.Type}”与非“null”常量值的比较！");
+                    }
+                case ExpressionType.Equal when left.NodeType == ExpressionType.Constant && right.NodeType == ExpressionType.MemberAccess && !right.Type.IsCell():
+                case ExpressionType.NotEqual when left.NodeType == ExpressionType.Constant && right.NodeType == ExpressionType.MemberAccess && !right.Type.IsCell():
+                    {
+                        var constant = (ConstantExpression)left;
+
+                        if (constant.Value is null)
+                        {
+                            if (JoinBranchElementIsNull(right, expressionType == ExpressionType.NotEqual))
+                            {
+                                break;
+                            }
+
+                            throw new DSyntaxErrorException($"不支持参数类型“{right.Type}”与“null”的比较！");
+                        }
+
+                        throw new DSyntaxErrorException($"不支持参数类型“{right.Type}”与非“null”常量值的比较！");
+                    }
                 case ExpressionType.Equal:
                 case ExpressionType.NotEqual:
                 case ExpressionType.GreaterThan:
@@ -2112,6 +2146,90 @@ namespace Inkslab.Linq.Expressions
                 default:
                     throw new NotSupportedException();
             }
+        }
+
+        private bool JoinBranchElementIsNull(Expression left, bool isExpressionNotEqual)
+        {
+            if (!TryGetSourceParameter(left, out var parameterExpression) || !TryGetSourceTableInfo(parameterExpression, out var tableInfo))
+            {
+                return false;
+            }
+
+            bool commaFlag = false;
+
+            if (tableInfo.Keys.Count > 0)
+            {
+                foreach (var key in tableInfo.Keys)
+                {
+                    if (!tableInfo.Fields.TryGetValue(key, out var field))
+                    {
+                        continue;
+                    }
+
+                    if (commaFlag)
+                    {
+                        if (isExpressionNotEqual)
+                        {
+                            Writer.Keyword(Enums.SqlKeyword.OR);
+                        }
+                        else
+                        {
+                            Writer.Keyword(Enums.SqlKeyword.AND);
+                        }
+                    }
+                    else
+                    {
+                        commaFlag = true;
+                    }
+
+                    Writer.Schema(parameterExpression.Name);
+                    Writer.Name(field);
+
+                    Writer.Keyword(Enums.SqlKeyword.IS);
+
+                    if (isExpressionNotEqual)
+                    {
+                        Writer.Keyword(Enums.SqlKeyword.NOT);
+                    }
+
+                    Writer.Keyword(Enums.SqlKeyword.NULL);
+                }
+            }
+            else
+            {
+                foreach (var field in tableInfo.Fields.Values)
+                {
+                    if (commaFlag)
+                    {
+                        if (isExpressionNotEqual)
+                        {
+                            Writer.Keyword(Enums.SqlKeyword.OR);
+                        }
+                        else
+                        {
+                            Writer.Keyword(Enums.SqlKeyword.AND);
+                        }
+                    }
+                    else
+                    {
+                        commaFlag = true;
+                    }
+
+                    Writer.Schema(parameterExpression.Name);
+                    Writer.Name(field);
+
+                    Writer.Keyword(Enums.SqlKeyword.IS);
+
+                    if (isExpressionNotEqual)
+                    {
+                        Writer.Keyword(Enums.SqlKeyword.NOT);
+                    }
+
+                    Writer.Keyword(Enums.SqlKeyword.NULL);
+                }
+            }
+
+            return true;
         }
 
         /// <summary>

@@ -20,7 +20,11 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         public void Startup(MemberInfo memberInfo, Expression node)
         {
-            if (IsCondition(node))
+            if (Engine == DatabaseEngine.MySQL || !IsCondition(node))
+            {
+                Visit(node);
+            }
+            else
             {
                 Writer.Keyword(Enums.SqlKeyword.CASE);
                 Writer.Keyword(Enums.SqlKeyword.WHEN);
@@ -29,17 +33,13 @@ namespace Inkslab.Linq.Expressions
 
                 Writer.Keyword(Enums.SqlKeyword.THEN);
 
-                Writer.AlwaysTrue();
+                Writer.True();
 
                 Writer.Keyword(Enums.SqlKeyword.ELSE);
 
-                Writer.AlwaysFalse();
+                Writer.False();
 
                 Writer.Keyword(Enums.SqlKeyword.END);
-            }
-            else
-            {
-                Visit(node);
             }
 
             if (_showAs)

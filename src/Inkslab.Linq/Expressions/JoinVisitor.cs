@@ -9,19 +9,19 @@ namespace Inkslab.Linq.Expressions
     /// <summary>
     /// 链表访问器。
     /// </summary>
-    public class JoinVisitor : BaseSelectVisitor
+    public class JoinVisitor : SelectVisitor
     {
         private JoinType joinType = JoinType.INNER;
 
         private Transverter transverter = Transverter.Empty;
 
         private readonly ScriptVisitor _visitor;
-        private readonly Dictionary<(Type, string), BaseSelectVisitor> _joinRelationships;
+        private readonly Dictionary<(Type, string), SelectVisitor> _joinRelationships;
         private readonly bool _buildSelect;
         private readonly TransverterVisitor _transverterVisitor;
 
         /// <inheritdoc/>
-        public JoinVisitor(ScriptVisitor visitor, Dictionary<(Type, string), BaseSelectVisitor> joinRelationships, bool buildSelect) : base(visitor, ConditionType.On)
+        public JoinVisitor(ScriptVisitor visitor, Dictionary<(Type, string), SelectVisitor> joinRelationships, bool buildSelect) : base(visitor, ConditionType.On)
         {
             _visitor = visitor;
             _joinRelationships = joinRelationships;
@@ -325,10 +325,10 @@ namespace Inkslab.Linq.Expressions
             private readonly JoinVisitor _visitor;
             private readonly ScriptVisitor _scriptVisitor;
             private readonly List<Expression> _expressions = new List<Expression>(1);
-            private readonly Dictionary<(Type, string), BaseSelectVisitor> _joinRelationships;
+            private readonly Dictionary<(Type, string), SelectVisitor> _joinRelationships;
             private readonly HashSet<(Type, string)> _hashSet = new HashSet<(Type, string)>(1);
 
-            public TransverterVisitor(JoinVisitor visitor, ScriptVisitor scriptVisitor, Dictionary<(Type, string), BaseSelectVisitor> joinRelationships)
+            public TransverterVisitor(JoinVisitor visitor, ScriptVisitor scriptVisitor, Dictionary<(Type, string), SelectVisitor> joinRelationships)
             {
                 _visitor = visitor;
                 _scriptVisitor = scriptVisitor;
@@ -400,9 +400,9 @@ namespace Inkslab.Linq.Expressions
             {
                 private readonly JoinVisitor _visitor;
                 private readonly HashSet<(Type, string)> _hashSet;
-                private readonly Dictionary<(Type, string), BaseSelectVisitor> _joinRelationships;
+                private readonly Dictionary<(Type, string), SelectVisitor> _joinRelationships;
 
-                public PrepareVisitor(JoinVisitor visitor, ScriptVisitor scriptVisitor, Dictionary<(Type, string), BaseSelectVisitor> joinRelationships, HashSet<(Type, string)> hashSet) : base(scriptVisitor)
+                public PrepareVisitor(JoinVisitor visitor, ScriptVisitor scriptVisitor, Dictionary<(Type, string), SelectVisitor> joinRelationships, HashSet<(Type, string)> hashSet) : base(scriptVisitor)
                 {
                     _hashSet = hashSet;
                     _visitor = visitor;

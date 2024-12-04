@@ -76,7 +76,7 @@ namespace Inkslab.Linq.Expressions
             {
                 switch (node.Method.Name)
                 {
-                    case nameof(L2S.Condition):
+                    case nameof(Conditions.Condition):
                         // 准备参数。
                         var expressions = new List<Expression>();
                         var argVisitor = new ConditionArgExpressionVisitor(expressions);

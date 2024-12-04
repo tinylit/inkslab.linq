@@ -18,7 +18,7 @@ namespace Inkslab.Linq
         /// <summary>
         /// <see cref="L2S"/>
         /// </summary>
-        public static readonly Type L2S = typeof(L2S);
+        public static readonly Type L2S = typeof(Conditions);
 
         /// <summary>
         /// <see cref="System.Linq.Queryable"/>

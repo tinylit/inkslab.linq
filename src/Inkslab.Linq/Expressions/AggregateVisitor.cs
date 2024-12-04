@@ -21,10 +21,10 @@ namespace Inkslab.Linq.Expressions
         /// </summary>
         private bool isGrouping = false;
 
-        private readonly BaseSelectVisitor _visitor;
+        private readonly SelectVisitor _visitor;
 
         /// <inheritdoc/>
-        public AggregateVisitor(BaseSelectVisitor visitor) : base(visitor, false)
+        public AggregateVisitor(SelectVisitor visitor) : base(visitor, false)
         {
             _visitor = visitor;
         }

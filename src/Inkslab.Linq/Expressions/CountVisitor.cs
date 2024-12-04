@@ -21,10 +21,10 @@ namespace Inkslab.Linq.Expressions
         private bool isDistinct = false;
 
 
-        private readonly BaseSelectVisitor _visitor;
+        private readonly SelectVisitor _visitor;
 
         /// <inheritdoc/>
-        public CountVisitor(BaseSelectVisitor visitor) : base(visitor, ConditionType.Where)
+        public CountVisitor(SelectVisitor visitor) : base(visitor, ConditionType.Where)
         {
             _visitor = visitor;
         }

@@ -1,6 +1,6 @@
-﻿using Inkslab.Linq.Enums;
-using System;
+﻿using System;
 using System.Linq.Expressions;
+using Inkslab.Linq.Enums;
 
 namespace Inkslab.Linq.Expressions
 {
@@ -10,9 +10,8 @@ namespace Inkslab.Linq.Expressions
     public class AllVisitor : SelectVisitor
     {
         /// <inheritdoc/>
-        public AllVisitor(BaseVisitor visitor) : base(visitor)
-        {
-        }
+        public AllVisitor(BaseVisitor visitor)
+            : base(visitor) { }
 
         /// <summary>
         /// 启动类。

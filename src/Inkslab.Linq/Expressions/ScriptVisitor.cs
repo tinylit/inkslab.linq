@@ -90,7 +90,7 @@ namespace Inkslab.Linq.Expressions
         /// <summary>
         /// 连表关系。
         /// </summary>
-        private readonly Dictionary<(Type, string), BaseSelectVisitor> _joinRelationships = new Dictionary<(Type, string), BaseSelectVisitor>(2);
+        private readonly Dictionary<(Type, string), SelectVisitor> _joinRelationships = new Dictionary<(Type, string), SelectVisitor>(2);
         /// <summary>
         /// 参数关系。
         /// </summary>

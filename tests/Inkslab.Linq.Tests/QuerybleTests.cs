@@ -511,7 +511,7 @@ namespace Inkslab.Linq.Tests
             var linq = from x in _users
                        group x by x.Name
                        into g
-                       where L2S.Condition(g, x => x.Count() > 1)
+                       where Conditions.Condition(g, x => x.Count() > 1)
                        select g.Key;
 
             var max = linq.Distinct().Max();

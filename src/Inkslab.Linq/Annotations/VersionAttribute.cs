@@ -10,8 +10,5 @@ namespace Inkslab.Linq.Annotations
     /// <see cref="DateTime"/>：获取 <see cref="DateTime.Now"/>。<br/>
     /// </summary>
     [AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
-    public sealed class VersionAttribute : Attribute
-    {
-        
-    }
+    public sealed class VersionAttribute : Attribute { }
 }

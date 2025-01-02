@@ -1,5 +1,6 @@
 using Inkslab.Linq.Annotations;
 using System;
+using System.ComponentModel.DataAnnotations;
 
 namespace Inkslab.Linq.Tests
 {

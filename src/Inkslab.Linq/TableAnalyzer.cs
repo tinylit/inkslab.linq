@@ -1,11 +1,12 @@
-﻿using Inkslab.Linq.Enums;
-using Inkslab.Linq.Options;
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Text.RegularExpressions;
+using Inkslab.Linq.Enums;
+using Inkslab.Linq.Options;
 
 namespace Inkslab.Linq
 {
@@ -15,16 +16,31 @@ namespace Inkslab.Linq
     public static class TableAnalyzer
     {
         private static readonly ITableAnalyzer _analyzer;
-        private static readonly ConcurrentDictionary<Type, ITableInfo> _tables = new ConcurrentDictionary<Type, ITableInfo>();
+        private static readonly ConcurrentDictionary<Type, ITableInfo> _tables =
+            new ConcurrentDictionary<Type, ITableInfo>();
 
-        static TableAnalyzer() => _analyzer = SingletonPools.Singleton<ITableAnalyzer, DefaultTableAnalyzer>();
+        static TableAnalyzer() =>
+            _analyzer = SingletonPools.Singleton<ITableAnalyzer, DefaultTableAnalyzer>();
 
         private class TableInfo : ITableInfo
         {
-            public TableInfo(string schema, string name, HashSet<string> keys, HashSet<string> readOnlys, Dictionary<string, VersionKind> versions, Dictionary<string, string> fields)
+            private static readonly Regex _shardingToken = new Regex(
+                "\\?/\\!|\\[.*?\\]/\\{.*?\\}",
+                RegexOptions.Compiled | RegexOptions.Singleline
+            );
+
+            public TableInfo(
+                string schema,
+                string name,
+                HashSet<string> keys,
+                HashSet<string> readOnlys,
+                Dictionary<string, VersionKind> versions,
+                Dictionary<string, string> fields
+            )
             {
                 Schema = schema;
                 Name = name;
+                DataSharding = _shardingToken.IsMatch(name);
                 Keys = keys;
                 ReadOnlys = readOnlys;
                 Versions = versions;
@@ -35,6 +51,8 @@ namespace Inkslab.Linq
 
             public virtual string Name { get; }
 
+            public bool DataSharding { get; }
+
             public IReadOnlyCollection<string> Keys { get; }
 
             public IReadOnlyCollection<string> ReadOnlys { get; }
@@ -42,6 +60,24 @@ namespace Inkslab.Linq
             public IReadOnlyDictionary<string, VersionKind> Versions { get; }
 
             public IReadOnlyDictionary<string, string> Fields { get; }
+
+            public string Fragment(string shardingKey)
+            {
+                if (string.IsNullOrEmpty(shardingKey))
+                {
+                    throw new ArgumentException(
+                        $"'{nameof(shardingKey)}' cannot be null or empty.",
+                        nameof(shardingKey)
+                    );
+                }
+
+                if (DataSharding)
+                {
+                    return _shardingToken.Replace(Name, shardingKey);
+                }
+
+                throw new NotSupportedException("该表不支持分片!");
+            }
         }
 
         private class Config : TabelOptions, IConfig, IConfigTable
@@ -55,7 +91,11 @@ namespace Inkslab.Linq
                 _tableType = tableType;
             }
 
-            public IConfigTable Field(PropertyInfo propertyInfo, string name, Action<IConfigCol> configCol = null)
+            public IConfigTable Field(
+                PropertyInfo propertyInfo,
+                string name,
+                Action<IConfigCol> configCol = null
+            )
             {
                 if (propertyInfo is null)
                 {
@@ -104,7 +144,11 @@ namespace Inkslab.Linq
         {
             public bool IsValid { get; set; }
 
-            public IConfigTable<Table> Field<TCol>(Expression<Func<Table, TCol>> memberCol, string name, Action<IConfigCol> configCol = null)
+            public IConfigTable<Table> Field<TCol>(
+                Expression<Func<Table, TCol>> memberCol,
+                string name,
+                Action<IConfigCol> configCol = null
+            )
             {
                 if (memberCol is null)
                 {
@@ -132,8 +176,11 @@ namespace Inkslab.Linq
                 return node switch
                 {
                     MemberExpression member => member.Member.Name,
-                    BlockExpression block when block.Variables.Count == 0 && block.Expressions.Count == 1 => Field(block.Expressions[0]),
-                    GotoExpression @goto when @goto.Kind == GotoExpressionKind.Return => Field(@goto.Value),
+                    BlockExpression block
+                        when block.Variables.Count == 0 && block.Expressions.Count == 1
+                        => Field(block.Expressions[0]),
+                    GotoExpression @goto when @goto.Kind == GotoExpressionKind.Return
+                        => Field(@goto.Value),
                     _ => throw new NotSupportedException(),
                 };
             }
@@ -204,47 +251,61 @@ namespace Inkslab.Linq
                 throw new ArgumentNullException(nameof(tableType));
             }
 
-            return _tables.GetOrAdd(tableType, type =>
-            {
-                var options = _analyzer.Table(type) ?? throw new NotSupportedException();
-
-                if (options.Name.IsEmpty())
+            return _tables.GetOrAdd(
+                tableType,
+                type =>
                 {
-                    throw new NotSupportedException("请指定表名称！");
-                }
+                    var options = _analyzer.Table(type) ?? throw new NotSupportedException();
 
-                if (options.Columns.Count == 0)
-                {
-                    throw new NotSupportedException("请声明字段！");
-                }
-
-                HashSet<string> keys = new HashSet<string>(1);
-                HashSet<string> readOnlys = new HashSet<string>(1);
-                Dictionary<string, VersionKind> versions = new Dictionary<string, VersionKind>(1);
-                Dictionary<string, string> fields = new Dictionary<string, string>(options.Columns.Count);
-
-                foreach (var (key, col) in options.Columns)
-                {
-                    if (col.Key)
+                    if (options.Name.IsEmpty())
                     {
-                        keys.Add(key);
+                        throw new NotSupportedException("请指定表名称！");
                     }
 
-                    if (col.ReadOnly)
+                    if (options.Columns.Count == 0)
                     {
-                        readOnlys.Add(key);
+                        throw new NotSupportedException("请声明字段！");
                     }
 
-                    if (col.Version > VersionKind.None)
+                    HashSet<string> keys = new HashSet<string>(1);
+                    HashSet<string> readOnlys = new HashSet<string>(1);
+                    Dictionary<string, VersionKind> versions = new Dictionary<string, VersionKind>(
+                        1
+                    );
+                    Dictionary<string, string> fields = new Dictionary<string, string>(
+                        options.Columns.Count
+                    );
+
+                    foreach (var (key, col) in options.Columns)
                     {
-                        versions.Add(key, col.Version);
+                        if (col.Key)
+                        {
+                            keys.Add(key);
+                        }
+
+                        if (col.ReadOnly)
+                        {
+                            readOnlys.Add(key);
+                        }
+
+                        if (col.Version > VersionKind.None)
+                        {
+                            versions.Add(key, col.Version);
+                        }
+
+                        fields.Add(key, col.Name);
                     }
 
-                    fields.Add(key, col.Name);
+                    return new TableInfo(
+                        options.Schema ?? string.Empty,
+                        options.Name,
+                        keys,
+                        readOnlys,
+                        versions,
+                        fields
+                    );
                 }
-
-                return new TableInfo(options.Schema ?? string.Empty, options.Name, keys, readOnlys, versions, fields);
-            });
+            );
         }
 
         private static bool Register(Type tableType, TabelOptions options)
@@ -275,9 +336,16 @@ namespace Inkslab.Linq
             HashSet<string> readOnlys = new HashSet<string>(1);
             Dictionary<string, VersionKind> versions = new Dictionary<string, VersionKind>(1);
 
-            Dictionary<string, string> cloumns = new Dictionary<string, string>(optionsGlobal.Columns.Count);
+            Dictionary<string, string> cloumns = new Dictionary<string, string>(
+                optionsGlobal.Columns.Count
+            );
 
-            foreach (var (key, col) in options.Columns.Union(optionsGlobal.Columns, Singleton<EqualityComparer>.Instance))
+            foreach (
+                var (key, col) in options.Columns.Union(
+                    optionsGlobal.Columns,
+                    Singleton<EqualityComparer>.Instance
+                )
+            )
             {
                 if (col.Ignore)
                 {
@@ -302,12 +370,23 @@ namespace Inkslab.Linq
                 cloumns.Add(key, col.Name);
             }
 
-            return _tables.TryAdd(tableType, new TableInfo(options.Schema ?? string.Empty, options.Name, keys, readOnlys, versions, cloumns));
+            return _tables.TryAdd(
+                tableType,
+                new TableInfo(
+                    options.Schema ?? string.Empty,
+                    options.Name,
+                    keys,
+                    readOnlys,
+                    versions,
+                    cloumns
+                )
+            );
         }
 
         private class EqualityComparer : IEqualityComparer<KeyValuePair<string, Column>>
         {
-            public bool Equals(KeyValuePair<string, Column> x, KeyValuePair<string, Column> y) => string.Equals(x.Key, y.Key, StringComparison.OrdinalIgnoreCase);
+            public bool Equals(KeyValuePair<string, Column> x, KeyValuePair<string, Column> y) =>
+                string.Equals(x.Key, y.Key, StringComparison.OrdinalIgnoreCase);
 
             public int GetHashCode(KeyValuePair<string, Column> obj) => obj.Key.GetHashCode();
         }
@@ -319,7 +398,8 @@ namespace Inkslab.Linq
         /// <param name="config">配置器（没有配置的属性，将使用默认配置）。</param>
         /// <returns>是否注册成功。</returns>
         /// <exception cref="ArgumentNullException">参数“<paramref name="config"/>”为“null”。</exception>
-        public static bool Register<Table>(Action<IConfig<Table>> config) where Table : class
+        public static bool Register<Table>(Action<IConfig<Table>> config)
+            where Table : class
         {
             if (config is null)
             {

@@ -1,20 +1,20 @@
-﻿using Inkslab.Linq.Abilities;
-using Microsoft.Extensions.Logging;
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
-using System.Linq.Expressions;
 using System.Linq;
-using System.Text.RegularExpressions;
+using System.Linq.Expressions;
 using System.Text;
-using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 using System.Threading;
+using System.Threading.Tasks;
+using Inkslab.Linq.Abilities;
 using Inkslab.Linq.Enums;
+using Microsoft.Extensions.Logging;
+using static System.Linq.Expressions.Expression;
 #if NET6_0_OR_GREATER
 using System.ComponentModel.DataAnnotations;
 #endif
-using static System.Linq.Expressions.Expression;
 
 namespace Inkslab.Linq
 {
@@ -22,11 +22,11 @@ namespace Inkslab.Linq
     /// 仓库路由。
     /// </summary>
     /// <typeparam name="TEntity">实体类型。</typeparam>
-    public class RepositoryRouter<TEntity> : IRepositoryRouter<TEntity> where TEntity : class, new()
+    public class RepositoryRouter<TEntity> : IRepositoryRouter<TEntity>
+        where TEntity : class, new()
     {
         private static readonly Type _elementType;
         private static readonly ITableInfo _instance;
-
         private readonly IDatabaseExecutor _databaseExecutor;
         private readonly IConnectionStrings _connectionStrings;
         private readonly IDbCorrectSettings _settings;
@@ -46,7 +46,12 @@ namespace Inkslab.Linq
         /// <param name="connectionStrings">数据库链接。</param>
         /// <param name="settings">矫正设置。</param>
         /// <param name="logger">日志。</param>
-        public RepositoryRouter(IDatabaseExecutor databaseExecutor, IConnectionStrings connectionStrings, IDbCorrectSettings settings, ILogger<RepositoryRouter<TEntity>> logger)
+        public RepositoryRouter(
+            IDatabaseExecutor databaseExecutor,
+            IConnectionStrings connectionStrings,
+            IDbCorrectSettings settings,
+            ILogger<RepositoryRouter<TEntity>> logger
+        )
         {
             _databaseExecutor = databaseExecutor;
             _connectionStrings = connectionStrings;
@@ -67,19 +72,25 @@ namespace Inkslab.Linq
 
             return body.NodeType switch
             {
-                ExpressionType.Constant when body is ConstantExpression constant => constant.Value switch
-                {
-                    string text => text.Split(',', ' '),
-                    string[] arr => arr,
-                    _ => throw new NotImplementedException(),
-                },
-                ExpressionType.MemberAccess when body is MemberExpression member => new string[] { member.Member.Name },
-                ExpressionType.MemberInit when body is MemberInitExpression memberInit => memberInit.Bindings.Select(x => x.Member.Name).ToArray(),
-                ExpressionType.New when body is NewExpression newExpression => newExpression.Members?.Select(x => x.Name).ToArray() ?? Array.Empty<string>(),
-                ExpressionType.Parameter => _instance.Fields
-                    .SkipWhile(x => _instance.ReadOnlys.Contains(x.Key))
-                    .Select(x => x.Key)
-                    .ToArray(),
+                ExpressionType.Constant when body is ConstantExpression constant
+                    => constant.Value switch
+                    {
+                        string text => text.Split(',', ' '),
+                        string[] arr => arr,
+                        _ => throw new NotImplementedException(),
+                    },
+                ExpressionType.MemberAccess when body is MemberExpression member
+                    => new string[] { member.Member.Name },
+                ExpressionType.MemberInit when body is MemberInitExpression memberInit
+                    => memberInit.Bindings.Select(x => x.Member.Name).ToArray(),
+                ExpressionType.New when body is NewExpression newExpression
+                    => newExpression.Members?.Select(x => x.Name).ToArray()
+                        ?? Array.Empty<string>(),
+                ExpressionType.Parameter
+                    => _instance
+                        .Fields.SkipWhile(x => _instance.ReadOnlys.Contains(x.Key))
+                        .Select(x => x.Key)
+                        .ToArray(),
                 _ => throw new NotSupportedException($"不支持表达式({columns})!"),
             };
         }
@@ -92,7 +103,18 @@ namespace Inkslab.Linq
                 throw new ArgumentNullException(nameof(entries));
             }
 
-            return new Insertable(_databaseExecutor, _connectionStrings, _settings, entries);
+            if (_instance.DataSharding)
+            {
+                throw new NotSupportedException($"“{_instance.Name}”是分片表，但未指定操作分片键！");
+            }
+
+            return new Insertable(
+                _databaseExecutor,
+                _connectionStrings,
+                _settings,
+                string.Empty,
+                entries
+            );
         }
 
         /// <inheritdoc/>
@@ -108,7 +130,19 @@ namespace Inkslab.Linq
                 throw new NotSupportedException("不支持无主键表的更新操作！");
             }
 
-            return new Updateable(_databaseExecutor, _connectionStrings, _settings, _logger, entries);
+            if (_instance.DataSharding)
+            {
+                throw new NotSupportedException($"“{_instance.Name}”是分片表，但未指定操作分片键！");
+            }
+
+            return new Updateable(
+                _databaseExecutor,
+                _connectionStrings,
+                _settings,
+                string.Empty,
+                _logger,
+                entries
+            );
         }
 
         /// <inheritdoc/>
@@ -124,7 +158,118 @@ namespace Inkslab.Linq
                 throw new NotSupportedException("不支持无主键表的删除操作！");
             }
 
-            return new Deleteable(_databaseExecutor, _connectionStrings, _settings, _logger, entries);
+            if (_instance.DataSharding)
+            {
+                throw new NotSupportedException($"“{_instance.Name}”是分片表，但未指定操作分片键！");
+            }
+
+            return new Deleteable(
+                _databaseExecutor,
+                _connectionStrings,
+                _settings,
+                string.Empty,
+                _logger,
+                entries
+            );
+        }
+
+        /// <inheritdoc/>
+        public IInsertable<TEntity> AsInsertable(string shardingKey, List<TEntity> entries)
+        {
+            if (string.IsNullOrEmpty(shardingKey))
+            {
+                throw new ArgumentException(
+                    $"'{nameof(shardingKey)}' cannot be null or empty.",
+                    nameof(shardingKey)
+                );
+            }
+
+            if (entries is null)
+            {
+                throw new ArgumentNullException(nameof(entries));
+            }
+
+            if (!_instance.DataSharding)
+            {
+                throw new InvalidOperationException($"“{_instance.Name}”不是分片表！");
+            }
+
+            return new Insertable(
+                _databaseExecutor,
+                _connectionStrings,
+                _settings,
+                shardingKey,
+                entries
+            );
+        }
+
+        /// <inheritdoc/>
+        public IUpdateable<TEntity> AsUpdateable(string shardingKey, List<TEntity> entries)
+        {
+            if (shardingKey is null)
+            {
+                throw new ArgumentNullException(nameof(shardingKey));
+            }
+
+            if (entries is null)
+            {
+                throw new ArgumentNullException(nameof(entries));
+            }
+
+            if (_instance.Keys.Count == 0)
+            {
+                throw new NotSupportedException("不支持无主键表的更新操作！");
+            }
+
+            if (!_instance.DataSharding)
+            {
+                throw new InvalidOperationException($"“{_instance.Name}”不是分片表！");
+            }
+
+            return new Updateable(
+                _databaseExecutor,
+                _connectionStrings,
+                _settings,
+                shardingKey,
+                _logger,
+                entries
+            );
+        }
+
+        /// <inheritdoc/>
+        public IDeleteable<TEntity> AsDeleteable(string shardingKey, List<TEntity> entries)
+        {
+            if (string.IsNullOrEmpty(shardingKey))
+            {
+                throw new ArgumentException(
+                    $"'{nameof(shardingKey)}' cannot be null or empty.",
+                    nameof(shardingKey)
+                );
+            }
+
+            if (entries is null)
+            {
+                throw new ArgumentNullException(nameof(entries));
+            }
+
+            if (_instance.Keys.Count == 0)
+            {
+                throw new NotSupportedException("不支持无主键表的删除操作！");
+            }
+
+            if (!_instance.DataSharding)
+            {
+                throw new InvalidOperationException($"“{_instance.Name}”不是分片表！");
+            }
+
+            return new Deleteable(
+                _databaseExecutor,
+                _connectionStrings,
+                _settings,
+                shardingKey,
+                _logger,
+                entries
+            );
         }
 
         #region 命令。
@@ -149,6 +294,7 @@ namespace Inkslab.Linq
 
             public object GetValue(TEntity entry) => _factory.Invoke(entry);
         }
+
         private abstract class Command
         {
             /// <summary>
@@ -161,19 +307,21 @@ namespace Inkslab.Linq
             /// </summary>
             public const int MAX_IN_SQL_PARAMETERS_COUNT = 256;
 
-            private static readonly Regex _shardingToken = new Regex("\\?/\\!|\\[.*?\\]/\\{.*?\\}", RegexOptions.Compiled | RegexOptions.Singleline);
+            private static readonly ConcurrentDictionary<
+                Type,
+                Dictionary<string, Entry>
+            > _cachings = new ConcurrentDictionary<Type, Dictionary<string, Entry>>();
 
-            private static readonly ConcurrentDictionary<Type, Dictionary<string, Entry>> _cachings = new ConcurrentDictionary<Type, Dictionary<string, Entry>>();
-
-            public Command(List<TEntity> entities, IDbCorrectSettings settings)
+            public Command(List<TEntity> entities, IDbCorrectSettings settings, string shardingKey)
             {
-                Name = _instance.Name;
+                Name = shardingKey?.Length > 0 ? _instance.Fragment(shardingKey) : _instance.Name;
 
-                Schema = settings.Engine == DatabaseEngine.SqlServer
-                    ? _instance.Schema.IsEmpty()
-                        ? "dbo"
-                        : _instance.Schema
-                    : _instance.Schema;
+                Schema =
+                    settings.Engine == DatabaseEngine.SqlServer
+                        ? _instance.Schema.IsEmpty()
+                            ? "dbo"
+                            : _instance.Schema
+                        : _instance.Schema;
 
                 Entities = entities;
                 Settings = settings;
@@ -189,21 +337,11 @@ namespace Inkslab.Linq
 
             public string Schema { get; }
 
-            public string Name { private set; get; }
+            public string Name { get; }
 
             public HashSet<string> Fields { protected set; get; }
 
             public int? Timeout { get; set; }
-
-            public void DataSharding(string shardingKey)
-            {
-                if (string.IsNullOrEmpty(shardingKey))
-                {
-                    throw new ArgumentException($"“{nameof(shardingKey)}”不能为 null 或空。", nameof(shardingKey));
-                }
-
-                Name = _shardingToken.Replace(_instance.Name, shardingKey);
-            }
 
             public void Except(string[] columns)
             {
@@ -212,16 +350,19 @@ namespace Inkslab.Linq
                     throw new ArgumentNullException(nameof(columns));
                 }
 
-                Array.ForEach(columns, column =>
-                {
-                    if (!Fields.Remove(column))
+                Array.ForEach(
+                    columns,
+                    column =>
                     {
-                        if (_instance.Fields.TryGetValue(column, out var value))
+                        if (!Fields.Remove(column))
                         {
-                            Fields.Remove(value);
+                            if (_instance.Fields.TryGetValue(column, out var value))
+                            {
+                                Fields.Remove(value);
+                            }
                         }
                     }
-                });
+                );
             }
 
             public void Limit(string[] columns)
@@ -233,25 +374,30 @@ namespace Inkslab.Linq
 
                 var fields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-                Array.ForEach(columns, column =>
-                {
-                    if (_instance.Fields.ContainsKey(column))
+                Array.ForEach(
+                    columns,
+                    column =>
                     {
-                        fields.Add(column);
-                    }
-                    else
-                    {
-                        foreach (var (key, value) in _instance.Fields)
+                        if (_instance.Fields.ContainsKey(column))
                         {
-                            if (string.Equals(value, column, StringComparison.OrdinalIgnoreCase))
+                            fields.Add(column);
+                        }
+                        else
+                        {
+                            foreach (var (key, value) in _instance.Fields)
                             {
-                                fields.Add(key);
+                                if (
+                                    string.Equals(value, column, StringComparison.OrdinalIgnoreCase)
+                                )
+                                {
+                                    fields.Add(key);
 
-                                break;
+                                    break;
+                                }
                             }
                         }
                     }
-                });
+                );
 
                 if (fields.Count == 0)
                 {
@@ -265,77 +411,109 @@ namespace Inkslab.Linq
 
             protected static Entry[] GetEntries(ICollection<string> fields)
             {
-                var dictionary = _cachings.GetOrAdd(_elementType, type =>
-                {
-                    var fields = new Dictionary<string, Entry>(_instance.Fields.Count, StringComparer.OrdinalIgnoreCase);
-
-                    var dbnull = Constant(null, Types.Object);
-
-                    foreach (var property in type.GetProperties())
+                var dictionary = _cachings.GetOrAdd(
+                    _elementType,
+                    type =>
                     {
-                        if (!_instance.Fields.TryGetValue(property.Name, out string value))
+                        var fields = new Dictionary<string, Entry>(
+                            _instance.Fields.Count,
+                            StringComparer.OrdinalIgnoreCase
+                        );
+
+                        var dbnull = Constant(null, Types.Object);
+
+                        foreach (var property in type.GetProperties())
                         {
-                            continue;
-                        }
+                            if (!_instance.Fields.TryGetValue(property.Name, out string value))
+                            {
+                                continue;
+                            }
 
-                        var destinationType = property.PropertyType;
+                            var destinationType = property.PropertyType;
 
-                        bool nullable = destinationType.IsNullable();
+                            bool nullable = destinationType.IsNullable();
 
-                        if (nullable)
-                        {
-                            destinationType = Nullable.GetUnderlyingType(destinationType);
-                        }
+                            if (nullable)
+                            {
+                                destinationType = Nullable.GetUnderlyingType(destinationType);
+                            }
 
-                        bool isEnum = destinationType.IsEnum;
+                            bool isEnum = destinationType.IsEnum;
 
-                        if (isEnum)
-                        {
-                            destinationType = Enum.GetUnderlyingType(destinationType);
-                        }
-
-                        var entryArg = Parameter(type);
-                        var valueVar = Variable(property.PropertyType);
-
-                        var expressions = new List<Expression>
-                        {
-                            Assign(valueVar, Property(entryArg, property))
-                        };
-
-                        if (nullable)
-                        {
                             if (isEnum)
                             {
-                                expressions.Add(Condition(Property(valueVar, "HasValue"), Convert(Convert(Property(valueVar, "Value"), destinationType), Types.Object), dbnull));
+                                destinationType = Enum.GetUnderlyingType(destinationType);
+                            }
+
+                            var entryArg = Parameter(type);
+                            var valueVar = Variable(property.PropertyType);
+
+                            var expressions = new List<Expression>
+                            {
+                                Assign(valueVar, Property(entryArg, property))
+                            };
+
+                            if (nullable)
+                            {
+                                if (isEnum)
+                                {
+                                    expressions.Add(
+                                        Condition(
+                                            Property(valueVar, "HasValue"),
+                                            Convert(
+                                                Convert(
+                                                    Property(valueVar, "Value"),
+                                                    destinationType
+                                                ),
+                                                Types.Object
+                                            ),
+                                            dbnull
+                                        )
+                                    );
+                                }
+                                else
+                                {
+                                    expressions.Add(
+                                        Condition(
+                                            Property(valueVar, "HasValue"),
+                                            Convert(Property(valueVar, "Value"), Types.Object),
+                                            dbnull
+                                        )
+                                    );
+                                }
+                            }
+                            else if (isEnum)
+                            {
+                                expressions.Add(
+                                    Convert(Convert(valueVar, destinationType), Types.Object)
+                                );
                             }
                             else
                             {
-                                expressions.Add(Condition(Property(valueVar, "HasValue"), Convert(Property(valueVar, "Value"), Types.Object), dbnull));
+                                expressions.Add(Convert(valueVar, Types.Object));
                             }
-                        }
-                        else if (isEnum)
-                        {
-                            expressions.Add(Convert(Convert(valueVar, destinationType), Types.Object));
-                        }
-                        else
-                        {
-                            expressions.Add(Convert(valueVar, Types.Object));
+
+                            var lambdaEx = Lambda<Func<TEntity, object>>(
+                                Block(new ParameterExpression[] { valueVar }, expressions),
+                                entryArg
+                            );
+
+                            fields.Add(
+                                property.Name,
+                                new Entry(lambdaEx.Compile())
+                                {
+                                    Name = property.Name,
+                                    ColumnName = value,
+                                    Mini = destinationType.IsMini(),
+                                    Nullable = nullable || !destinationType.IsValueType,
+                                    ColumnType = destinationType
+                                }
+                            );
                         }
 
-                        var lambdaEx = Lambda<Func<TEntity, object>>(Block(new ParameterExpression[] { valueVar }, expressions), entryArg);
-
-                        fields.Add(property.Name, new Entry(lambdaEx.Compile())
-                        {
-                            Name = property.Name,
-                            ColumnName = value,
-                            Mini = destinationType.IsMini(),
-                            Nullable = nullable || !destinationType.IsValueType,
-                            ColumnType = destinationType
-                        });
+                        return fields;
                     }
-
-                    return fields;
-                });
+                );
 
                 var entries = new List<Entry>(fields.Count);
 
@@ -357,10 +535,15 @@ namespace Inkslab.Linq
 
         private class InsertCommand : Command
         {
-            public InsertCommand(List<TEntity> entities, IDbCorrectSettings settings) : base(entities, settings)
+            public InsertCommand(
+                List<TEntity> entities,
+                IDbCorrectSettings settings,
+                string shardingKey
+            )
+                : base(entities, settings, shardingKey)
             {
-                Fields = _instance.Fields
-                    .SkipWhile(x => _instance.ReadOnlys.Contains(x.Key))
+                Fields = _instance
+                    .Fields.SkipWhile(x => _instance.ReadOnlys.Contains(x.Key))
                     .Select(x => x.Key)
                     .ToHashSet(StringComparer.OrdinalIgnoreCase);
             }
@@ -373,12 +556,15 @@ namespace Inkslab.Linq
 
                 var dt = new DataTable(Name);
 
-                Array.ForEach(entries, entry =>
-                {
-                    var column = dt.Columns.Add(entry.ColumnName, entry.ColumnType);
+                Array.ForEach(
+                    entries,
+                    entry =>
+                    {
+                        var column = dt.Columns.Add(entry.ColumnName, entry.ColumnType);
 
-                    column.AllowDBNull = entry.Nullable;
-                });
+                        column.AllowDBNull = entry.Nullable;
+                    }
+                );
 
                 for (int i = 0; i < Entities.Count; i++)
                 {
@@ -389,10 +575,13 @@ namespace Inkslab.Linq
 #endif
                     var dr = dt.NewRow();
 
-                    Array.ForEach(entries, entry =>
-                    {
-                        dr[entry.ColumnName] = entry.GetValue(entity) ?? DBNull.Value;
-                    });
+                    Array.ForEach(
+                        entries,
+                        entry =>
+                        {
+                            dr[entry.ColumnName] = entry.GetValue(entity) ?? DBNull.Value;
+                        }
+                    );
 
                     dt.Rows.Add(dr);
                 }
@@ -400,7 +589,13 @@ namespace Inkslab.Linq
                 return dt;
             }
 
-            public (string, DataTable, string, Dictionary<string, object>, string) IgnoreCombination()
+            public (
+                string,
+                DataTable,
+                string,
+                Dictionary<string, object>,
+                string
+            ) IgnoreCombination()
             {
                 var entries = GetEntries();
 
@@ -421,8 +616,7 @@ namespace Inkslab.Linq
 
                 if (Schema?.Length > 0)
                 {
-                    sb.Append(Settings.Name(Schema))
-                        .Append('.');
+                    sb.Append(Settings.Name(Schema)).Append('.');
                 }
 
                 sb.Append(Settings.Name(Name))
@@ -451,9 +645,7 @@ namespace Inkslab.Linq
                     sb.Append("TEMPORARY ");
                 }
 
-                sb.Append("TABLE ")
-                    .Append(Settings.Name(temporaryName))
-                    .Append('(');
+                sb.Append("TABLE ").Append(Settings.Name(temporaryName)).Append('(');
 
                 for (int i = 0; i < entries.Length; i++)
                 {
@@ -466,25 +658,37 @@ namespace Inkslab.Linq
 
                     sb.Append(Settings.Name(entry.ColumnName))
                         .Append(' ')
-                        .Append(Type.GetTypeCode(entry.ColumnType) switch
-                        {
-                            TypeCode.Boolean => "bit",
-                            TypeCode.Char => "char(1)",
-                            TypeCode.Byte => "tinyint",
-                            TypeCode.SByte when Settings.Engine == DatabaseEngine.MySQL => "tinyint unsigned",
-                            TypeCode.SByte or TypeCode.Int16 => "smallint",
-                            TypeCode.UInt16 when Settings.Engine == DatabaseEngine.MySQL => "smallint unsigned",
-                            TypeCode.UInt16 or TypeCode.Int32 => "int",
-                            TypeCode.UInt32 when Settings.Engine == DatabaseEngine.MySQL => "int unsigned",
-                            TypeCode.UInt32 or TypeCode.Int64 => "bigint",
-                            TypeCode.UInt64 when Settings.Engine == DatabaseEngine.MySQL => "bigint unsigned",
-                            TypeCode.Single => "float",
-                            TypeCode.Double => "double",
-                            TypeCode.Decimal => "decimal",
-                            TypeCode.DateTime => "datetime",
-                            TypeCode.String => Settings.Engine == DatabaseEngine.MySQL ? "varchar(1024)" : "nvarchar(1024)",
-                            _ => throw new NotSupportedException($"列“{entry.ColumnName}”的类型“{entry.ColumnType}”不支持批处理！"),
-                        });
+                        .Append(
+                            Type.GetTypeCode(entry.ColumnType) switch
+                            {
+                                TypeCode.Boolean => "bit",
+                                TypeCode.Char => "char(1)",
+                                TypeCode.Byte => "tinyint",
+                                TypeCode.SByte when Settings.Engine == DatabaseEngine.MySQL
+                                    => "tinyint unsigned",
+                                TypeCode.SByte or TypeCode.Int16 => "smallint",
+                                TypeCode.UInt16 when Settings.Engine == DatabaseEngine.MySQL
+                                    => "smallint unsigned",
+                                TypeCode.UInt16 or TypeCode.Int32 => "int",
+                                TypeCode.UInt32 when Settings.Engine == DatabaseEngine.MySQL
+                                    => "int unsigned",
+                                TypeCode.UInt32 or TypeCode.Int64 => "bigint",
+                                TypeCode.UInt64 when Settings.Engine == DatabaseEngine.MySQL
+                                    => "bigint unsigned",
+                                TypeCode.Single => "float",
+                                TypeCode.Double => "double",
+                                TypeCode.Decimal => "decimal",
+                                TypeCode.DateTime => "datetime",
+                                TypeCode.String
+                                    => Settings.Engine == DatabaseEngine.MySQL
+                                        ? "varchar(1024)"
+                                        : "nvarchar(1024)",
+                                _
+                                    => throw new NotSupportedException(
+                                        $"列“{entry.ColumnName}”的类型“{entry.ColumnType}”不支持批处理！"
+                                    ),
+                            }
+                        );
 
                     if (!entry.Nullable)
                     {
@@ -511,9 +715,7 @@ namespace Inkslab.Linq
                     sb.Append("TEMPORARY ");
                 }
 
-                sb.Append("TABLE ")
-                    .Append(Settings.Name(temporaryName))
-                    .Append(';');
+                sb.Append("TABLE ").Append(Settings.Name(temporaryName)).Append(';');
 
                 #endregion
 
@@ -523,11 +725,14 @@ namespace Inkslab.Linq
 
                 #region 组装数据。
 
-                Array.ForEach(entries, entry =>
-                {
-                    dt.Columns.Add(entry.ColumnName, entry.ColumnType)
-                        .AllowDBNull = entry.Nullable;
-                });
+                Array.ForEach(
+                    entries,
+                    entry =>
+                    {
+                        dt.Columns.Add(entry.ColumnName, entry.ColumnType).AllowDBNull =
+                            entry.Nullable;
+                    }
+                );
 
                 for (int i = 0; i < Entities.Count; i++)
                 {
@@ -539,10 +744,13 @@ namespace Inkslab.Linq
 
                     var dr = dt.NewRow();
 
-                    Array.ForEach(entries, entry =>
-                    {
-                        dr[entry.ColumnName] = entry.GetValue(entity) ?? DBNull.Value;
-                    });
+                    Array.ForEach(
+                        entries,
+                        entry =>
+                        {
+                            dr[entry.ColumnName] = entry.GetValue(entity) ?? DBNull.Value;
+                        }
+                    );
 
                     dt.Rows.Add(dr);
                 }
@@ -574,8 +782,7 @@ namespace Inkslab.Linq
 
                 if (Schema?.Length > 0)
                 {
-                    sb.Append(Settings.Name(Schema))
-                        .Append('.');
+                    sb.Append(Settings.Name(Schema)).Append('.');
                 }
 
                 var entries = GetEntries();
@@ -603,8 +810,7 @@ namespace Inkslab.Linq
                     }
                     else
                     {
-                        sb.Append(',')
-                            .Append('(');
+                        sb.Append(',').Append('(');
                     }
 
                     for (int j = 0; j < entries.Length; j++)
@@ -632,9 +838,10 @@ namespace Inkslab.Linq
                             continue;
                         }
 
-                        var name = i == 0
-                            ? entry.ColumnName
-                            : string.Concat(entry.ColumnName, "_", i.ToString());
+                        var name =
+                            i == 0
+                                ? entry.ColumnName
+                                : string.Concat(entry.ColumnName, "_", i.ToString());
 
                         parameters.Add(name, value);
 
@@ -654,17 +861,27 @@ namespace Inkslab.Linq
 
             static UpdateableCommand()
             {
-                _allFields = _instance.Fields.Select(x => x.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                _allFields = _instance
+                    .Fields.Select(x => x.Key)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
             }
 
             private readonly ILogger _logger;
 
-            public UpdateableCommand(List<TEntity> entities, IDbCorrectSettings settings, ILogger logger) : base(entities, settings)
+            public UpdateableCommand(
+                List<TEntity> entities,
+                IDbCorrectSettings settings,
+                string shardingKey,
+                ILogger logger
+            )
+                : base(entities, settings, shardingKey)
             {
                 _logger = logger;
 
-                Fields = _instance.Fields
-                    .SkipWhile(x => _instance.Keys.Contains(x.Key) || _instance.ReadOnlys.Contains(x.Key))
+                Fields = _instance
+                    .Fields.SkipWhile(x =>
+                        _instance.Keys.Contains(x.Key) || _instance.ReadOnlys.Contains(x.Key)
+                    )
                     .Select(x => x.Key)
                     .ToHashSet(StringComparer.OrdinalIgnoreCase);
             }
@@ -673,7 +890,10 @@ namespace Inkslab.Linq
 
             public (string, DataTable, string, Dictionary<string, object>, string) Combination()
             {
-                var conditions = new HashSet<string>(_instance.Keys, StringComparer.OrdinalIgnoreCase);
+                var conditions = new HashSet<string>(
+                    _instance.Keys,
+                    StringComparer.OrdinalIgnoreCase
+                );
 
                 foreach (var version in _instance.Versions)
                 {
@@ -712,8 +932,7 @@ namespace Inkslab.Linq
 
                         if (Schema?.Length > 0)
                         {
-                            sb.Append(Settings.Name(Schema))
-                                .Append('.');
+                            sb.Append(Settings.Name(Schema)).Append('.');
                         }
 
                         sb.Append(Settings.Name(Name))
@@ -728,26 +947,20 @@ namespace Inkslab.Linq
 
                         Condition();
 
-                        sb.AppendLine()
-                            .Append("SET ");
+                        sb.AppendLine().Append("SET ");
 
                         Set();
                         break;
                     case DatabaseEngine.SqlServer:
-                        sb.Append("UPDATE ")
-                            .Append(t1)
-                            .AppendLine()
-                            .Append("SET ");
+                        sb.Append("UPDATE ").Append(t1).AppendLine().Append("SET ");
 
                         Set();
 
-                        sb.AppendLine()
-                            .Append("FROM ");
+                        sb.AppendLine().Append("FROM ");
 
                         if (Schema?.Length > 0)
                         {
-                            sb.Append(Settings.Name(Schema))
-                                .Append('.');
+                            sb.Append(Settings.Name(Schema)).Append('.');
                         }
 
                         sb.Append(Settings.Name(Name))
@@ -768,8 +981,7 @@ namespace Inkslab.Linq
 
                         if (Schema?.Length > 0)
                         {
-                            sb.Append(Settings.Name(Schema))
-                                .Append('.');
+                            sb.Append(Settings.Name(Schema)).Append('.');
                         }
 
                         sb.Append(Settings.Name(Name))
@@ -846,16 +1058,11 @@ namespace Inkslab.Linq
                             commaFlag = true;
                         }
 
-                        sb.Append(t1)
-                            .Append('.')
-                            .Append(Settings.Name(value))
-                            .Append('=');
+                        sb.Append(t1).Append('.').Append(Settings.Name(value)).Append('=');
 
                         if (!_instance.Versions.TryGetValue(key, out var versionKind))
                         {
-                            sb.Append(t2)
-                                .Append('.')
-                                .Append(Settings.Name(value));
+                            sb.Append(t2).Append('.').Append(Settings.Name(value));
 
                             continue;
                         }
@@ -864,9 +1071,7 @@ namespace Inkslab.Linq
                         {
                             case VersionKind.Increment:
 
-                                sb.Append(Settings.Name(value))
-                                    .Append('+')
-                                    .Append('1');
+                                sb.Append(Settings.Name(value)).Append('+').Append('1');
 
                                 break;
                             case VersionKind.Ticks:
@@ -888,15 +1093,15 @@ namespace Inkslab.Linq
 
                                         break;
                                     default:
-                                        {
-                                            string name = value;
+                                    {
+                                        string name = value;
 
-                                            updateArgs.Add(name, DateTime.Now);
+                                        updateArgs.Add(name, DateTime.Now);
 
-                                            sb.Append(Settings.ParamterName(value));
+                                        sb.Append(Settings.ParamterName(value));
 
-                                            break;
-                                        }
+                                        break;
+                                    }
                                 }
 
                                 break;
@@ -925,9 +1130,7 @@ namespace Inkslab.Linq
                     sb.Append("TEMPORARY ");
                 }
 
-                sb.Append("TABLE ")
-                    .Append(Settings.Name(temporaryName))
-                    .Append('(');
+                sb.Append("TABLE ").Append(Settings.Name(temporaryName)).Append('(');
 
                 for (int i = 0; i < entries.Length; i++)
                 {
@@ -940,25 +1143,37 @@ namespace Inkslab.Linq
 
                     sb.Append(Settings.Name(entry.ColumnName))
                         .Append(' ')
-                        .Append(Type.GetTypeCode(entry.ColumnType) switch
-                        {
-                            TypeCode.Boolean => "bit",
-                            TypeCode.Char => "char(1)",
-                            TypeCode.Byte => "tinyint",
-                            TypeCode.SByte when Settings.Engine == DatabaseEngine.MySQL => "tinyint unsigned",
-                            TypeCode.SByte or TypeCode.Int16 => "smallint",
-                            TypeCode.UInt16 when Settings.Engine == DatabaseEngine.MySQL => "smallint unsigned",
-                            TypeCode.UInt16 or TypeCode.Int32 => "int",
-                            TypeCode.UInt32 when Settings.Engine == DatabaseEngine.MySQL => "int unsigned",
-                            TypeCode.UInt32 or TypeCode.Int64 => "bigint",
-                            TypeCode.UInt64 when Settings.Engine == DatabaseEngine.MySQL => "bigint unsigned",
-                            TypeCode.Single => "float",
-                            TypeCode.Double => "double",
-                            TypeCode.Decimal => "decimal",
-                            TypeCode.DateTime => "datetime",
-                            TypeCode.String => Settings.Engine == DatabaseEngine.MySQL ? "varchar(1024)" : "nvarchar(1024)",
-                            _ => throw new NotSupportedException($"列“{entry.ColumnName}”的类型“{entry.ColumnType}”不支持批处理！"),
-                        });
+                        .Append(
+                            Type.GetTypeCode(entry.ColumnType) switch
+                            {
+                                TypeCode.Boolean => "bit",
+                                TypeCode.Char => "char(1)",
+                                TypeCode.Byte => "tinyint",
+                                TypeCode.SByte when Settings.Engine == DatabaseEngine.MySQL
+                                    => "tinyint unsigned",
+                                TypeCode.SByte or TypeCode.Int16 => "smallint",
+                                TypeCode.UInt16 when Settings.Engine == DatabaseEngine.MySQL
+                                    => "smallint unsigned",
+                                TypeCode.UInt16 or TypeCode.Int32 => "int",
+                                TypeCode.UInt32 when Settings.Engine == DatabaseEngine.MySQL
+                                    => "int unsigned",
+                                TypeCode.UInt32 or TypeCode.Int64 => "bigint",
+                                TypeCode.UInt64 when Settings.Engine == DatabaseEngine.MySQL
+                                    => "bigint unsigned",
+                                TypeCode.Single => "float",
+                                TypeCode.Double => "double",
+                                TypeCode.Decimal => "decimal",
+                                TypeCode.DateTime => "datetime",
+                                TypeCode.String
+                                    => Settings.Engine == DatabaseEngine.MySQL
+                                        ? "varchar(1024)"
+                                        : "nvarchar(1024)",
+                                _
+                                    => throw new NotSupportedException(
+                                        $"列“{entry.ColumnName}”的类型“{entry.ColumnType}”不支持批处理！"
+                                    ),
+                            }
+                        );
 
                     if (!entry.Nullable)
                     {
@@ -985,9 +1200,7 @@ namespace Inkslab.Linq
                     sb.Append("TEMPORARY ");
                 }
 
-                sb.Append("TABLE ")
-                    .Append(Settings.Name(temporaryName))
-                    .Append(';');
+                sb.Append("TABLE ").Append(Settings.Name(temporaryName)).Append(';');
 
                 #endregion
 
@@ -997,11 +1210,14 @@ namespace Inkslab.Linq
 
                 #region 组装数据。
 
-                Array.ForEach(entries, entry =>
-                {
-                    dt.Columns.Add(entry.ColumnName, entry.ColumnType)
-                        .AllowDBNull = entry.Nullable;
-                });
+                Array.ForEach(
+                    entries,
+                    entry =>
+                    {
+                        dt.Columns.Add(entry.ColumnName, entry.ColumnType).AllowDBNull =
+                            entry.Nullable;
+                    }
+                );
 
                 for (int i = 0; i < Entities.Count; i++)
                 {
@@ -1009,10 +1225,13 @@ namespace Inkslab.Linq
 
                     var dr = dt.NewRow();
 
-                    Array.ForEach(entries, entry =>
-                    {
-                        dr[entry.ColumnName] = entry.GetValue(entity) ?? DBNull.Value;
-                    });
+                    Array.ForEach(
+                        entries,
+                        entry =>
+                        {
+                            dr[entry.ColumnName] = entry.GetValue(entity) ?? DBNull.Value;
+                        }
+                    );
 
                     dt.Rows.Add(dr);
                 }
@@ -1031,7 +1250,10 @@ namespace Inkslab.Linq
 
             public override CommandSql GetCommandSql()
             {
-                var conditions = new HashSet<string>(_instance.Keys, StringComparer.OrdinalIgnoreCase);
+                var conditions = new HashSet<string>(
+                    _instance.Keys,
+                    StringComparer.OrdinalIgnoreCase
+                );
 
                 foreach (var version in _instance.Versions)
                 {
@@ -1050,7 +1272,9 @@ namespace Inkslab.Linq
 
                 var parameters = new Dictionary<string, object>();
 
-                var sb = new StringBuilder((128 + Fields.Count + conditions.Count) * Entities.Count);
+                var sb = new StringBuilder(
+                    (128 + Fields.Count + conditions.Count) * Entities.Count
+                );
 
                 for (var i = 0; i < Entities.Count; i++)
                 {
@@ -1060,8 +1284,7 @@ namespace Inkslab.Linq
 
                     if (Schema?.Length > 0)
                     {
-                        sb.Append(Settings.Name(Schema))
-                            .Append('.');
+                        sb.Append(Settings.Name(Schema)).Append('.');
                     }
 
                     sb.Append(Settings.Name(Name));
@@ -1077,8 +1300,7 @@ namespace Inkslab.Linq
 
                         var entry = updateEntries[j];
 
-                        sb.Append(Settings.Name(entry.ColumnName))
-                            .Append('=');
+                        sb.Append(Settings.Name(entry.ColumnName)).Append('=');
 
                         if (_instance.Versions.TryGetValue(entry.Name, out var versionKind))
                         {
@@ -1110,22 +1332,29 @@ namespace Inkslab.Linq
 
                                             break;
                                         default:
-                                            {
-                                                string nameNow = i == 0
+                                        {
+                                            string nameNow =
+                                                i == 0
                                                     ? string.Concat(entry.ColumnName, "_token")
-                                                    : string.Concat(entry.ColumnName, "_token_", i.ToString());
+                                                    : string.Concat(
+                                                        entry.ColumnName,
+                                                        "_token_",
+                                                        i.ToString()
+                                                    );
 
-                                                parameters.Add(nameNow, DateTime.Now);
+                                            parameters.Add(nameNow, DateTime.Now);
 
-                                                sb.Append(Settings.ParamterName(nameNow));
+                                            sb.Append(Settings.ParamterName(nameNow));
 
-                                                break;
-                                            }
+                                            break;
+                                        }
                                     }
 
                                     break;
                                 case VersionKind.Timestamp:
-                                    sb.Append((DateTime.UtcNow - DateTime.UnixEpoch).TotalMilliseconds);
+                                    sb.Append(
+                                        (DateTime.UtcNow - DateTime.UnixEpoch).TotalMilliseconds
+                                    );
                                     break;
                                 default:
                                     throw new NotSupportedException();
@@ -1150,9 +1379,10 @@ namespace Inkslab.Linq
                             continue;
                         }
 
-                        string name = i == 0
-                            ? entry.ColumnName
-                            : string.Concat(entry.ColumnName, "_", i.ToString());
+                        string name =
+                            i == 0
+                                ? entry.ColumnName
+                                : string.Concat(entry.ColumnName, "_", i.ToString());
 
                         parameters.Add(name, value);
 
@@ -1172,8 +1402,7 @@ namespace Inkslab.Linq
 
                         var entry = conditionEntries[j];
 
-                        sb.Append(Settings.Name(entry.ColumnName))
-                            .Append('=');
+                        sb.Append(Settings.Name(entry.ColumnName)).Append('=');
 
                         var value = entry.GetValue(entity);
 
@@ -1193,9 +1422,10 @@ namespace Inkslab.Linq
                             continue;
                         }
 
-                        string name = i == 0
-                            ? entry.ColumnName
-                            : string.Concat(entry.ColumnName, "_", i.ToString());
+                        string name =
+                            i == 0
+                                ? entry.ColumnName
+                                : string.Concat(entry.ColumnName, "_", i.ToString());
 
                         parameters.TryAdd(name, value);
 
@@ -1213,7 +1443,13 @@ namespace Inkslab.Linq
         {
             private readonly ILogger _logger;
 
-            public DeleteableCommand(List<TEntity> entities, IDbCorrectSettings settings, ILogger logger) : base(entities, settings)
+            public DeleteableCommand(
+                List<TEntity> entities,
+                IDbCorrectSettings settings,
+                string shardingKey,
+                ILogger logger
+            )
+                : base(entities, settings, shardingKey)
             {
                 _logger = logger;
 
@@ -1245,8 +1481,7 @@ namespace Inkslab.Linq
 
                     if (Schema?.Length > 0)
                     {
-                        sb.Append(Settings.Name(Schema))
-                            .Append('.');
+                        sb.Append(Settings.Name(Schema)).Append('.');
                     }
 
                     sb.Append(Settings.Name(Name))
@@ -1289,9 +1524,10 @@ namespace Inkslab.Linq
                             continue;
                         }
 
-                        var name = i == 0
-                            ? entry.ColumnName
-                            : string.Concat(entry.ColumnName, "_", i.ToString());
+                        var name =
+                            i == 0
+                                ? entry.ColumnName
+                                : string.Concat(entry.ColumnName, "_", i.ToString());
 
                         sb.Append(Settings.ParamterName(name));
 
@@ -1300,8 +1536,7 @@ namespace Inkslab.Linq
 
                     if (hasValue)
                     {
-                        sb.Append(')')
-                            .Append(';');
+                        sb.Append(')').Append(';');
 
                         if (hasKeyNull)
                         {
@@ -1309,8 +1544,7 @@ namespace Inkslab.Linq
 
                             if (Schema?.Length > 0)
                             {
-                                sb.Append(Settings.Name(Schema))
-                                    .Append('.');
+                                sb.Append(Settings.Name(Schema)).Append('.');
                             }
 
                             sb.Append(Settings.Name(Name))
@@ -1323,9 +1557,7 @@ namespace Inkslab.Linq
                     }
                     else
                     {
-                        sb.Append('=')
-                            .Append("null")
-                            .Append(';');
+                        sb.Append('=').Append("null").Append(';');
                     }
                 }
                 else
@@ -1338,8 +1570,7 @@ namespace Inkslab.Linq
 
                         if (Schema?.Length > 0)
                         {
-                            sb.Append(Settings.Name(Schema))
-                                .Append('.');
+                            sb.Append(Settings.Name(Schema)).Append('.');
                         }
 
                         sb.Append(Settings.Name(Name));
@@ -1357,14 +1588,16 @@ namespace Inkslab.Linq
 
                             var entry = entries[j];
 
-                            sb.Append(Settings.Name(entry.ColumnName))
-                                .Append('=');
+                            sb.Append(Settings.Name(entry.ColumnName)).Append('=');
 
                             var value = entry.GetValue(entity);
 
                             if (value is null)
                             {
-                                _logger.LogWarning("字段“{name}”作为条件时，值不应该为“null”！", entry.ColumnName);
+                                _logger.LogWarning(
+                                    "字段“{name}”作为条件时，值不应该为“null”！",
+                                    entry.ColumnName
+                                );
 
                                 sb.Append("null");
 
@@ -1378,9 +1611,10 @@ namespace Inkslab.Linq
                                 continue;
                             }
 
-                            string name = i == 0
-                                ? entry.ColumnName
-                                : string.Concat(entry.ColumnName, "_", i.ToString());
+                            string name =
+                                i == 0
+                                    ? entry.ColumnName
+                                    : string.Concat(entry.ColumnName, "_", i.ToString());
 
                             parameters.TryAdd(name, value);
 
@@ -1394,10 +1628,7 @@ namespace Inkslab.Linq
                 return new CommandSql(sb.ToString(), parameters, Timeout);
             }
 
-            public override void CheckValid()
-            {
-
-            }
+            public override void CheckValid() { }
 
             public (string, DataTable, string, Dictionary<string, object>, string) Combination()
             {
@@ -1430,15 +1661,11 @@ namespace Inkslab.Linq
                     case DatabaseEngine.MySQL:
                     case DatabaseEngine.SqlServer:
 
-                        sb.Append("DELETE ")
-                            .Append(t1)
-                            .AppendLine()
-                            .Append("FROM ");
+                        sb.Append("DELETE ").Append(t1).AppendLine().Append("FROM ");
 
                         if (Schema?.Length > 0)
                         {
-                            sb.Append(Settings.Name(Schema))
-                                .Append('.');
+                            sb.Append(Settings.Name(Schema)).Append('.');
                         }
 
                         sb.Append(Settings.Name(Name))
@@ -1460,8 +1687,7 @@ namespace Inkslab.Linq
 
                         if (Schema?.Length > 0)
                         {
-                            sb.Append(Settings.Name(Schema))
-                                .Append('.');
+                            sb.Append(Settings.Name(Schema)).Append('.');
                         }
 
                         sb.Append(Settings.Name(Name))
@@ -1529,9 +1755,7 @@ namespace Inkslab.Linq
                     sb.Append("TEMPORARY ");
                 }
 
-                sb.Append("TABLE ")
-                    .Append(Settings.Name(temporaryName))
-                    .Append('(');
+                sb.Append("TABLE ").Append(Settings.Name(temporaryName)).Append('(');
 
                 for (int i = 0; i < entries.Length; i++)
                 {
@@ -1544,25 +1768,37 @@ namespace Inkslab.Linq
 
                     sb.Append(Settings.Name(entry.ColumnName))
                         .Append(' ')
-                        .Append(Type.GetTypeCode(entry.ColumnType) switch
-                        {
-                            TypeCode.Boolean => "bit",
-                            TypeCode.Char => "char(1)",
-                            TypeCode.Byte => "tinyint",
-                            TypeCode.SByte when Settings.Engine == DatabaseEngine.MySQL => "tinyint unsigned",
-                            TypeCode.SByte or TypeCode.Int16 => "smallint",
-                            TypeCode.UInt16 when Settings.Engine == DatabaseEngine.MySQL => "smallint unsigned",
-                            TypeCode.UInt16 or TypeCode.Int32 => "int",
-                            TypeCode.UInt32 when Settings.Engine == DatabaseEngine.MySQL => "int unsigned",
-                            TypeCode.UInt32 or TypeCode.Int64 => "bigint",
-                            TypeCode.UInt64 when Settings.Engine == DatabaseEngine.MySQL => "bigint unsigned",
-                            TypeCode.Single => "float",
-                            TypeCode.Double => "double",
-                            TypeCode.Decimal => "decimal",
-                            TypeCode.DateTime => "datetime",
-                            TypeCode.String => Settings.Engine == DatabaseEngine.MySQL ? "varchar(1024)" : "nvarchar(1024)",
-                            _ => throw new NotSupportedException($"列“{entry.ColumnName}”的类型“{entry.ColumnType}”不支持批处理！"),
-                        });
+                        .Append(
+                            Type.GetTypeCode(entry.ColumnType) switch
+                            {
+                                TypeCode.Boolean => "bit",
+                                TypeCode.Char => "char(1)",
+                                TypeCode.Byte => "tinyint",
+                                TypeCode.SByte when Settings.Engine == DatabaseEngine.MySQL
+                                    => "tinyint unsigned",
+                                TypeCode.SByte or TypeCode.Int16 => "smallint",
+                                TypeCode.UInt16 when Settings.Engine == DatabaseEngine.MySQL
+                                    => "smallint unsigned",
+                                TypeCode.UInt16 or TypeCode.Int32 => "int",
+                                TypeCode.UInt32 when Settings.Engine == DatabaseEngine.MySQL
+                                    => "int unsigned",
+                                TypeCode.UInt32 or TypeCode.Int64 => "bigint",
+                                TypeCode.UInt64 when Settings.Engine == DatabaseEngine.MySQL
+                                    => "bigint unsigned",
+                                TypeCode.Single => "float",
+                                TypeCode.Double => "double",
+                                TypeCode.Decimal => "decimal",
+                                TypeCode.DateTime => "datetime",
+                                TypeCode.String
+                                    => Settings.Engine == DatabaseEngine.MySQL
+                                        ? "varchar(1024)"
+                                        : "nvarchar(1024)",
+                                _
+                                    => throw new NotSupportedException(
+                                        $"列“{entry.ColumnName}”的类型“{entry.ColumnType}”不支持批处理！"
+                                    ),
+                            }
+                        );
 
                     if (!entry.Nullable)
                     {
@@ -1589,9 +1825,7 @@ namespace Inkslab.Linq
                     sb.Append("TEMPORARY ");
                 }
 
-                sb.Append("TABLE ")
-                    .Append(Settings.Name(temporaryName))
-                    .Append(';');
+                sb.Append("TABLE ").Append(Settings.Name(temporaryName)).Append(';');
 
                 #endregion
 
@@ -1601,11 +1835,14 @@ namespace Inkslab.Linq
 
                 #region 组装数据。
 
-                Array.ForEach(entries, entry =>
-                {
-                    dt.Columns.Add(entry.ColumnName, entry.ColumnType)
-                        .AllowDBNull = entry.Nullable;
-                });
+                Array.ForEach(
+                    entries,
+                    entry =>
+                    {
+                        dt.Columns.Add(entry.ColumnName, entry.ColumnType).AllowDBNull =
+                            entry.Nullable;
+                    }
+                );
 
                 foreach (var entity in Entities)
                 {
@@ -1616,10 +1853,13 @@ namespace Inkslab.Linq
 
                     var dr = dt.NewRow();
 
-                    Array.ForEach(entries, entry =>
-                    {
-                        dr[entry.ColumnName] = entry.GetValue(entity) ?? DBNull.Value;
-                    });
+                    Array.ForEach(
+                        entries,
+                        entry =>
+                        {
+                            dr[entry.ColumnName] = entry.GetValue(entity) ?? DBNull.Value;
+                        }
+                    );
 
                     dt.Rows.Add(dr);
                 }
@@ -1638,29 +1878,30 @@ namespace Inkslab.Linq
 
             private readonly InsertCommand _command;
 
-            public Insertable(IDatabaseExecutor executor, IConnectionStrings connectionStrings, IDbCorrectSettings settings, List<TEntity> entities)
+            public Insertable(
+                IDatabaseExecutor executor,
+                IConnectionStrings connectionStrings,
+                IDbCorrectSettings settings,
+                string shardingKey,
+                List<TEntity> entities
+            )
             {
                 _executor = executor;
                 _connectionStrings = connectionStrings;
 
-                _command = new InsertCommand(entities, settings);
+                _command = new InsertCommand(entities, settings, shardingKey);
             }
 
-            public IInsertableDataSharding<TEntity> DataSharding(string shardingKey)
-            {
-                _command.DataSharding(shardingKey);
-
-                return this;
-            }
-
-            public IInsertableByLimit<TEntity> Except(string[] columns)
+            public IInsertableByTimeout<TEntity> Except(string[] columns)
             {
                 _command.Except(columns);
 
                 return this;
             }
 
-            public IInsertableByLimit<TEntity> Except<TColumn>(Expression<Func<TEntity, TColumn>> columns)
+            public IInsertableByTimeout<TEntity> Except<TColumn>(
+                Expression<Func<TEntity, TColumn>> columns
+            )
             {
                 if (columns is null)
                 {
@@ -1690,30 +1931,38 @@ namespace Inkslab.Linq
                 {
                     int influenceSkipRows = 0;
 
-                    var (createSql, dt, insertSql, insertArgs, dropSql) = _command.IgnoreCombination();
+                    var (createSql, dt, insertSql, insertArgs, dropSql) =
+                        _command.IgnoreCombination();
 
-                    return _executor.ExecuteMultiple(_connectionStrings.Strings, executor =>
-                    {
-                        influenceSkipRows += executor.Execute(createSql);
+                    return _executor.ExecuteMultiple(
+                            _connectionStrings.Strings,
+                            executor =>
+                            {
+                                influenceSkipRows += executor.Execute(createSql);
 
-                        try
-                        {
-                            influenceSkipRows += executor.WriteToServer(dt);
+                                try
+                                {
+                                    influenceSkipRows += executor.WriteToServer(dt);
 
-                            executor.Execute(new CommandSql(insertSql, insertArgs));
-                        }
-                        finally
-                        {
-                            influenceSkipRows += executor.Execute(dropSql);
-                        }
-
-                    }, _command.Timeout) - influenceSkipRows;
+                                    executor.Execute(new CommandSql(insertSql, insertArgs));
+                                }
+                                finally
+                                {
+                                    influenceSkipRows += executor.Execute(dropSql);
+                                }
+                            },
+                            _command.Timeout
+                        ) - influenceSkipRows;
                 }
                 else
                 {
                     var dt = _command.Combination();
 
-                    return _executor.WriteToServer(_connectionStrings.Strings, dt, _command.Timeout);
+                    return _executor.WriteToServer(
+                        _connectionStrings.Strings,
+                        dt,
+                        _command.Timeout
+                    );
                 }
             }
 
@@ -1730,37 +1979,53 @@ namespace Inkslab.Linq
                 {
                     var commandSql = _command.GetCommandSql();
 
-                    return await _executor.ExecuteAsync(_connectionStrings.Strings, commandSql, cancellationToken);
+                    return await _executor.ExecuteAsync(
+                        _connectionStrings.Strings,
+                        commandSql,
+                        cancellationToken
+                    );
                 }
 
                 if (_command.Ignore)
                 {
                     int influenceSkipRows = 0;
 
-                    var (createSql, dt, insertSql, insertArgs, dropSql) = _command.IgnoreCombination();
+                    var (createSql, dt, insertSql, insertArgs, dropSql) =
+                        _command.IgnoreCombination();
 
-                    return await _executor.ExecuteMultipleAsync(_connectionStrings.Strings, async executor =>
-                    {
-                        influenceSkipRows += await executor.ExecuteAsync(createSql);
+                    return await _executor.ExecuteMultipleAsync(
+                            _connectionStrings.Strings,
+                            async executor =>
+                            {
+                                influenceSkipRows += await executor.ExecuteAsync(createSql);
 
-                        try
-                        {
-                            influenceSkipRows += await executor.WriteToServerAsync(dt);
+                                try
+                                {
+                                    influenceSkipRows += await executor.WriteToServerAsync(dt);
 
-                            await executor.ExecuteAsync(new CommandSql(insertSql, insertArgs));
-                        }
-                        finally
-                        {
-                            influenceSkipRows += await executor.ExecuteAsync(dropSql);
-                        }
-
-                    }, _command.Timeout, cancellationToken) - influenceSkipRows;
+                                    await executor.ExecuteAsync(
+                                        new CommandSql(insertSql, insertArgs)
+                                    );
+                                }
+                                finally
+                                {
+                                    influenceSkipRows += await executor.ExecuteAsync(dropSql);
+                                }
+                            },
+                            _command.Timeout,
+                            cancellationToken
+                        ) - influenceSkipRows;
                 }
                 else
                 {
                     var dt = _command.Combination();
 
-                    return await _executor.WriteToServerAsync(_connectionStrings.Strings, dt, _command.Timeout, cancellationToken);
+                    return await _executor.WriteToServerAsync(
+                        _connectionStrings.Strings,
+                        dt,
+                        _command.Timeout,
+                        cancellationToken
+                    );
                 }
             }
 
@@ -1771,14 +2036,16 @@ namespace Inkslab.Linq
                 return this;
             }
 
-            public IInsertableByLimit<TEntity> Limit(string[] columns)
+            public IInsertableByTimeout<TEntity> Limit(string[] columns)
             {
                 _command.Limit(columns);
 
                 return this;
             }
 
-            public IInsertableByLimit<TEntity> Limit<TColumn>(Expression<Func<TEntity, TColumn>> columns)
+            public IInsertableByTimeout<TEntity> Limit<TColumn>(
+                Expression<Func<TEntity, TColumn>> columns
+            )
             {
                 if (columns is null)
                 {
@@ -1788,7 +2055,7 @@ namespace Inkslab.Linq
                 return Limit(AnalysisFields(columns));
             }
 
-            public IInsertableExecute<TEntity> Timeout(int commandTimeout)
+            public ICommandExecutor Timeout(int commandTimeout)
             {
                 if (commandTimeout < 1)
                 {
@@ -1810,19 +2077,19 @@ namespace Inkslab.Linq
 
             private readonly UpdateableCommand _command;
 
-            public Updateable(IDatabaseExecutor executor, IConnectionStrings connectionStrings, IDbCorrectSettings settings, ILogger logger, List<TEntity> entities)
+            public Updateable(
+                IDatabaseExecutor executor,
+                IConnectionStrings connectionStrings,
+                IDbCorrectSettings settings,
+                string shardingKey,
+                ILogger logger,
+                List<TEntity> entities
+            )
             {
                 _executor = executor;
                 _connectionStrings = connectionStrings;
 
-                _command = new UpdateableCommand(entities, settings, logger);
-            }
-
-            public IUpdateableDataSharding<TEntity> DataSharding(string shardingKey)
-            {
-                _command.DataSharding(shardingKey);
-
-                return this;
+                _command = new UpdateableCommand(entities, settings, shardingKey, logger);
             }
 
             public int Execute()
@@ -1845,22 +2112,25 @@ namespace Inkslab.Linq
 
                 var (createSql, dt, updateSql, updateArgs, dropSql) = _command.Combination();
 
-                return _executor.ExecuteMultiple(_connectionStrings.Strings, executor =>
-                {
-                    influenceSkipRows += executor.Execute(createSql);
+                return _executor.ExecuteMultiple(
+                        _connectionStrings.Strings,
+                        executor =>
+                        {
+                            influenceSkipRows += executor.Execute(createSql);
 
-                    try
-                    {
-                        influenceSkipRows += executor.WriteToServer(dt);
+                            try
+                            {
+                                influenceSkipRows += executor.WriteToServer(dt);
 
-                        executor.Execute(new CommandSql(updateSql, updateArgs));
-                    }
-                    finally
-                    {
-                        influenceSkipRows += executor.Execute(dropSql);
-                    }
-
-                }, _command.Timeout) - influenceSkipRows;
+                                executor.Execute(new CommandSql(updateSql, updateArgs));
+                            }
+                            finally
+                            {
+                                influenceSkipRows += executor.Execute(dropSql);
+                            }
+                        },
+                        _command.Timeout
+                    ) - influenceSkipRows;
             }
 
             public async Task<int> ExecuteAsync(CancellationToken cancellationToken = default)
@@ -1876,28 +2146,37 @@ namespace Inkslab.Linq
                 {
                     var commandSql = _command.GetCommandSql();
 
-                    return await _executor.ExecuteAsync(_connectionStrings.Strings, commandSql, cancellationToken);
+                    return await _executor.ExecuteAsync(
+                        _connectionStrings.Strings,
+                        commandSql,
+                        cancellationToken
+                    );
                 }
 
                 int influenceSkipRows = 0;
 
                 var (createSql, dt, updateSql, updateArgs, dropSql) = _command.Combination();
 
-                return await _executor.ExecuteMultipleAsync(_connectionStrings.Strings, async executor =>
-                {
-                    influenceSkipRows += await executor.ExecuteAsync(createSql);
+                return await _executor.ExecuteMultipleAsync(
+                        _connectionStrings.Strings,
+                        async executor =>
+                        {
+                            influenceSkipRows += await executor.ExecuteAsync(createSql);
 
-                    try
-                    {
-                        influenceSkipRows += await executor.WriteToServerAsync(dt);
+                            try
+                            {
+                                influenceSkipRows += await executor.WriteToServerAsync(dt);
 
-                        await executor.ExecuteAsync(new CommandSql(updateSql, updateArgs));
-                    }
-                    finally
-                    {
-                        influenceSkipRows += await executor.ExecuteAsync(dropSql);
-                    }
-                }, _command.Timeout, cancellationToken) - influenceSkipRows;
+                                await executor.ExecuteAsync(new CommandSql(updateSql, updateArgs));
+                            }
+                            finally
+                            {
+                                influenceSkipRows += await executor.ExecuteAsync(dropSql);
+                            }
+                        },
+                        _command.Timeout,
+                        cancellationToken
+                    ) - influenceSkipRows;
             }
 
             public IUpdateableByLimit<TEntity> Set(string[] columns)
@@ -1907,7 +2186,9 @@ namespace Inkslab.Linq
                 return this;
             }
 
-            public IUpdateableByLimit<TEntity> Set<TColumn>(Expression<Func<TEntity, TColumn>> columns)
+            public IUpdateableByLimit<TEntity> Set<TColumn>(
+                Expression<Func<TEntity, TColumn>> columns
+            )
             {
                 if (columns is null)
                 {
@@ -1926,7 +2207,9 @@ namespace Inkslab.Linq
                 return this;
             }
 
-            public IUpdateableByLimit<TEntity> SetExcept<TColumn>(Expression<Func<TEntity, TColumn>> columns)
+            public IUpdateableByLimit<TEntity> SetExcept<TColumn>(
+                Expression<Func<TEntity, TColumn>> columns
+            )
             {
                 if (columns is null)
                 {
@@ -1938,7 +2221,7 @@ namespace Inkslab.Linq
                 return this;
             }
 
-            public IUpdateableExecute<TEntity> SkipIdempotentValid()
+            public ICommandExecutor SkipIdempotentValid()
             {
                 _command.SkipIdempotentValid = true;
 
@@ -1967,19 +2250,19 @@ namespace Inkslab.Linq
 
             private readonly DeleteableCommand _command;
 
-            public Deleteable(IDatabaseExecutor executor, IConnectionStrings connectionStrings, IDbCorrectSettings settings, ILogger logger, List<TEntity> entities)
+            public Deleteable(
+                IDatabaseExecutor executor,
+                IConnectionStrings connectionStrings,
+                IDbCorrectSettings settings,
+                string shardingKey,
+                ILogger logger,
+                List<TEntity> entities
+            )
             {
                 _executor = executor;
                 _connectionStrings = connectionStrings;
 
-                _command = new DeleteableCommand(entities, settings, logger);
-            }
-
-            public IDeleteableDataSharding<TEntity> DataSharding(string shardingKey)
-            {
-                _command.DataSharding(shardingKey);
-
-                return this;
+                _command = new DeleteableCommand(entities, settings, shardingKey, logger);
             }
 
             public int Execute()
@@ -2002,22 +2285,25 @@ namespace Inkslab.Linq
 
                 var (createSql, dt, updateSql, updateArgs, dropSql) = _command.Combination();
 
-                return _executor.ExecuteMultiple(_connectionStrings.Strings, executor =>
-                {
-                    influenceSkipRows += executor.Execute(createSql);
+                return _executor.ExecuteMultiple(
+                        _connectionStrings.Strings,
+                        executor =>
+                        {
+                            influenceSkipRows += executor.Execute(createSql);
 
-                    try
-                    {
-                        influenceSkipRows += executor.WriteToServer(dt);
+                            try
+                            {
+                                influenceSkipRows += executor.WriteToServer(dt);
 
-                        executor.Execute(new CommandSql(updateSql, updateArgs));
-                    }
-                    finally
-                    {
-                        influenceSkipRows += executor.Execute(dropSql);
-                    }
-
-                }, _command.Timeout) - influenceSkipRows;
+                                executor.Execute(new CommandSql(updateSql, updateArgs));
+                            }
+                            finally
+                            {
+                                influenceSkipRows += executor.Execute(dropSql);
+                            }
+                        },
+                        _command.Timeout
+                    ) - influenceSkipRows;
             }
 
             public async Task<int> ExecuteAsync(CancellationToken cancellationToken = default)
@@ -2033,31 +2319,40 @@ namespace Inkslab.Linq
                 {
                     var commandSql = _command.GetCommandSql();
 
-                    return await _executor.ExecuteAsync(_connectionStrings.Strings, commandSql, cancellationToken);
+                    return await _executor.ExecuteAsync(
+                        _connectionStrings.Strings,
+                        commandSql,
+                        cancellationToken
+                    );
                 }
 
                 int influenceSkipRows = 0;
 
                 var (createSql, dt, updateSql, updateArgs, dropSql) = _command.Combination();
 
-                return await _executor.ExecuteMultipleAsync(_connectionStrings.Strings, async executor =>
-                {
-                    influenceSkipRows += await executor.ExecuteAsync(createSql);
+                return await _executor.ExecuteMultipleAsync(
+                        _connectionStrings.Strings,
+                        async executor =>
+                        {
+                            influenceSkipRows += await executor.ExecuteAsync(createSql);
 
-                    try
-                    {
-                        influenceSkipRows += await executor.WriteToServerAsync(dt);
+                            try
+                            {
+                                influenceSkipRows += await executor.WriteToServerAsync(dt);
 
-                        await executor.ExecuteAsync(new CommandSql(updateSql, updateArgs));
-                    }
-                    finally
-                    {
-                        influenceSkipRows += await executor.ExecuteAsync(dropSql);
-                    }
-                }, _command.Timeout, cancellationToken) - influenceSkipRows;
+                                await executor.ExecuteAsync(new CommandSql(updateSql, updateArgs));
+                            }
+                            finally
+                            {
+                                influenceSkipRows += await executor.ExecuteAsync(dropSql);
+                            }
+                        },
+                        _command.Timeout,
+                        cancellationToken
+                    ) - influenceSkipRows;
             }
 
-            public IDeleteableExecute<TEntity> SkipIdempotentValid()
+            public ICommandExecutor SkipIdempotentValid()
             {
                 _command.SkipIdempotentValid = true;
 

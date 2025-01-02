@@ -33,6 +33,14 @@ namespace Inkslab.Linq
         public static Expression<Func<T, bool>> False<T>() => x => false;
 
         /// <summary>
+        /// 条件表达式。
+        /// </summary>
+        /// <typeparam name="T">参数类型。</typeparam>
+        /// <param name="predicate">条件。</param>
+        /// <returns>是否满足。</returns>
+        public static Expression<Func<T, bool>> Fragment<T>(Expression<Func<T, bool>> predicate) => predicate ?? throw new ArgumentNullException(nameof(predicate));
+
+        /// <summary>
         /// 且。
         /// </summary>
         /// <typeparam name="T">类型。</typeparam>

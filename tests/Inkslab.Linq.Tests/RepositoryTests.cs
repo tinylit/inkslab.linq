@@ -98,7 +98,7 @@ namespace Inkslab.Linq.Tests
                 users.Add(new User { Name = $"测试：{i:000}", DateAt = DateTime.Now });
             }
 
-            int rows = _userRpo.AsInsertable(users)
+            int rows = _userRpo.Insert(users)
                 .Ignore()
                 .Execute();
         }
@@ -115,7 +115,7 @@ namespace Inkslab.Linq.Tests
                 users.Add(new User { Id = i + 256, Name = $"测试：{i:000}", DateAt = DateTime.Now.AddMinutes(i) });
             }
 
-            int rows = _userRpo.AsUpdateable(users).Execute();
+            int rows = _userRpo.Update(users).Execute();
         }
 
         [Fact]
@@ -130,7 +130,7 @@ namespace Inkslab.Linq.Tests
                 users.Add(new User { Id = i + 256, Name = $"测试：{i:000}", DateAt = DateTime.Now.AddMinutes(i) });
             }
 
-            int rows = _userRpo.AsDeleteable(users).Execute();
+            int rows = _userRpo.Delete(users).Execute();
         }
 
         [Fact]
@@ -145,7 +145,7 @@ namespace Inkslab.Linq.Tests
                 users.Add(new User { Name = $"测试：{i:000}", DateAt = DateTime.Now });
             }
 
-            int rows = _userRpo.AsInsertable(users)
+            int rows = _userRpo.Insert(users)
                 .Ignore()
                 .Execute();
         }
@@ -162,7 +162,7 @@ namespace Inkslab.Linq.Tests
                 users.Add(new User { Id = i + 1, Name = $"测试：{i:000}", DateAt = DateTime.Now.AddMinutes(i) });
             }
 
-            int rows = _userRpo.AsUpdateable(users).Execute();
+            int rows = _userRpo.Update(users).Execute();
         }
 
         [Fact]
@@ -177,7 +177,7 @@ namespace Inkslab.Linq.Tests
                 users.Add(new User { Id = i + 1, Name = $"测试：{i:000}", DateAt = DateTime.Now.AddMinutes(i) });
             }
 
-            int rows = _userRpo.AsDeleteable(users).Execute();
+            int rows = _userRpo.Delete(users).Execute();
         }
     }
 }

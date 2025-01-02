@@ -1,5 +1,3 @@
-using Inkslab.Linq.Abilities;
-using Inkslab.Linq.Enums;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -8,6 +6,8 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Inkslab.Linq.Abilities;
+using Inkslab.Linq.Enums;
 using static System.Linq.Expressions.Expression;
 
 namespace Inkslab.Linq
@@ -16,7 +16,12 @@ namespace Inkslab.Linq
     /// 仓库。
     /// </summary>
     /// <typeparam name="TEntity">类型。</typeparam>
-    public class Repository<TEntity> : IRepository<TEntity>, IRepositoryDataSharding<TEntity>, IRepositoryTimeout<TEntity>, IRepositoryCondition<TEntity> where TEntity : class, new()
+    public class Repository<TEntity>
+        : IRepository<TEntity>,
+            IRepositoryTimeout<TEntity>,
+            IRepositoryCondition<TEntity>,
+            IRepositoryIgnore<TEntity>
+        where TEntity : class, new()
     {
         private static readonly Type _elementType;
         private static readonly MethodInfo _whereFn;
@@ -28,7 +33,6 @@ namespace Inkslab.Linq
         private static readonly MethodInfo _takeWhileFn;
         private static readonly MethodInfo _skipWhileFn;
         private static readonly MethodInfo _deleteWithPredicateFn;
-
         private static readonly Expression _default;
 
         static Repository()
@@ -46,11 +50,15 @@ namespace Inkslab.Linq
 
             _takeWhileFn = QueryableMethods.TakeWhile.MakeGenericMethod(_elementType);
             _skipWhileFn = QueryableMethods.SkipWhile.MakeGenericMethod(_elementType);
-            _deleteWithPredicateFn = QueryableMethods.DeleteWithPredicate.MakeGenericMethod(_elementType);
+            _deleteWithPredicateFn = QueryableMethods.DeleteWithPredicate.MakeGenericMethod(
+                _elementType
+            );
         }
 
+        private readonly Repository<TEntity> _repository;
         private readonly IRepositoryExecutor _executor;
         private readonly IRepositoryRouter<TEntity> _router;
+        private readonly RepositoryType _repositoryType = RepositoryType.Normal;
         private readonly Expression _node;
 
         /// <summary>
@@ -58,16 +66,47 @@ namespace Inkslab.Linq
         /// </summary>
         /// <param name="executor">执行器。</param>
         /// <param name="router">路由器。</param>
-        public Repository(IRepositoryExecutor executor, IRepositoryRouter<TEntity> router) : this(executor, router, null)
-        {
-        }
-
-        private Repository(IRepositoryExecutor executor, IRepositoryRouter<TEntity> router, Expression node)
+        public Repository(IRepositoryExecutor executor, IRepositoryRouter<TEntity> router)
         {
             _executor = executor;
             _router = router;
-            _node = node ?? _default;
+            _node = _default;
         }
+
+        private Repository(
+            IRepositoryExecutor executor,
+            IRepositoryRouter<TEntity> router,
+            Expression node
+        )
+        {
+            _executor = executor;
+            _router = router;
+            _node = node;
+        }
+
+        private Repository(
+            Repository<TEntity> repository,
+            IRepositoryExecutor executor,
+            IRepositoryRouter<TEntity> router,
+            RepositoryType repositoryType
+        )
+        {
+            _repository = repository;
+            _executor = executor;
+            _router = router;
+            _repositoryType = repositoryType;
+        }
+
+        /// <summary>
+        /// 获取操作节点。
+        /// </summary>
+        /// <returns>节点。</returns>
+        protected virtual Expression OperationNode() =>
+            _repositoryType switch
+            {
+                RepositoryType.Normal => _node,
+                _ => _repository.OperationNode()
+            };
 
         #region Extentions
 
@@ -76,10 +115,13 @@ namespace Inkslab.Linq
         {
             if (string.IsNullOrEmpty(shardingKey))
             {
-                throw new ArgumentException($"'{nameof(shardingKey)}' cannot be null or empty.", nameof(shardingKey));
+                throw new ArgumentException(
+                    $"'{nameof(shardingKey)}' cannot be null or empty.",
+                    nameof(shardingKey)
+                );
             }
 
-            return new Repository<TEntity>(_executor, _router, Call(null, _whereFn, new Expression[2] { _node, Constant(shardingKey) }));
+            return new RepositoryDataSharding(this, _executor, _router, shardingKey);
         }
 
         /// <summary>
@@ -92,7 +134,11 @@ namespace Inkslab.Linq
                 throw new ArgumentNullException(nameof(predicate));
             }
 
-            return new Repository<TEntity>(_executor, _router, Call(null, _whereFn, new Expression[2] { _node, Quote(predicate) }));
+            return new Repository<TEntity>(
+                _executor,
+                _router,
+                Call(null, _whereFn, new Expression[2] { OperationNode(), Quote(predicate) })
+            );
         }
 
         /// <summary>
@@ -105,7 +151,11 @@ namespace Inkslab.Linq
                 throw new ArgumentNullException(nameof(predicate));
             }
 
-            return new Repository<TEntity>(_executor, _router, Call(null, _takeWhileFn, new Expression[2] { _node, Quote(predicate) }));
+            return new Repository<TEntity>(
+                _executor,
+                _router,
+                Call(null, _takeWhileFn, new Expression[2] { OperationNode(), Quote(predicate) })
+            );
         }
 
         /// <summary>
@@ -118,7 +168,11 @@ namespace Inkslab.Linq
                 throw new ArgumentNullException(nameof(predicate));
             }
 
-            return new Repository<TEntity>(_executor, _router, Call(null, _skipWhileFn, new Expression[2] { _node, Quote(predicate) }));
+            return new Repository<TEntity>(
+                _executor,
+                _router,
+                Call(null, _skipWhileFn, new Expression[2] { OperationNode(), Quote(predicate) })
+            );
         }
 
         /// <summary>
@@ -128,13 +182,17 @@ namespace Inkslab.Linq
         /// <returns></returns>
         public IRepositoryTimeout<TEntity> Timeout(int commandTimeout)
         {
-            return new Repository<TEntity>(_executor, _router, Call(null, _timeoutFn, new Expression[2] { _node, Constant(commandTimeout) }));
+            return new RepositoryTimeout(this, _executor, _router, commandTimeout);
         }
 
         /// <inheritdoc/>
         public IRepositoryIgnore<TEntity> Ignore()
         {
-            return new Repository<TEntity>(_executor, _router, Call(null, _ignoreFn, new Expression[1] { _node }));
+            return new Repository<TEntity>(
+                _executor,
+                _router,
+                Call(null, _ignoreFn, new Expression[1] { _repository.OperationNode() })
+            );
         }
 
         /// <summary>
@@ -149,7 +207,9 @@ namespace Inkslab.Linq
                 throw new ArgumentNullException(nameof(querable));
             }
 
-            return _executor.Execute(Call(null, _insertFn, new Expression[2] { _node, querable.Expression }));
+            return _executor.Execute(
+                Call(null, _insertFn, new Expression[2] { OperationNode(), querable.Expression })
+            );
         }
 
         /// <summary>
@@ -158,34 +218,52 @@ namespace Inkslab.Linq
         /// <param name="querable">需要插入的数据。</param>
         /// <param name="cancellationToken">取消。</param>
         /// <returns></returns>
-        public Task<int> InsertAsync(IQueryable<TEntity> querable, CancellationToken cancellationToken = default)
+        public Task<int> InsertAsync(
+            IQueryable<TEntity> querable,
+            CancellationToken cancellationToken = default
+        )
         {
             if (querable is null)
             {
                 throw new ArgumentNullException(nameof(querable));
             }
 
-            return _executor.ExecuteAsync(Call(null, _insertFn, new Expression[2] { _node, querable.Expression }), cancellationToken);
+            return _executor.ExecuteAsync(
+                Call(null, _insertFn, new Expression[2] { OperationNode(), querable.Expression }),
+                cancellationToken
+            );
         }
 
         /// <summary>
         /// 删除数据。
         /// </summary>
         /// <returns></returns>
-        public int Delete() => _executor.Execute(Call(null, _deleteFn, new Expression[1] { _node }));
+        public int Delete() =>
+            _executor.Execute(Call(null, _deleteFn, new Expression[1] { OperationNode() }));
 
         /// <summary>
         /// 删除数据。
         /// </summary>
         /// <returns></returns>
-        public int Delete(Expression<Func<TEntity, bool>> predicate) => _executor.Execute(Call(null, _deleteWithPredicateFn, new Expression[2] { _node, Quote(predicate) }));
+        public int Delete(Expression<Func<TEntity, bool>> predicate) =>
+            _executor.Execute(
+                Call(
+                    null,
+                    _deleteWithPredicateFn,
+                    new Expression[2] { OperationNode(), Quote(predicate) }
+                )
+            );
 
         /// <summary>
         /// 删除数据。
         /// </summary>
         /// <param name="cancellationToken">取消。</param>
         /// <returns></returns>
-        public Task<int> DeleteAsync(CancellationToken cancellationToken = default) => _executor.ExecuteAsync(Call(null, _deleteFn, new Expression[1] { _node }), cancellationToken);
+        public Task<int> DeleteAsync(CancellationToken cancellationToken = default) =>
+            _executor.ExecuteAsync(
+                Call(null, _deleteFn, new Expression[1] { OperationNode() }),
+                cancellationToken
+            );
 
         /// <summary>
         /// 删除数据。
@@ -193,7 +271,18 @@ namespace Inkslab.Linq
         /// <param name="predicate">删除条件。</param>
         /// <param name="cancellationToken">取消。</param>
         /// <returns></returns>
-        public Task<int> DeleteAsync(Expression<Func<TEntity, bool>> predicate, CancellationToken cancellationToken = default) => _executor.ExecuteAsync(Call(null, _deleteWithPredicateFn, new Expression[2] { _node, Quote(predicate) }), cancellationToken);
+        public Task<int> DeleteAsync(
+            Expression<Func<TEntity, bool>> predicate,
+            CancellationToken cancellationToken = default
+        ) =>
+            _executor.ExecuteAsync(
+                Call(
+                    null,
+                    _deleteWithPredicateFn,
+                    new Expression[2] { OperationNode(), Quote(predicate) }
+                ),
+                cancellationToken
+            );
 
         /// <summary>
         /// 更新数据。
@@ -207,7 +296,9 @@ namespace Inkslab.Linq
                 throw new ArgumentNullException(nameof(updateSetter));
             }
 
-            return _executor.Execute(Call(null, _updateFn, new Expression[2] { _node, Quote(updateSetter) }));
+            return _executor.Execute(
+                Call(null, _updateFn, new Expression[2] { OperationNode(), Quote(updateSetter) })
+            );
         }
 
         /// <summary>
@@ -216,32 +307,38 @@ namespace Inkslab.Linq
         /// <param name="updateSetter">更新的字段和值。</param>
         /// <param name="cancellationToken">取消。</param>
         /// <returns></returns>
-        public Task<int> UpdateAsync(Expression<Func<TEntity, TEntity>> updateSetter, CancellationToken cancellationToken = default)
+        public Task<int> UpdateAsync(
+            Expression<Func<TEntity, TEntity>> updateSetter,
+            CancellationToken cancellationToken = default
+        )
         {
             if (updateSetter is null)
             {
                 throw new ArgumentNullException(nameof(updateSetter));
             }
 
-            return _executor.ExecuteAsync(Call(null, _updateFn, new Expression[2] { _node, Quote(updateSetter) }), cancellationToken);
+            return _executor.ExecuteAsync(
+                Call(null, _updateFn, new Expression[2] { OperationNode(), Quote(updateSetter) }),
+                cancellationToken
+            );
         }
 
         #endregion
 
         #region 路由能力
         /// <inheritdoc/>
-        public IInsertable<TEntity> AsInsertable(TEntity entry)
+        public IInsertable<TEntity> Insert(TEntity entry)
         {
             if (entry is null)
             {
                 throw new ArgumentNullException(nameof(entry));
             }
 
-            return AsInsertable(new List<TEntity>(1) { entry });
+            return Insert(new List<TEntity>(1) { entry });
         }
 
         /// <inheritdoc/>
-        public IInsertable<TEntity> AsInsertable(List<TEntity> entries)
+        public virtual IInsertable<TEntity> Insert(List<TEntity> entries)
         {
             if (entries is null)
             {
@@ -252,29 +349,29 @@ namespace Inkslab.Linq
         }
 
         /// <inheritdoc/>
-        public IInsertable<TEntity> AsInsertable(params TEntity[] entries)
+        public IInsertable<TEntity> Insert(params TEntity[] entries)
         {
             if (entries is null)
             {
                 throw new ArgumentNullException(nameof(entries));
             }
 
-            return AsInsertable(new List<TEntity>(entries));
+            return Insert(new List<TEntity>(entries));
         }
 
         /// <inheritdoc/>
-        public IUpdateable<TEntity> AsUpdateable(TEntity entry)
+        public IUpdateable<TEntity> Update(TEntity entry)
         {
             if (entry is null)
             {
                 throw new ArgumentNullException(nameof(entry));
             }
 
-            return AsUpdateable(new List<TEntity>(1) { entry });
+            return Update(new List<TEntity>(1) { entry });
         }
 
         /// <inheritdoc/>
-        public IUpdateable<TEntity> AsUpdateable(List<TEntity> entries)
+        public virtual IUpdateable<TEntity> Update(List<TEntity> entries)
         {
             if (entries is null)
             {
@@ -285,29 +382,29 @@ namespace Inkslab.Linq
         }
 
         /// <inheritdoc/>
-        public IUpdateable<TEntity> AsUpdateable(params TEntity[] entries)
+        public IUpdateable<TEntity> Update(params TEntity[] entries)
         {
             if (entries is null)
             {
                 throw new ArgumentNullException(nameof(entries));
             }
 
-            return AsUpdateable(new List<TEntity>(entries));
+            return Update(new List<TEntity>(entries));
         }
 
         /// <inheritdoc/>
-        public IDeleteable<TEntity> AsDeleteable(TEntity entry)
+        public IDeleteable<TEntity> Delete(TEntity entry)
         {
             if (entry is null)
             {
                 throw new ArgumentNullException(nameof(entry));
             }
 
-            return AsDeleteable(new List<TEntity>(1) { entry });
+            return Delete(new List<TEntity>(1) { entry });
         }
 
         /// <inheritdoc/>
-        public IDeleteable<TEntity> AsDeleteable(List<TEntity> entries)
+        public virtual IDeleteable<TEntity> Delete(List<TEntity> entries)
         {
             if (entries is null)
             {
@@ -318,16 +415,114 @@ namespace Inkslab.Linq
         }
 
         /// <inheritdoc/>
-        public IDeleteable<TEntity> AsDeleteable(params TEntity[] entries)
+        public IDeleteable<TEntity> Delete(params TEntity[] entries)
         {
             if (entries is null)
             {
                 throw new ArgumentNullException(nameof(entries));
             }
 
-            return AsDeleteable(new List<TEntity>(entries));
+            return Delete(new List<TEntity>(entries));
         }
         #endregion
+
+        #region 补充。
+        private class RepositoryDataSharding
+            : Repository<TEntity>,
+                IRepositoryDataSharding<TEntity>,
+                IRepositoryTimeout<TEntity>,
+                IRepositoryCondition<TEntity>,
+                IRepositoryIgnore<TEntity>
+        {
+            private static readonly MethodInfo _dataShardingFn;
+
+            static RepositoryDataSharding() =>
+                _dataShardingFn = QueryableMethods.DataSharding.MakeGenericMethod(_elementType);
+
+            private readonly string _shardingKey;
+
+            public RepositoryDataSharding(
+                Repository<TEntity> repository,
+                IRepositoryExecutor executor,
+                IRepositoryRouter<TEntity> router,
+                string shardingKey
+            )
+                : base(repository, executor, router, RepositoryType.DataSharding)
+            {
+                _shardingKey = shardingKey;
+            }
+
+            protected override Expression OperationNode()
+            {
+                return Call(
+                    null,
+                    _dataShardingFn,
+                    new Expression[2] { base.OperationNode(), Constant(_shardingKey) }
+                );
+            }
+
+            public void Ready()
+            {
+                throw new NotImplementedException();
+            }
+
+            public Task ReadyAsync(CancellationToken cancellationToken = default)
+            {
+                throw new NotImplementedException();
+            }
+
+            public override IDeleteable<TEntity> Delete(List<TEntity> entries)
+            {
+                return _router.AsDeleteable(_shardingKey, entries);
+            }
+
+            public override IInsertable<TEntity> Insert(List<TEntity> entries)
+            {
+                return _router.AsInsertable(_shardingKey, entries);
+            }
+
+            public override IUpdateable<TEntity> Update(List<TEntity> entries)
+            {
+                return _router.AsUpdateable(_shardingKey, entries);
+            }
+        }
+
+        private class RepositoryTimeout
+            : Repository<TEntity>,
+                IRepositoryTimeout<TEntity>,
+                IRepositoryCondition<TEntity>,
+                IRepositoryIgnore<TEntity>
+        {
+            private readonly int _commandTimeout;
+
+            public RepositoryTimeout(
+                Repository<TEntity> repository,
+                IRepositoryExecutor executor,
+                IRepositoryRouter<TEntity> router,
+                int commandTimeout
+            )
+                : base(repository, executor, router, RepositoryType.Timeout)
+            {
+                _commandTimeout = commandTimeout;
+            }
+
+            protected override Expression OperationNode()
+            {
+                return Call(
+                    null,
+                    _timeoutFn,
+                    new Expression[2] { base.OperationNode(), Constant(_commandTimeout) }
+                );
+            }
+        }
+        #endregion
+
+        private enum RepositoryType
+        {
+            Normal,
+            DataSharding,
+            Timeout
+        }
 
         private class NestedQueryable : IQueryable<TEntity>
         {

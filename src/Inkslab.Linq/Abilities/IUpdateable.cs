@@ -1,8 +1,6 @@
-﻿using Inkslab.Annotations;
-using System;
+﻿using System;
 using System.Linq.Expressions;
-using System.Threading;
-using System.Threading.Tasks;
+using Inkslab.Annotations;
 
 namespace Inkslab.Linq.Abilities
 {
@@ -11,22 +9,7 @@ namespace Inkslab.Linq.Abilities
     /// </summary>
     /// <typeparam name="TEntity">实体类型。</typeparam>
     [Ignore]
-    public interface IUpdateable<TEntity> : IUpdateableDataSharding<TEntity>
-    {
-        /// <summary>
-        /// 数据分区。
-        /// </summary>
-        /// <param name="shardingKey">分区键。</param>
-        /// <returns>分区。</returns>
-        IUpdateableDataSharding<TEntity> DataSharding(string shardingKey);
-    }
-
-    /// <summary>
-    /// 条件。
-    /// </summary>
-    /// <typeparam name="TEntity">元素。</typeparam>
-    [Ignore]
-    public interface IUpdateableDataSharding<TEntity> : IUpdateableByLimit<TEntity>
+    public interface IUpdateable<TEntity> : IUpdateableByLimit<TEntity>
     {
         /// <summary>
         /// 只更新的字段。
@@ -77,33 +60,12 @@ namespace Inkslab.Linq.Abilities
     /// </summary>
     /// <typeparam name="TEntity">元素。</typeparam>
     [Ignore]
-    public interface IUpdateableTimeout<TEntity> : IUpdateableExecute<TEntity>
+    public interface IUpdateableTimeout<TEntity> : ICommandExecutor
     {
         /// <summary>
         /// 跳过幂等验证。
         /// </summary>
         /// <returns></returns>
-        IUpdateableExecute<TEntity> SkipIdempotentValid();
-    }
-
-    /// <summary>
-    /// 更新能力。
-    /// </summary>
-    /// <typeparam name="TEntity">实体类型。</typeparam>
-    [Ignore]
-    public interface IUpdateableExecute<TEntity>
-    {
-        /// <summary>
-        /// 执行指令。
-        /// </summary>
-        /// <returns>影响行。</returns>
-        int Execute();
-
-        /// <summary>
-        /// 执行指令。
-        /// </summary>
-        /// <param name="cancellationToken">取消。</param>
-        /// <returns></returns>
-        Task<int> ExecuteAsync(CancellationToken cancellationToken = default);
+        ICommandExecutor SkipIdempotentValid();
     }
 }

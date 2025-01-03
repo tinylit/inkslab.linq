@@ -12,23 +12,44 @@ namespace Inkslab.Linq
     /// 实体。
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public class Queryable<T> : QueryProvider, IOrderedQueryable<T>, IOrderedQueryable, IQueryable<T>, IQueryable, IAsyncQueryProvider, IQueryProvider, IAsyncEnumerable<T>, IEnumerable<T>, IEnumerable
+    public class Queryable<T>
+        : QueryProvider,
+            IOrderedQueryable<T>,
+            IOrderedQueryable,
+            IQueryable<T>,
+            IQueryable,
+            IAsyncQueryProvider,
+            IQueryProvider,
+            IAsyncEnumerable<T>,
+            IEnumerable<T>,
+            IEnumerable
     {
         private readonly IRepositoryExecutor _executor;
         private readonly Expression _node;
+        private readonly bool _alwaysAccessDatabase = true;
 
         /// <summary>
         /// 构造函数。
         /// </summary>
         /// <param name="executor">执行器。</param>
-        public Queryable(IRepositoryExecutor executor) : this(executor, null)
-        {
-        }
-
-        private Queryable(IRepositoryExecutor executor, Expression node) : base(executor)
+        public Queryable(IRepositoryExecutor executor)
+            : base(executor)
         {
             _executor = executor;
-            _node = node ?? Expression.Constant(this);
+            _node = Expression.Constant(this);
+        }
+
+        private Queryable(IRepositoryExecutor executor, Expression node)
+            : base(executor)
+        {
+            if (node is null)
+            {
+                throw new ArgumentNullException(nameof(node));
+            }
+
+            _alwaysAccessDatabase = false;
+            _executor = executor;
+            _node = node;
         }
 
         private IAsyncEnumerable<T> asyncEnumerable = null;
@@ -36,7 +57,14 @@ namespace Inkslab.Linq
         /// <inheritdoc/>
         public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default)
         {
-            asyncEnumerable ??= _executor.QueryAsync<T>(_node);
+            if (_alwaysAccessDatabase)
+            {
+                asyncEnumerable = _executor.QueryAsync<T>(_node);
+            }
+            else
+            {
+                asyncEnumerable ??= _executor.QueryAsync<T>(_node);
+            }
 
             return asyncEnumerable.GetAsyncEnumerator(cancellationToken);
         }
@@ -46,7 +74,14 @@ namespace Inkslab.Linq
         /// <inheritdoc/>
         public IEnumerator<T> GetEnumerator()
         {
-            enumerable ??= _executor.Query<T>(_node);
+            if (_alwaysAccessDatabase)
+            {
+                enumerable = _executor.Query<T>(_node);
+            }
+            else
+            {
+                enumerable ??= _executor.Query<T>(_node);
+            }
 
             return enumerable.GetEnumerator();
         }
@@ -61,13 +96,14 @@ namespace Inkslab.Linq
         IQueryProvider IQueryable.Provider => this;
 
         /// <inheritdoc/>
-        protected override IQueryable<TElement> CreateQuery<TElement>(Expression expression) => new Queryable<TElement>(_executor, expression);
+        protected override IQueryable<TElement> CreateQuery<TElement>(Expression expression) =>
+            new Queryable<TElement>(_executor, expression);
 
         /// <inheritdoc/>
         Task<TResult> IAsyncQueryProvider.ExecuteAsync<TResult>(
-           Expression expression,
-           CancellationToken cancellationToken
-       )
+            Expression expression,
+            CancellationToken cancellationToken
+        )
         {
             if (expression is null)
             {

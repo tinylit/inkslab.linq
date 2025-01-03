@@ -43,8 +43,8 @@ namespace Inkslab.Linq
 
             _services.AddSingleton<IConnectionStrings>(new ConnectionStrings(connectionStrings))
                 .AddSingleton<IDatabase, Database>()
-                .AddScoped(typeof(IQueryable<>), typeof(Queryable<>))
-                .AddScoped(typeof(IRepository<>), typeof(Repository<>));
+                .AddSingleton(typeof(IQueryable<>), typeof(Queryable<>))
+                .AddSingleton(typeof(IRepository<>), typeof(Repository<>));
 
             _services.TryAddSingleton(typeof(IRepositoryRouter<>), typeof(RepositoryRouter<>));
             _services.TryAddSingleton<IRepositoryExecutor, RepositoryExecutor>();

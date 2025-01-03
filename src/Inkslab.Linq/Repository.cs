@@ -30,7 +30,6 @@ namespace Inkslab.Linq
         private static readonly MethodInfo _deleteFn;
         private static readonly MethodInfo _insertFn;
         private static readonly MethodInfo _ignoreFn;
-        private static readonly MethodInfo _timeoutFn;
         private static readonly MethodInfo _takeWhileFn;
         private static readonly MethodInfo _skipWhileFn;
         private static readonly MethodInfo _deleteWithPredicateFn;
@@ -47,7 +46,6 @@ namespace Inkslab.Linq
             _deleteFn = QueryableMethods.Delete.MakeGenericMethod(_elementType);
             _insertFn = QueryableMethods.Insert.MakeGenericMethod(_elementType);
             _ignoreFn = QueryableMethods.Ignore.MakeGenericMethod(_elementType);
-            _timeoutFn = QueryableMethods.Timeout.MakeGenericMethod(_elementType);
 
             _takeWhileFn = QueryableMethods.TakeWhile.MakeGenericMethod(_elementType);
             _skipWhileFn = QueryableMethods.SkipWhile.MakeGenericMethod(_elementType);
@@ -524,6 +522,11 @@ namespace Inkslab.Linq
                 IRepositoryCondition<TEntity>,
                 IRepositoryIgnore<TEntity>
         {
+            private static readonly MethodInfo _timeoutFn;
+
+            static RepositoryTimeout() =>
+                _timeoutFn = QueryableMethods.Timeout.MakeGenericMethod(_elementType);
+
             private readonly int _commandTimeout;
 
             public RepositoryTimeout(

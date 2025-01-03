@@ -21,7 +21,12 @@ namespace Inkslab.Linq.Expressions
         private readonly TransverterVisitor _transverterVisitor;
 
         /// <inheritdoc/>
-        public JoinVisitor(ScriptVisitor visitor, Dictionary<(Type, string), SelectVisitor> joinRelationships, bool buildSelect) : base(visitor, ConditionType.On)
+        public JoinVisitor(
+            ScriptVisitor visitor,
+            Dictionary<(Type, string), SelectVisitor> joinRelationships,
+            bool buildSelect
+        )
+            : base(visitor, ConditionType.On)
         {
             _visitor = visitor;
             _joinRelationships = joinRelationships;
@@ -58,7 +63,10 @@ namespace Inkslab.Linq.Expressions
         }
 
         ///<inheritdoc/>
-        protected override bool TryPreparingParameter(ParameterExpression node, out ParameterExpression parameter)
+        protected override bool TryPreparingParameter(
+            ParameterExpression node,
+            out ParameterExpression parameter
+        )
         {
             if (transverter.TryGetValue(node, out parameter))
             {
@@ -74,7 +82,10 @@ namespace Inkslab.Linq.Expressions
         }
 
         ///<inheritdoc/>
-        protected override bool TryGetSourceParameter(Expression node, out ParameterExpression parameterExpression)
+        protected override bool TryGetSourceParameter(
+            Expression node,
+            out ParameterExpression parameterExpression
+        )
         {
             if (transverter.TryGetValue(node, out parameterExpression))
             {
@@ -100,8 +111,7 @@ namespace Inkslab.Linq.Expressions
             if (node.Method.Name == nameof(Queryable.SelectMany))
             {
                 //? 分析是否为左链接。
-                new DefaultIfEmptyVisitor(this)
-                    .Visit(node.Arguments[1]);
+                new DefaultIfEmptyVisitor(this).Visit(node.Arguments[1]);
 
                 _transverterVisitor.ReadySelect(node.Arguments[2]);
 
@@ -182,7 +192,13 @@ namespace Inkslab.Linq.Expressions
             {
                 _visitor.Circuity(node.Arguments[0]);
 
-                using (var visitor = new OnVisitor(this, node.Arguments[1], new OnExpression(node.Arguments[2])))
+                using (
+                    var visitor = new OnVisitor(
+                        this,
+                        node.Arguments[1],
+                        new OnExpression(node.Arguments[2])
+                    )
+                )
                 {
                     visitor.Startup(node.Arguments[3]);
                 }
@@ -222,7 +238,12 @@ namespace Inkslab.Linq.Expressions
 
             private Transverter() => _hashSet = new HashSet<(Type, string)>(1);
 
-            public Transverter(Type relationshipType, string relationshipName, ParameterExpression parameter, HashSet<(Type, string)> hashSet)
+            public Transverter(
+                Type relationshipType,
+                string relationshipName,
+                ParameterExpression parameter,
+                HashSet<(Type, string)> hashSet
+            )
             {
                 _isEmpty = false;
 
@@ -272,7 +293,10 @@ namespace Inkslab.Linq.Expressions
 
                         return TryGetValue(parameterExpression, out parameter);
 
-                    case MemberExpression memberExpression when _hashSet.Contains((memberExpression.Type, memberExpression.Member.Name)):
+                    case MemberExpression memberExpression
+                        when _hashSet.Contains(
+                            (memberExpression.Type, memberExpression.Member.Name)
+                        ):
 
                         parameter = _parameter;
 
@@ -316,6 +340,11 @@ namespace Inkslab.Linq.Expressions
                     return base.VisitMethodCall(node);
                 }
 
+                if (node.Method.Name == nameof(QueryableExtentions.DataSharding))
+                {
+                    return base.VisitMethodCall(node);
+                }
+
                 throw new DSyntaxErrorException();
             }
         }
@@ -328,7 +357,11 @@ namespace Inkslab.Linq.Expressions
             private readonly Dictionary<(Type, string), SelectVisitor> _joinRelationships;
             private readonly HashSet<(Type, string)> _hashSet = new HashSet<(Type, string)>(1);
 
-            public TransverterVisitor(JoinVisitor visitor, ScriptVisitor scriptVisitor, Dictionary<(Type, string), SelectVisitor> joinRelationships)
+            public TransverterVisitor(
+                JoinVisitor visitor,
+                ScriptVisitor scriptVisitor,
+                Dictionary<(Type, string), SelectVisitor> joinRelationships
+            )
             {
                 _visitor = visitor;
                 _scriptVisitor = scriptVisitor;
@@ -341,7 +374,14 @@ namespace Inkslab.Linq.Expressions
 
             public void Prepare()
             {
-                using (var visitor = new PrepareVisitor(_visitor, _scriptVisitor, _joinRelationships, _hashSet))
+                using (
+                    var visitor = new PrepareVisitor(
+                        _visitor,
+                        _scriptVisitor,
+                        _joinRelationships,
+                        _hashSet
+                    )
+                )
                 {
                     foreach (var expression in _expressions)
                     {
@@ -352,7 +392,14 @@ namespace Inkslab.Linq.Expressions
 
             public void Prepare(Expression node)
             {
-                using (var visitor = new PrepareVisitor(_visitor, _scriptVisitor, _joinRelationships, _hashSet))
+                using (
+                    var visitor = new PrepareVisitor(
+                        _visitor,
+                        _scriptVisitor,
+                        _joinRelationships,
+                        _hashSet
+                    )
+                )
                 {
                     foreach (var expression in _expressions)
                     {
@@ -368,8 +415,7 @@ namespace Inkslab.Linq.Expressions
 
             public void Build()
             {
-                new BuildVisitor(_scriptVisitor)
-                    .Visit(_expressions[0]);
+                new BuildVisitor(_scriptVisitor).Visit(_expressions[0]);
             }
 
             protected override Expression VisitLambda<T>(Expression<T> node)
@@ -385,15 +431,10 @@ namespace Inkslab.Linq.Expressions
 
             private class PrepareMainVisitor : BaseVisitor
             {
-                public PrepareMainVisitor(ScriptVisitor scriptVisitor) : base(scriptVisitor)
-                {
+                public PrepareMainVisitor(ScriptVisitor scriptVisitor)
+                    : base(scriptVisitor) { }
 
-                }
-
-                protected override void Lambda<T>(Expression<T> node)
-                {
-
-                }
+                protected override void Lambda<T>(Expression<T> node) { }
             }
 
             private class PrepareVisitor : BaseVisitor
@@ -402,7 +443,13 @@ namespace Inkslab.Linq.Expressions
                 private readonly HashSet<(Type, string)> _hashSet;
                 private readonly Dictionary<(Type, string), SelectVisitor> _joinRelationships;
 
-                public PrepareVisitor(JoinVisitor visitor, ScriptVisitor scriptVisitor, Dictionary<(Type, string), SelectVisitor> joinRelationships, HashSet<(Type, string)> hashSet) : base(scriptVisitor)
+                public PrepareVisitor(
+                    JoinVisitor visitor,
+                    ScriptVisitor scriptVisitor,
+                    Dictionary<(Type, string), SelectVisitor> joinRelationships,
+                    HashSet<(Type, string)> hashSet
+                )
+                    : base(scriptVisitor)
                 {
                     _hashSet = hashSet;
                     _visitor = visitor;
@@ -417,7 +464,12 @@ namespace Inkslab.Linq.Expressions
                     {
                         _visitor.ParameterRefresh(parameter);
 
-                        _visitor.transverter = new Transverter(parameter.Type, parameter.Name, parameter, _hashSet);
+                        _visitor.transverter = new Transverter(
+                            parameter.Type,
+                            parameter.Name,
+                            parameter,
+                            _hashSet
+                        );
                     }
                     else
                     {
@@ -429,9 +481,7 @@ namespace Inkslab.Linq.Expressions
                     base.PreparingParameter(node);
                 }
 
-                protected override void Lambda<T>(Expression<T> node)
-                {
-                }
+                protected override void Lambda<T>(Expression<T> node) { }
             }
 
             private class BuildVisitor : ExpressionVisitor
@@ -477,8 +527,7 @@ namespace Inkslab.Linq.Expressions
 
             protected override Expression Accept(ExpressionVisitor visitor)
             {
-                return new AcceptVisitor(visitor)
-                    .Visit(_node);
+                return new AcceptVisitor(visitor).Visit(_node);
             }
 
             private class AcceptVisitor : ExpressionVisitor
@@ -489,7 +538,6 @@ namespace Inkslab.Linq.Expressions
                 {
                     _visitor = visitor;
                 }
-
 
                 protected override Expression VisitLambda<T>(Expression<T> node)
                 {
@@ -506,7 +554,8 @@ namespace Inkslab.Linq.Expressions
             private readonly Expression _instance;
             private readonly OnExpression _left;
 
-            public OnVisitor(JoinVisitor visitor, Expression instance, OnExpression left) : base(visitor)
+            public OnVisitor(JoinVisitor visitor, Expression instance, OnExpression left)
+                : base(visitor)
             {
                 _visitor = visitor;
                 _instance = instance;

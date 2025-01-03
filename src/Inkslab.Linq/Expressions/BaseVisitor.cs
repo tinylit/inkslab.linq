@@ -40,7 +40,7 @@ namespace Inkslab.Linq.Expressions
         /// <summary>
         /// 表信息。
         /// </summary>
-        private ITableInfo sourceTableInfo;
+        private ITableInfo tableInformation;
 
         /// <summary>
         /// 忽略可空类型。
@@ -440,7 +440,7 @@ namespace Inkslab.Linq.Expressions
                         && constant.Value is IQueryable queryable
                     )
                     {
-                        sourceTableInfo ??= TableAnalyzer.Table(queryable.ElementType);
+                        tableInformation ??= TableAnalyzer.Table(queryable.ElementType);
                     }
 
                     if (
@@ -496,7 +496,7 @@ namespace Inkslab.Linq.Expressions
         {
             if (node.Value is IQueryable queryable)
             {
-                sourceTableInfo ??= TableAnalyzer.Table(queryable.ElementType); //? 兼容 LEFT JOIN 导致的函数分析问题。
+                tableInformation ??= TableAnalyzer.Table(queryable.ElementType); //? 兼容 LEFT JOIN 导致的函数分析问题。
             }
 
             dataShardingInvalid &= false;
@@ -1586,7 +1586,7 @@ namespace Inkslab.Linq.Expressions
             out ITableInfo tableInfo
         )
         {
-            if (sourceTableInfo is null)
+            if (tableInformation is null)
             {
                 if (_visitor is null)
                 {
@@ -1598,7 +1598,7 @@ namespace Inkslab.Linq.Expressions
                 return _visitor.TryGetSourceTableInfo(node, out tableInfo);
             }
 
-            tableInfo = sourceTableInfo;
+            tableInfo = tableInformation;
 
             return true;
         }
@@ -2284,13 +2284,13 @@ namespace Inkslab.Linq.Expressions
         /// </summary>
         protected virtual void Name()
         {
-            if (sourceTableInfo is null)
+            if (tableInformation is null)
             {
                 throw new DSyntaxErrorException("未能分析到表名称！");
             }
 
-            string name = sourceTableInfo.Name;
-            string schema = sourceTableInfo.Schema;
+            string name = tableInformation.Name;
+            string schema = tableInformation.Schema;
 
             if (schema.IsEmpty())
             {
@@ -2302,9 +2302,21 @@ namespace Inkslab.Linq.Expressions
 
             Writer.Schema(schema);
 
+            if (tableInformation.DataSharding ^ dataSharding)
+            {
+                if (tableInformation.DataSharding)
+                {
+                    throw new InvalidOperationException($"分区表“{tableInformation.Name}”的操作，必须指定分区键！");
+                }
+                else
+                {
+                    throw new InvalidOperationException($"普通表“{tableInformation.Name}”不支持分区操作！");
+                }
+            }
+
             if (dataSharding)
             {
-                name = sourceTableInfo.Fragment(shardingKey);
+                name = tableInformation.Fragment(shardingKey);
             }
 
             Writer.Name(name);
@@ -2319,10 +2331,10 @@ namespace Inkslab.Linq.Expressions
         {
             if (onlyMyself)
             {
-                return sourceTableInfo;
+                return tableInformation;
             }
 
-            return sourceTableInfo
+            return tableInformation
                 ?? _visitor?.Table(onlyMyself)
                 ?? throw new DSyntaxErrorException("未能分析到表名称！");
             ;

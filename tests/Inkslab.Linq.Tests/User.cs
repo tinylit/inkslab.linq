@@ -1,7 +1,6 @@
-using Inkslab.Linq.Annotations;
 using System;
-using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
+using Inkslab.Linq.Annotations;
 
 namespace Inkslab.Linq.Tests
 {
@@ -10,12 +9,17 @@ namespace Inkslab.Linq.Tests
     {
         [Key]
         [Field("id")]
-        [ReadOnly(true)]
+        [DatabaseGenerated]
         public int Id { get; set; }
+
         [Field("name")]
         public string Name { get; set; }
+
         [Version]
         [Field("date")]
         public DateTime DateAt { get; set; }
     }
+
+    [Table("user_[sharding]")]
+    public class UserSharding : User { }
 }

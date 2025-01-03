@@ -451,6 +451,7 @@ namespace Inkslab.Linq.Expressions
         {
             switch (node.Method.Name)
             {
+                case nameof(QueryableExtentions.DataSharding):
                 case nameof(Queryable.SelectMany):
                 case nameof(Queryable.GroupJoin):
                     VisitMethodCall(node);

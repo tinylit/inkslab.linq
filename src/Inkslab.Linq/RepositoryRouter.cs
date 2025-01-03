@@ -96,29 +96,47 @@ namespace Inkslab.Linq
         }
 
         /// <inheritdoc/>
-        public IInsertable<TEntity> AsInsertable(List<TEntity> entries)
+        public IInsertable<TEntity> AsInsertable(
+            List<TEntity> entries,
+            bool ignore = false,
+            string shardingKey = null,
+            int? commandTimeout = null
+        )
         {
             if (entries is null)
             {
                 throw new ArgumentNullException(nameof(entries));
             }
 
-            if (_instance.DataSharding)
+            if (_instance.DataSharding ^ shardingKey?.Length > 0)
             {
-                throw new NotSupportedException($"“{_instance.Name}”是分片表，但未指定操作分片键！");
+                if (_instance.DataSharding)
+                {
+                    throw new InvalidOperationException($"分区表“{_instance.Name}”的操作，必须指定分区键！");
+                }
+                else
+                {
+                    throw new InvalidOperationException($"普通表“{_instance.Name}”不支持分区操作！");
+                }
             }
 
             return new Insertable(
                 _databaseExecutor,
                 _connectionStrings,
                 _settings,
-                string.Empty,
-                entries
+                entries,
+                commandTimeout,
+                shardingKey,
+                ignore
             );
         }
 
         /// <inheritdoc/>
-        public IUpdateable<TEntity> AsUpdateable(List<TEntity> entries)
+        public IUpdateable<TEntity> AsUpdateable(
+            List<TEntity> entries,
+            string shardingKey = null,
+            int? commandTimeout = null
+        )
         {
             if (entries is null)
             {
@@ -130,23 +148,35 @@ namespace Inkslab.Linq
                 throw new NotSupportedException("不支持无主键表的更新操作！");
             }
 
-            if (_instance.DataSharding)
+            if (_instance.DataSharding ^ shardingKey?.Length > 0)
             {
-                throw new NotSupportedException($"“{_instance.Name}”是分片表，但未指定操作分片键！");
+                if (_instance.DataSharding)
+                {
+                    throw new InvalidOperationException($"分区表“{_instance.Name}”的操作，必须指定分区键！");
+                }
+                else
+                {
+                    throw new InvalidOperationException($"普通表“{_instance.Name}”不支持分区操作！");
+                }
             }
 
             return new Updateable(
                 _databaseExecutor,
                 _connectionStrings,
                 _settings,
-                string.Empty,
-                _logger,
-                entries
+                entries,
+                commandTimeout,
+                shardingKey,
+                _logger
             );
         }
 
         /// <inheritdoc/>
-        public IDeleteable<TEntity> AsDeleteable(List<TEntity> entries)
+        public IDeleteable<TEntity> AsDeleteable(
+            List<TEntity> entries,
+            string shardingKey = null,
+            int? commandTimeout = null
+        )
         {
             if (entries is null)
             {
@@ -158,117 +188,26 @@ namespace Inkslab.Linq
                 throw new NotSupportedException("不支持无主键表的删除操作！");
             }
 
-            if (_instance.DataSharding)
+            if (_instance.DataSharding ^ shardingKey?.Length > 0)
             {
-                throw new NotSupportedException($"“{_instance.Name}”是分片表，但未指定操作分片键！");
+                if (_instance.DataSharding)
+                {
+                    throw new InvalidOperationException($"分区表“{_instance.Name}”的操作，必须指定分区键！");
+                }
+                else
+                {
+                    throw new InvalidOperationException($"普通表“{_instance.Name}”不支持分区操作！");
+                }
             }
 
             return new Deleteable(
                 _databaseExecutor,
                 _connectionStrings,
                 _settings,
-                string.Empty,
-                _logger,
-                entries
-            );
-        }
-
-        /// <inheritdoc/>
-        public IInsertable<TEntity> AsInsertable(string shardingKey, List<TEntity> entries)
-        {
-            if (string.IsNullOrEmpty(shardingKey))
-            {
-                throw new ArgumentException(
-                    $"'{nameof(shardingKey)}' cannot be null or empty.",
-                    nameof(shardingKey)
-                );
-            }
-
-            if (entries is null)
-            {
-                throw new ArgumentNullException(nameof(entries));
-            }
-
-            if (!_instance.DataSharding)
-            {
-                throw new InvalidOperationException($"“{_instance.Name}”不是分片表！");
-            }
-
-            return new Insertable(
-                _databaseExecutor,
-                _connectionStrings,
-                _settings,
+                entries,
+                commandTimeout,
                 shardingKey,
-                entries
-            );
-        }
-
-        /// <inheritdoc/>
-        public IUpdateable<TEntity> AsUpdateable(string shardingKey, List<TEntity> entries)
-        {
-            if (shardingKey is null)
-            {
-                throw new ArgumentNullException(nameof(shardingKey));
-            }
-
-            if (entries is null)
-            {
-                throw new ArgumentNullException(nameof(entries));
-            }
-
-            if (_instance.Keys.Count == 0)
-            {
-                throw new NotSupportedException("不支持无主键表的更新操作！");
-            }
-
-            if (!_instance.DataSharding)
-            {
-                throw new InvalidOperationException($"“{_instance.Name}”不是分片表！");
-            }
-
-            return new Updateable(
-                _databaseExecutor,
-                _connectionStrings,
-                _settings,
-                shardingKey,
-                _logger,
-                entries
-            );
-        }
-
-        /// <inheritdoc/>
-        public IDeleteable<TEntity> AsDeleteable(string shardingKey, List<TEntity> entries)
-        {
-            if (string.IsNullOrEmpty(shardingKey))
-            {
-                throw new ArgumentException(
-                    $"'{nameof(shardingKey)}' cannot be null or empty.",
-                    nameof(shardingKey)
-                );
-            }
-
-            if (entries is null)
-            {
-                throw new ArgumentNullException(nameof(entries));
-            }
-
-            if (_instance.Keys.Count == 0)
-            {
-                throw new NotSupportedException("不支持无主键表的删除操作！");
-            }
-
-            if (!_instance.DataSharding)
-            {
-                throw new InvalidOperationException($"“{_instance.Name}”不是分片表！");
-            }
-
-            return new Deleteable(
-                _databaseExecutor,
-                _connectionStrings,
-                _settings,
-                shardingKey,
-                _logger,
-                entries
+                _logger
             );
         }
 
@@ -312,7 +251,12 @@ namespace Inkslab.Linq
                 Dictionary<string, Entry>
             > _cachings = new ConcurrentDictionary<Type, Dictionary<string, Entry>>();
 
-            public Command(List<TEntity> entities, IDbCorrectSettings settings, string shardingKey)
+            public Command(
+                List<TEntity> entities,
+                IDbCorrectSettings settings,
+                string shardingKey,
+                int? commandTimeout
+            )
             {
                 Name = shardingKey?.Length > 0 ? _instance.Fragment(shardingKey) : _instance.Name;
 
@@ -325,6 +269,8 @@ namespace Inkslab.Linq
 
                 Entities = entities;
                 Settings = settings;
+
+                CommandTimeout = commandTimeout;
             }
 
             public bool IsEmpty => Entities.Count == 0;
@@ -341,7 +287,7 @@ namespace Inkslab.Linq
 
             public HashSet<string> Fields { protected set; get; }
 
-            public int? Timeout { get; set; }
+            public int? CommandTimeout { get; }
 
             public void Except(string[] columns)
             {
@@ -538,17 +484,21 @@ namespace Inkslab.Linq
             public InsertCommand(
                 List<TEntity> entities,
                 IDbCorrectSettings settings,
-                string shardingKey
+                bool ignore,
+                string shardingKey,
+                int? commandTimeout
             )
-                : base(entities, settings, shardingKey)
+                : base(entities, settings, shardingKey, commandTimeout)
             {
+                Ignore = ignore;
+
                 Fields = _instance
                     .Fields.SkipWhile(x => _instance.ReadOnlys.Contains(x.Key))
                     .Select(x => x.Key)
                     .ToHashSet(StringComparer.OrdinalIgnoreCase);
             }
 
-            public bool Ignore { get; set; }
+            public bool Ignore { get; }
 
             public DataTable Combination()
             {
@@ -851,7 +801,7 @@ namespace Inkslab.Linq
                     sb.Append(')');
                 }
 
-                return new CommandSql(sb.ToString(), parameters, Timeout);
+                return new CommandSql(sb.ToString(), parameters, CommandTimeout);
             }
         }
 
@@ -872,9 +822,10 @@ namespace Inkslab.Linq
                 List<TEntity> entities,
                 IDbCorrectSettings settings,
                 string shardingKey,
+                int? commandTimeout,
                 ILogger logger
             )
-                : base(entities, settings, shardingKey)
+                : base(entities, settings, shardingKey, commandTimeout)
             {
                 _logger = logger;
 
@@ -1435,7 +1386,7 @@ namespace Inkslab.Linq
                     sb.Append(';');
                 }
 
-                return new CommandSql(sb.ToString(), parameters, Timeout);
+                return new CommandSql(sb.ToString(), parameters, CommandTimeout);
             }
         }
 
@@ -1447,9 +1398,10 @@ namespace Inkslab.Linq
                 List<TEntity> entities,
                 IDbCorrectSettings settings,
                 string shardingKey,
+                int? commandTimeout,
                 ILogger logger
             )
-                : base(entities, settings, shardingKey)
+                : base(entities, settings, shardingKey, commandTimeout)
             {
                 _logger = logger;
 
@@ -1625,7 +1577,7 @@ namespace Inkslab.Linq
                     }
                 }
 
-                return new CommandSql(sb.ToString(), parameters, Timeout);
+                return new CommandSql(sb.ToString(), parameters, CommandTimeout);
             }
 
             public override void CheckValid() { }
@@ -1882,26 +1834,32 @@ namespace Inkslab.Linq
                 IDatabaseExecutor executor,
                 IConnectionStrings connectionStrings,
                 IDbCorrectSettings settings,
+                List<TEntity> entities,
+                int? commandTimeout,
                 string shardingKey,
-                List<TEntity> entities
+                bool ignore
             )
             {
                 _executor = executor;
                 _connectionStrings = connectionStrings;
 
-                _command = new InsertCommand(entities, settings, shardingKey);
+                _command = new InsertCommand(
+                    entities,
+                    settings,
+                    ignore,
+                    shardingKey,
+                    commandTimeout
+                );
             }
 
-            public IInsertableByTimeout<TEntity> Except(string[] columns)
+            public ICommandExecutor Except(string[] columns)
             {
                 _command.Except(columns);
 
                 return this;
             }
 
-            public IInsertableByTimeout<TEntity> Except<TColumn>(
-                Expression<Func<TEntity, TColumn>> columns
-            )
+            public ICommandExecutor Except<TColumn>(Expression<Func<TEntity, TColumn>> columns)
             {
                 if (columns is null)
                 {
@@ -1951,7 +1909,7 @@ namespace Inkslab.Linq
                                     influenceSkipRows += executor.Execute(dropSql);
                                 }
                             },
-                            _command.Timeout
+                            _command.CommandTimeout
                         ) - influenceSkipRows;
                 }
                 else
@@ -1961,7 +1919,7 @@ namespace Inkslab.Linq
                     return _executor.WriteToServer(
                         _connectionStrings.Strings,
                         dt,
-                        _command.Timeout
+                        _command.CommandTimeout
                     );
                 }
             }
@@ -2012,7 +1970,7 @@ namespace Inkslab.Linq
                                     influenceSkipRows += await executor.ExecuteAsync(dropSql);
                                 }
                             },
-                            _command.Timeout,
+                            _command.CommandTimeout,
                             cancellationToken
                         ) - influenceSkipRows;
                 }
@@ -2023,29 +1981,20 @@ namespace Inkslab.Linq
                     return await _executor.WriteToServerAsync(
                         _connectionStrings.Strings,
                         dt,
-                        _command.Timeout,
+                        _command.CommandTimeout,
                         cancellationToken
                     );
                 }
             }
 
-            public IInsertableIgnore<TEntity> Ignore()
-            {
-                _command.Ignore = true;
-
-                return this;
-            }
-
-            public IInsertableByTimeout<TEntity> Limit(string[] columns)
+            public ICommandExecutor Limit(string[] columns)
             {
                 _command.Limit(columns);
 
                 return this;
             }
 
-            public IInsertableByTimeout<TEntity> Limit<TColumn>(
-                Expression<Func<TEntity, TColumn>> columns
-            )
+            public ICommandExecutor Limit<TColumn>(Expression<Func<TEntity, TColumn>> columns)
             {
                 if (columns is null)
                 {
@@ -2053,18 +2002,6 @@ namespace Inkslab.Linq
                 }
 
                 return Limit(AnalysisFields(columns));
-            }
-
-            public ICommandExecutor Timeout(int commandTimeout)
-            {
-                if (commandTimeout < 1)
-                {
-                    throw new ArgumentOutOfRangeException(nameof(commandTimeout));
-                }
-
-                _command.Timeout = commandTimeout;
-
-                return this;
             }
         }
         #endregion
@@ -2081,15 +2018,22 @@ namespace Inkslab.Linq
                 IDatabaseExecutor executor,
                 IConnectionStrings connectionStrings,
                 IDbCorrectSettings settings,
+                List<TEntity> entities,
+                int? commandTimeout,
                 string shardingKey,
-                ILogger logger,
-                List<TEntity> entities
+                ILogger logger
             )
             {
                 _executor = executor;
                 _connectionStrings = connectionStrings;
 
-                _command = new UpdateableCommand(entities, settings, shardingKey, logger);
+                _command = new UpdateableCommand(
+                    entities,
+                    settings,
+                    shardingKey,
+                    commandTimeout,
+                    logger
+                );
             }
 
             public int Execute()
@@ -2129,7 +2073,7 @@ namespace Inkslab.Linq
                                 influenceSkipRows += executor.Execute(dropSql);
                             }
                         },
-                        _command.Timeout
+                        _command.CommandTimeout
                     ) - influenceSkipRows;
             }
 
@@ -2174,19 +2118,19 @@ namespace Inkslab.Linq
                                 influenceSkipRows += await executor.ExecuteAsync(dropSql);
                             }
                         },
-                        _command.Timeout,
+                        _command.CommandTimeout,
                         cancellationToken
                     ) - influenceSkipRows;
             }
 
-            public IUpdateableByLimit<TEntity> Set(string[] columns)
+            public IUpdateableOfSet<TEntity> Set(string[] columns)
             {
                 _command.Limit(columns);
 
                 return this;
             }
 
-            public IUpdateableByLimit<TEntity> Set<TColumn>(
+            public IUpdateableOfSet<TEntity> Set<TColumn>(
                 Expression<Func<TEntity, TColumn>> columns
             )
             {
@@ -2200,14 +2144,14 @@ namespace Inkslab.Linq
                 return this;
             }
 
-            public IUpdateableByLimit<TEntity> SetExcept(string[] columns)
+            public IUpdateableOfSet<TEntity> SetExcept(string[] columns)
             {
                 _command.Except(columns);
 
                 return this;
             }
 
-            public IUpdateableByLimit<TEntity> SetExcept<TColumn>(
+            public IUpdateableOfSet<TEntity> SetExcept<TColumn>(
                 Expression<Func<TEntity, TColumn>> columns
             )
             {
@@ -2227,18 +2171,6 @@ namespace Inkslab.Linq
 
                 return this;
             }
-
-            public IUpdateableTimeout<TEntity> Timeout(int commandTimeout)
-            {
-                if (commandTimeout < 1)
-                {
-                    throw new ArgumentOutOfRangeException(nameof(commandTimeout));
-                }
-
-                _command.Timeout = commandTimeout;
-
-                return this;
-            }
         }
         #endregion
 
@@ -2254,15 +2186,22 @@ namespace Inkslab.Linq
                 IDatabaseExecutor executor,
                 IConnectionStrings connectionStrings,
                 IDbCorrectSettings settings,
+                List<TEntity> entities,
+                int? commandTimeout,
                 string shardingKey,
-                ILogger logger,
-                List<TEntity> entities
+                ILogger logger
             )
             {
                 _executor = executor;
                 _connectionStrings = connectionStrings;
 
-                _command = new DeleteableCommand(entities, settings, shardingKey, logger);
+                _command = new DeleteableCommand(
+                    entities,
+                    settings,
+                    shardingKey,
+                    commandTimeout,
+                    logger
+                );
             }
 
             public int Execute()
@@ -2302,7 +2241,7 @@ namespace Inkslab.Linq
                                 influenceSkipRows += executor.Execute(dropSql);
                             }
                         },
-                        _command.Timeout
+                        _command.CommandTimeout
                     ) - influenceSkipRows;
             }
 
@@ -2347,7 +2286,7 @@ namespace Inkslab.Linq
                                 influenceSkipRows += await executor.ExecuteAsync(dropSql);
                             }
                         },
-                        _command.Timeout,
+                        _command.CommandTimeout,
                         cancellationToken
                     ) - influenceSkipRows;
             }
@@ -2355,13 +2294,6 @@ namespace Inkslab.Linq
             public ICommandExecutor SkipIdempotentValid()
             {
                 _command.SkipIdempotentValid = true;
-
-                return this;
-            }
-
-            public IDeleteableTimeout<TEntity> Timeout(int commandTimeout)
-            {
-                _command.Timeout = commandTimeout;
 
                 return this;
             }

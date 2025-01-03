@@ -25,7 +25,7 @@ namespace Inkslab.Linq
         private class TableInfo : ITableInfo
         {
             private static readonly Regex _shardingToken = new Regex(
-                "\\?/\\!|\\[.*?\\]/\\{.*?\\}",
+                "\\?|\\!|\\[.*?\\]|\\{.*?\\}",
                 RegexOptions.Compiled | RegexOptions.Singleline
             );
 

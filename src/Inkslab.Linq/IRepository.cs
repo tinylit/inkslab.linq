@@ -14,16 +14,9 @@ namespace Inkslab.Linq
     /// 仓库。
     /// </summary>
     /// <typeparam name="TEntity">元素。</typeparam>
-    public interface IRepository<TEntity> : IRepositoryTimeout<TEntity>
+    public interface IRepository<TEntity> : IRepositoryDataSharding<TEntity>
         where TEntity : class, new()
     {
-        /// <summary>
-        ///     The <see cref="MethodInfo" /> for
-        ///     <see
-        ///         cref="QueryableExtentions.Timeout{TSource}(IQueryable{TSource}, int)" />
-        /// </summary>
-        IRepositoryTimeout<TEntity> Timeout(int commandTimeout);
-
         /// <summary>
         ///     The <see cref="MethodInfo" /> for
         ///     <see
@@ -46,17 +39,6 @@ namespace Inkslab.Linq
         ///         cref="QueryableExtentions.Timeout{TSource}(IQueryable{TSource}, int)" />
         /// </summary>
         IRepositoryTimeout<TEntity> Timeout(int commandTimeout);
-
-        /// <summary>
-        /// 准备（检查表是否存在，不存在自动创建）。
-        /// </summary>
-        void Ready();
-
-        /// <summary>
-        /// 准备（检查表是否存在，不存在自动创建）。
-        /// </summary>
-        /// <param name="cancellationToken">令牌。</param>
-        Task ReadyAsync(CancellationToken cancellationToken = default);
     }
 
     /// <summary>
@@ -69,24 +51,6 @@ namespace Inkslab.Linq
             IRepositoryIgnore<TEntity>
         where TEntity : class, new()
     {
-        /// <summary>
-        /// 插入路由执行器。
-        /// </summary>
-        /// <param name="entry">项目。</param>
-        IInsertable<TEntity> Insert(TEntity entry);
-
-        /// <summary>
-        /// 插入路由执行器。
-        /// </summary>
-        /// <param name="entries">项目集合。</param>
-        IInsertable<TEntity> Insert(List<TEntity> entries);
-
-        /// <summary>
-        /// 插入路由执行器。
-        /// </summary>
-        /// <param name="entries">项目集合。</param>
-        IInsertable<TEntity> Insert(params TEntity[] entries);
-
         /// <summary>
         /// 更新路由执行器。
         /// </summary>
@@ -144,6 +108,24 @@ namespace Inkslab.Linq
     public interface IRepositoryIgnore<TEntity>
         where TEntity : class, new()
     {
+        /// <summary>
+        /// 插入路由执行器。
+        /// </summary>
+        /// <param name="entry">项目。</param>
+        IInsertable<TEntity> Into(TEntity entry);
+
+        /// <summary>
+        /// 插入路由执行器。
+        /// </summary>
+        /// <param name="entries">项目集合。</param>
+        IInsertable<TEntity> Into(List<TEntity> entries);
+
+        /// <summary>
+        /// 插入路由执行器。
+        /// </summary>
+        /// <param name="entries">项目集合。</param>
+        IInsertable<TEntity> Into(params TEntity[] entries);
+
         /// <summary>
         /// 插入数据。
         /// </summary>

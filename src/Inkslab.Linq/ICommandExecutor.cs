@@ -2,7 +2,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Inkslab.Annotations;
 
-namespace Inkslab.Linq.Abilities
+namespace Inkslab.Linq
 {
     /// <summary>
     /// 命令执行器。

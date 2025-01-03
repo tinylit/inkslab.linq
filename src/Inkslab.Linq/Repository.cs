@@ -18,6 +18,7 @@ namespace Inkslab.Linq
     /// <typeparam name="TEntity">类型。</typeparam>
     public class Repository<TEntity>
         : IRepository<TEntity>,
+            IRepositoryDataSharding<TEntity>,
             IRepositoryTimeout<TEntity>,
             IRepositoryCondition<TEntity>,
             IRepositoryIgnore<TEntity>
@@ -105,7 +106,43 @@ namespace Inkslab.Linq
             _repositoryType switch
             {
                 RepositoryType.Normal => _node,
+                RepositoryType.Ignore
+                    => Call(null, _ignoreFn, new Expression[1] { _repository.OperationNode() }),
                 _ => _repository.OperationNode()
+            };
+
+        /// <summary>
+        /// 超时时间。
+        /// </summary>
+        /// <returns></returns>
+        protected virtual int? CommandTimeout() =>
+            _repositoryType switch
+            {
+                RepositoryType.Normal => null,
+                _ => _repository.CommandTimeout()
+            };
+
+        /// <summary>
+        /// 忽略。
+        /// </summary>
+        /// <returns></returns>
+        protected virtual bool IsIgnore() =>
+            _repositoryType switch
+            {
+                RepositoryType.Normal => false,
+                RepositoryType.Ignore => true,
+                _ => _repository.IsIgnore()
+            };
+
+        /// <summary>
+        /// 获取分片键。
+        /// </summary>
+        /// <returns></returns>
+        protected virtual string ShardingKey() =>
+            _repositoryType switch
+            {
+                RepositoryType.Normal => null,
+                _ => _repository.ShardingKey()
             };
 
         #region Extentions
@@ -188,11 +225,7 @@ namespace Inkslab.Linq
         /// <inheritdoc/>
         public IRepositoryIgnore<TEntity> Ignore()
         {
-            return new Repository<TEntity>(
-                _executor,
-                _router,
-                Call(null, _ignoreFn, new Expression[1] { _repository.OperationNode() })
-            );
+            return new Repository<TEntity>(this, _executor, _router, RepositoryType.Ignore);
         }
 
         /// <summary>
@@ -327,36 +360,40 @@ namespace Inkslab.Linq
 
         #region 路由能力
         /// <inheritdoc/>
-        public IInsertable<TEntity> Insert(TEntity entry)
+        public IInsertable<TEntity> Into(TEntity entry)
         {
             if (entry is null)
             {
                 throw new ArgumentNullException(nameof(entry));
             }
 
-            return Insert(new List<TEntity>(1) { entry });
+            return Into(new List<TEntity>(1) { entry });
         }
 
         /// <inheritdoc/>
-        public virtual IInsertable<TEntity> Insert(List<TEntity> entries)
+        public IInsertable<TEntity> Into(List<TEntity> entries)
         {
             if (entries is null)
             {
                 throw new ArgumentNullException(nameof(entries));
             }
 
-            return _router.AsInsertable(entries);
+            bool ignore = IsIgnore();
+            var shardingKey = ShardingKey();
+            var commandTimeout = CommandTimeout();
+
+            return _router.AsInsertable(entries, ignore, shardingKey, commandTimeout);
         }
 
         /// <inheritdoc/>
-        public IInsertable<TEntity> Insert(params TEntity[] entries)
+        public IInsertable<TEntity> Into(params TEntity[] entries)
         {
             if (entries is null)
             {
                 throw new ArgumentNullException(nameof(entries));
             }
 
-            return Insert(new List<TEntity>(entries));
+            return Into(new List<TEntity>(entries));
         }
 
         /// <inheritdoc/>
@@ -371,14 +408,17 @@ namespace Inkslab.Linq
         }
 
         /// <inheritdoc/>
-        public virtual IUpdateable<TEntity> Update(List<TEntity> entries)
+        public IUpdateable<TEntity> Update(List<TEntity> entries)
         {
             if (entries is null)
             {
                 throw new ArgumentNullException(nameof(entries));
             }
 
-            return _router.AsUpdateable(entries);
+            var shardingKey = ShardingKey();
+            var commandTimeout = CommandTimeout();
+
+            return _router.AsUpdateable(entries, shardingKey, commandTimeout);
         }
 
         /// <inheritdoc/>
@@ -411,7 +451,10 @@ namespace Inkslab.Linq
                 throw new ArgumentNullException(nameof(entries));
             }
 
-            return _router.AsDeleteable(entries);
+            var shardingKey = ShardingKey();
+            var commandTimeout = CommandTimeout();
+
+            return _router.AsDeleteable(entries, shardingKey, commandTimeout);
         }
 
         /// <inheritdoc/>
@@ -461,6 +504,8 @@ namespace Inkslab.Linq
                 );
             }
 
+            protected override string ShardingKey() => _shardingKey;
+
             public void Ready()
             {
                 throw new NotImplementedException();
@@ -470,25 +515,11 @@ namespace Inkslab.Linq
             {
                 throw new NotImplementedException();
             }
-
-            public override IDeleteable<TEntity> Delete(List<TEntity> entries)
-            {
-                return _router.AsDeleteable(_shardingKey, entries);
-            }
-
-            public override IInsertable<TEntity> Insert(List<TEntity> entries)
-            {
-                return _router.AsInsertable(_shardingKey, entries);
-            }
-
-            public override IUpdateable<TEntity> Update(List<TEntity> entries)
-            {
-                return _router.AsUpdateable(_shardingKey, entries);
-            }
         }
 
         private class RepositoryTimeout
             : Repository<TEntity>,
+                IRepositoryDataSharding<TEntity>,
                 IRepositoryTimeout<TEntity>,
                 IRepositoryCondition<TEntity>,
                 IRepositoryIgnore<TEntity>
@@ -514,6 +545,8 @@ namespace Inkslab.Linq
                     new Expression[2] { base.OperationNode(), Constant(_commandTimeout) }
                 );
             }
+
+            protected override int? CommandTimeout() => _commandTimeout;
         }
         #endregion
 
@@ -521,7 +554,8 @@ namespace Inkslab.Linq
         {
             Normal,
             DataSharding,
-            Timeout
+            Timeout,
+            Ignore
         }
 
         private class NestedQueryable : IQueryable<TEntity>

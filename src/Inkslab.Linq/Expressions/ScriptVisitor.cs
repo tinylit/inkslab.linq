@@ -355,7 +355,7 @@ namespace Inkslab.Linq.Expressions
                         goto default;
                     }
 
-                    throw new DSyntaxErrorException("单个脚步仅支持指定一次查询！");
+                    throw new DSyntaxErrorException("单个脚步仅支持指定一次查询，请将.Select(x=>{column-pairt})放在过滤、排序和分组等函数之后，如：*.OrderBy(x=>{column-pairt}).Select(x=>{column-pairt}).Skip({skipSize}).Take({TakeSize})！");
 
                 //? 跳过字段限制的函数。
                 case nameof(Queryable.Cast):

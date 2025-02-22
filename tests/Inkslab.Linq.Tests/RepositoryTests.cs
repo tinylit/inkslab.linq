@@ -94,7 +94,7 @@ namespace Inkslab.Linq.Tests
         [Fact]
         public void DeleteAll()
         {
-            _userRpo.Delete();
+            _userRpo.DeleteWith();
         }
 
         /// <summary>
@@ -155,7 +155,7 @@ namespace Inkslab.Linq.Tests
                 );
             }
 
-            int rows = _userRpo.Update(users).Execute();
+            int rows = _userRpo.UpdateTo(users).Execute();
         }
 
         [Fact]
@@ -177,7 +177,7 @@ namespace Inkslab.Linq.Tests
                 );
             }
 
-            int rows = _userRpo.Delete(users).Execute();
+            int rows = _userRpo.DeleteWith(users).Execute();
         }
 
         [Fact]
@@ -214,7 +214,7 @@ namespace Inkslab.Linq.Tests
                 );
             }
 
-            int rows = _userRpo.Update(users).Execute();
+            int rows = _userRpo.UpdateTo(users).Execute();
         }
 
         [Fact]
@@ -236,7 +236,7 @@ namespace Inkslab.Linq.Tests
                 );
             }
 
-            int rows = _userRpo.Delete(users).Execute();
+            int rows = _userRpo.DeleteWith(users).Execute();
         }
     }
 }

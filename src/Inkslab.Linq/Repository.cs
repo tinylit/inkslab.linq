@@ -395,18 +395,18 @@ namespace Inkslab.Linq
         }
 
         /// <inheritdoc/>
-        public IUpdateable<TEntity> Update(TEntity entry)
+        public IUpdateable<TEntity> UpdateTo(TEntity entry)
         {
             if (entry is null)
             {
                 throw new ArgumentNullException(nameof(entry));
             }
 
-            return Update(new List<TEntity>(1) { entry });
+            return UpdateTo(new List<TEntity>(1) { entry });
         }
 
         /// <inheritdoc/>
-        public IUpdateable<TEntity> Update(List<TEntity> entries)
+        public IUpdateable<TEntity> UpdateTo(List<TEntity> entries)
         {
             if (entries is null)
             {
@@ -420,29 +420,29 @@ namespace Inkslab.Linq
         }
 
         /// <inheritdoc/>
-        public IUpdateable<TEntity> Update(params TEntity[] entries)
+        public IUpdateable<TEntity> UpdateTo(params TEntity[] entries)
         {
             if (entries is null)
             {
                 throw new ArgumentNullException(nameof(entries));
             }
 
-            return Update(new List<TEntity>(entries));
+            return UpdateTo(new List<TEntity>(entries));
         }
 
         /// <inheritdoc/>
-        public IDeleteable<TEntity> Delete(TEntity entry)
+        public IDeleteable<TEntity> DeleteWith(TEntity entry)
         {
             if (entry is null)
             {
                 throw new ArgumentNullException(nameof(entry));
             }
 
-            return Delete(new List<TEntity>(1) { entry });
+            return DeleteWith(new List<TEntity>(1) { entry });
         }
 
         /// <inheritdoc/>
-        public virtual IDeleteable<TEntity> Delete(List<TEntity> entries)
+        public virtual IDeleteable<TEntity> DeleteWith(List<TEntity> entries)
         {
             if (entries is null)
             {
@@ -456,14 +456,14 @@ namespace Inkslab.Linq
         }
 
         /// <inheritdoc/>
-        public IDeleteable<TEntity> Delete(params TEntity[] entries)
+        public IDeleteable<TEntity> DeleteWith(params TEntity[] entries)
         {
             if (entries is null)
             {
                 throw new ArgumentNullException(nameof(entries));
             }
 
-            return Delete(new List<TEntity>(entries));
+            return DeleteWith(new List<TEntity>(entries));
         }
         #endregion
 

@@ -56,42 +56,42 @@ namespace Inkslab.Linq
         /// </summary>
         /// <param name="entry">项目。</param>
         /// <exception cref="NotSupportedException">实体未标记主键！</exception>
-        IUpdateable<TEntity> Update(TEntity entry);
+        IUpdateable<TEntity> UpdateTo(TEntity entry);
 
         /// <summary>
         /// 更新路由执行器。
         /// </summary>
         /// <param name="entries">项目集合。</param>
         /// <exception cref="NotSupportedException">实体未标记主键！</exception>
-        IUpdateable<TEntity> Update(List<TEntity> entries);
+        IUpdateable<TEntity> UpdateTo(List<TEntity> entries);
 
         /// <summary>
         /// 更新路由执行器。
         /// </summary>
         /// <param name="entries">项目集合。</param>
         /// <exception cref="NotSupportedException">实体未标记主键！</exception>
-        IUpdateable<TEntity> Update(params TEntity[] entries);
+        IUpdateable<TEntity> UpdateTo(params TEntity[] entries);
 
         /// <summary>
         /// 删除路由执行器。
         /// </summary>
         /// <param name="entry">项目。</param>
         /// <exception cref="NotSupportedException">实体未标记主键！</exception>
-        IDeleteable<TEntity> Delete(TEntity entry);
+        IDeleteable<TEntity> DeleteWith(TEntity entry);
 
         /// <summary>
         /// 删除路由执行器。
         /// </summary>
         /// <param name="entries">项目集合。</param>
         /// <exception cref="NotSupportedException">实体未标记主键！</exception>
-        IDeleteable<TEntity> Delete(List<TEntity> entries);
+        IDeleteable<TEntity> DeleteWith(List<TEntity> entries);
 
         /// <summary>
         /// 删除路由执行器。
         /// </summary>
         /// <param name="entries">项目集合。</param>
         /// <exception cref="NotSupportedException">实体未标记主键！</exception>
-        IDeleteable<TEntity> Delete(params TEntity[] entries);
+        IDeleteable<TEntity> DeleteWith(params TEntity[] entries);
 
         /// <summary>
         /// 忽略。

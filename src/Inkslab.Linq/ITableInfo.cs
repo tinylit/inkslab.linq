@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Inkslab.Linq.Enums;
 
 namespace Inkslab.Linq
@@ -42,6 +43,13 @@ namespace Inkslab.Linq
         /// 全部字段（属性名称：字段信息）。
         /// </summary>
         IReadOnlyDictionary<string, string> Fields { get; }
+
+        /// <summary>
+        /// 类型是否匹配。
+        /// </summary>
+        /// <param name="type">类型。</param>
+        /// <returns></returns>
+        bool TypeIs(Type type);
 
         /// <summary>
         /// 分区名称。

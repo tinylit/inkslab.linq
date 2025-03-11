@@ -28,8 +28,10 @@ namespace Inkslab.Linq
                 "\\?|\\!|\\[.*?\\]|\\{.*?\\}",
                 RegexOptions.Compiled | RegexOptions.Singleline
             );
+            private readonly Type _tableType;
 
             public TableInfo(
+                Type tableType,
                 string schema,
                 string name,
                 HashSet<string> keys,
@@ -38,6 +40,8 @@ namespace Inkslab.Linq
                 Dictionary<string, string> fields
             )
             {
+                _tableType = tableType;
+
                 Schema = schema;
                 Name = name;
                 DataSharding = _shardingToken.IsMatch(name);
@@ -78,6 +82,8 @@ namespace Inkslab.Linq
 
                 throw new NotSupportedException("该表不支持分片!");
             }
+
+            public bool TypeIs(Type type) => _tableType == type;
         }
 
         private class Config : TabelOptions, IConfig, IConfigTable
@@ -297,6 +303,7 @@ namespace Inkslab.Linq
                     }
 
                     return new TableInfo(
+                        tableType,
                         options.Schema ?? string.Empty,
                         options.Name,
                         keys,
@@ -373,6 +380,7 @@ namespace Inkslab.Linq
             return _tables.TryAdd(
                 tableType,
                 new TableInfo(
+                    tableType,
                     options.Schema ?? string.Empty,
                     options.Name,
                     keys,

@@ -454,6 +454,7 @@ namespace Inkslab.Linq.Expressions
                 case nameof(QueryableExtentions.DataSharding):
                 case nameof(Queryable.SelectMany):
                 case nameof(Queryable.GroupJoin):
+                case nameof(Queryable.Join):
                     VisitMethodCall(node);
                     break;
                 default:
@@ -966,7 +967,8 @@ namespace Inkslab.Linq.Expressions
                             break;
                         default:
                             throw new NotImplementedException();
-                    };
+                    }
+                    ;
 
                 }
                 else

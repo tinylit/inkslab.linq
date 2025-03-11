@@ -275,54 +275,54 @@ namespace Inkslab.Linq.Expressions
 
                     return IsPlainVariable(member.Expression, depthVerification);
                 default:
-                {
-                    if (depthVerification)
                     {
-                        switch (node)
+                        if (depthVerification)
                         {
-                            case MethodCallExpression method
-                                when method.Object is null
-                                    || IsPlainVariable(method.Object, depthVerification):
-                                return method.Arguments.Count == 0
-                                    || method.Arguments.All(arg =>
-                                        IsPlainVariable(arg, depthVerification)
-                                    );
-                            case BinaryExpression binary:
-                                return IsPlainVariable(binary.Left, depthVerification)
-                                    && IsPlainVariable(binary.Right, depthVerification);
-                            case LambdaExpression lambda when lambda.Parameters.Count == 0:
-                                return IsPlainVariable(lambda.Body, depthVerification);
-                            case NewExpression newExpression when newExpression.Members.Count == 0:
-                                return newExpression.Arguments.Count == 0
-                                    || newExpression.Arguments.All(arg =>
-                                        IsPlainVariable(arg, depthVerification)
-                                    );
-                            case MemberInitExpression memberInit
-                                when IsPlainVariable(memberInit.NewExpression, depthVerification):
-                                foreach (var binding in memberInit.Bindings)
-                                {
-                                    if (
-                                        binding is MemberAssignment assignment
-                                        && IsPlainVariable(assignment.Expression, depthVerification)
-                                    )
+                            switch (node)
+                            {
+                                case MethodCallExpression method
+                                    when method.Object is null
+                                        || IsPlainVariable(method.Object, depthVerification):
+                                    return method.Arguments.Count == 0
+                                        || method.Arguments.All(arg =>
+                                            IsPlainVariable(arg, depthVerification)
+                                        );
+                                case BinaryExpression binary:
+                                    return IsPlainVariable(binary.Left, depthVerification)
+                                        && IsPlainVariable(binary.Right, depthVerification);
+                                case LambdaExpression lambda when lambda.Parameters.Count == 0:
+                                    return IsPlainVariable(lambda.Body, depthVerification);
+                                case NewExpression newExpression when newExpression.Members.Count == 0:
+                                    return newExpression.Arguments.Count == 0
+                                        || newExpression.Arguments.All(arg =>
+                                            IsPlainVariable(arg, depthVerification)
+                                        );
+                                case MemberInitExpression memberInit
+                                    when IsPlainVariable(memberInit.NewExpression, depthVerification):
+                                    foreach (var binding in memberInit.Bindings)
                                     {
-                                        continue;
+                                        if (
+                                            binding is MemberAssignment assignment
+                                            && IsPlainVariable(assignment.Expression, depthVerification)
+                                        )
+                                        {
+                                            continue;
+                                        }
+
+                                        return false;
                                     }
-
+                                    return true;
+                                case ConditionalExpression conditional
+                                    when IsPlainVariable(conditional.Test, depthVerification):
+                                    return IsPlainVariable(conditional.IfTrue, depthVerification)
+                                        && IsPlainVariable(conditional.IfFalse, depthVerification);
+                                default:
                                     return false;
-                                }
-                                return true;
-                            case ConditionalExpression conditional
-                                when IsPlainVariable(conditional.Test, depthVerification):
-                                return IsPlainVariable(conditional.IfTrue, depthVerification)
-                                    && IsPlainVariable(conditional.IfFalse, depthVerification);
-                            default:
-                                return false;
+                            }
                         }
-                    }
 
-                    return false;
-                }
+                        return false;
+                    }
             }
         }
 
@@ -1586,7 +1586,7 @@ namespace Inkslab.Linq.Expressions
             out ITableInfo tableInfo
         )
         {
-            if (tableInformation is null)
+            if (tableInformation is null || this is JoinVisitor) //? JoinVisitor
             {
                 if (_visitor is null)
                 {
@@ -1600,7 +1600,7 @@ namespace Inkslab.Linq.Expressions
 
             tableInfo = tableInformation;
 
-            return true;
+            return tableInformation.TypeIs(node.Type);
         }
 
         /// <summary>
@@ -1937,23 +1937,23 @@ namespace Inkslab.Linq.Expressions
                     when right.NodeType == ExpressionType.Constant
                         && left.NodeType == ExpressionType.MemberAccess
                         && !left.Type.IsCell():
-                {
-                    var constant = (ConstantExpression)right;
-
-                    if (constant.Value is null)
                     {
-                        if (
-                            JoinBranchElementIsNull(left, expressionType == ExpressionType.NotEqual)
-                        )
+                        var constant = (ConstantExpression)right;
+
+                        if (constant.Value is null)
                         {
-                            break;
+                            if (
+                                JoinBranchElementIsNull(left, expressionType == ExpressionType.NotEqual)
+                            )
+                            {
+                                break;
+                            }
+
+                            throw new DSyntaxErrorException($"不支持参数类型“{left.Type}”与“null”的比较！");
                         }
 
-                        throw new DSyntaxErrorException($"不支持参数类型“{left.Type}”与“null”的比较！");
+                        throw new DSyntaxErrorException($"不支持参数类型“{left.Type}”与非“null”常量值的比较！");
                     }
-
-                    throw new DSyntaxErrorException($"不支持参数类型“{left.Type}”与非“null”常量值的比较！");
-                }
                 case ExpressionType.Equal
                     when left.NodeType == ExpressionType.Constant
                         && right.NodeType == ExpressionType.MemberAccess
@@ -1962,26 +1962,26 @@ namespace Inkslab.Linq.Expressions
                     when left.NodeType == ExpressionType.Constant
                         && right.NodeType == ExpressionType.MemberAccess
                         && !right.Type.IsCell():
-                {
-                    var constant = (ConstantExpression)left;
-
-                    if (constant.Value is null)
                     {
-                        if (
-                            JoinBranchElementIsNull(
-                                right,
-                                expressionType == ExpressionType.NotEqual
-                            )
-                        )
+                        var constant = (ConstantExpression)left;
+
+                        if (constant.Value is null)
                         {
-                            break;
+                            if (
+                                JoinBranchElementIsNull(
+                                    right,
+                                    expressionType == ExpressionType.NotEqual
+                                )
+                            )
+                            {
+                                break;
+                            }
+
+                            throw new DSyntaxErrorException($"不支持参数类型“{right.Type}”与“null”的比较！");
                         }
 
-                        throw new DSyntaxErrorException($"不支持参数类型“{right.Type}”与“null”的比较！");
+                        throw new DSyntaxErrorException($"不支持参数类型“{right.Type}”与非“null”常量值的比较！");
                     }
-
-                    throw new DSyntaxErrorException($"不支持参数类型“{right.Type}”与非“null”常量值的比较！");
-                }
                 case ExpressionType.Equal:
                 case ExpressionType.NotEqual:
                 case ExpressionType.GreaterThan:
@@ -2193,11 +2193,11 @@ namespace Inkslab.Linq.Expressions
                     {
                         if (isExpressionNotEqual)
                         {
-                            Writer.Keyword(Enums.SqlKeyword.OR);
+                            Writer.Keyword(SqlKeyword.OR);
                         }
                         else
                         {
-                            Writer.Keyword(Enums.SqlKeyword.AND);
+                            Writer.Keyword(SqlKeyword.AND);
                         }
                     }
                     else
@@ -2208,14 +2208,14 @@ namespace Inkslab.Linq.Expressions
                     Writer.Schema(parameterExpression.Name);
                     Writer.Name(field);
 
-                    Writer.Keyword(Enums.SqlKeyword.IS);
+                    Writer.Keyword(SqlKeyword.IS);
 
                     if (isExpressionNotEqual)
                     {
-                        Writer.Keyword(Enums.SqlKeyword.NOT);
+                        Writer.Keyword(SqlKeyword.NOT);
                     }
 
-                    Writer.Keyword(Enums.SqlKeyword.NULL);
+                    Writer.Keyword(SqlKeyword.NULL);
                 }
             }
             else
@@ -2226,11 +2226,11 @@ namespace Inkslab.Linq.Expressions
                     {
                         if (isExpressionNotEqual)
                         {
-                            Writer.Keyword(Enums.SqlKeyword.OR);
+                            Writer.Keyword(SqlKeyword.OR);
                         }
                         else
                         {
-                            Writer.Keyword(Enums.SqlKeyword.AND);
+                            Writer.Keyword(SqlKeyword.AND);
                         }
                     }
                     else
@@ -2241,14 +2241,14 @@ namespace Inkslab.Linq.Expressions
                     Writer.Schema(parameterExpression.Name);
                     Writer.Name(field);
 
-                    Writer.Keyword(Enums.SqlKeyword.IS);
+                    Writer.Keyword(SqlKeyword.IS);
 
                     if (isExpressionNotEqual)
                     {
-                        Writer.Keyword(Enums.SqlKeyword.NOT);
+                        Writer.Keyword(SqlKeyword.NOT);
                     }
 
-                    Writer.Keyword(Enums.SqlKeyword.NULL);
+                    Writer.Keyword(SqlKeyword.NULL);
                 }
             }
 

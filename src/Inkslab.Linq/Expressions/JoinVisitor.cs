@@ -111,7 +111,8 @@ namespace Inkslab.Linq.Expressions
             if (node.Method.Name == nameof(Queryable.SelectMany))
             {
                 //? 分析是否为左链接。
-                new DefaultIfEmptyVisitor(this).Visit(node.Arguments[1]);
+                new DefaultIfEmptyVisitor(this)
+                    .Visit(node.Arguments[1]);
 
                 _transverterVisitor.ReadySelect(node.Arguments[2]);
 
@@ -349,7 +350,7 @@ namespace Inkslab.Linq.Expressions
             }
         }
 
-        private class TransverterVisitor : ExpressionVisitor
+        private class TransverterVisitor
         {
             private readonly JoinVisitor _visitor;
             private readonly ScriptVisitor _scriptVisitor;
@@ -416,17 +417,6 @@ namespace Inkslab.Linq.Expressions
             public void Build()
             {
                 new BuildVisitor(_scriptVisitor).Visit(_expressions[0]);
-            }
-
-            protected override Expression VisitLambda<T>(Expression<T> node)
-            {
-                var parameter = node.Parameters[0];
-
-                _hashSet.Add((parameter.Type, parameter.Name));
-
-                _joinRelationships.TryAdd((parameter.Type, parameter.Name), _visitor);
-
-                return node;
             }
 
             private class PrepareMainVisitor : BaseVisitor

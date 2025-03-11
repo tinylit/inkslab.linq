@@ -915,7 +915,7 @@ namespace Inkslab.Linq.Expressions
             {
             }
 
-            public override void Startup(MethodCallExpression node)
+            protected override void Startup(MethodCallExpression node)
             {
                 var @object = node.Method.IsStatic
                     ? node.Arguments[0]

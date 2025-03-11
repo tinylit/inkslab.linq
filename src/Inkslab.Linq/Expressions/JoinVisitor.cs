@@ -517,7 +517,8 @@ namespace Inkslab.Linq.Expressions
 
             protected override Expression Accept(ExpressionVisitor visitor)
             {
-                return new AcceptVisitor(visitor).Visit(_node);
+                return new AcceptVisitor(visitor)
+                    .Visit(_node);
             }
 
             private class AcceptVisitor : ExpressionVisitor

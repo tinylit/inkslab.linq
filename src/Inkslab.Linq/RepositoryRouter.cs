@@ -571,11 +571,11 @@ namespace Inkslab.Linq
 
                 sb.Append(Settings.Name(Name))
                     .Append('(')
-                    .Append(string.Join(',', entries.Select(x => x.ColumnName)))
+                    .Append(string.Join(',', entries.Select(x => Settings.Name(x.ColumnName))))
                     .Append(')')
                     .AppendLine()
                     .Append("SELECT ")
-                    .Append(string.Join(',', entries.Select(x => x.ColumnName)))
+                    .Append(string.Join(',', entries.Select(x => Settings.Name(x.ColumnName))))
                     .Append(" FROM ")
                     .Append(Settings.Name(temporaryName));
 
@@ -739,7 +739,7 @@ namespace Inkslab.Linq
 
                 sb.Append(Settings.Name(Name))
                     .Append('(')
-                    .Append(string.Join(',', entries.Select(x => x.ColumnName)))
+                    .Append(string.Join(',', entries.Select(x => Settings.Name(x.ColumnName))))
                     .Append(')');
 
                 var parameterSingle = entries.Count(x => !x.Mini);
@@ -1044,15 +1044,15 @@ namespace Inkslab.Linq
 
                                         break;
                                     default:
-                                    {
-                                        string name = value;
+                                        {
+                                            string name = value;
 
-                                        updateArgs.Add(name, DateTime.Now);
+                                            updateArgs.Add(name, DateTime.Now);
 
-                                        sb.Append(Settings.ParamterName(value));
+                                            sb.Append(Settings.ParamterName(value));
 
-                                        break;
-                                    }
+                                            break;
+                                        }
                                 }
 
                                 break;
@@ -1283,22 +1283,22 @@ namespace Inkslab.Linq
 
                                             break;
                                         default:
-                                        {
-                                            string nameNow =
-                                                i == 0
-                                                    ? string.Concat(entry.ColumnName, "_token")
-                                                    : string.Concat(
-                                                        entry.ColumnName,
-                                                        "_token_",
-                                                        i.ToString()
-                                                    );
+                                            {
+                                                string nameNow =
+                                                    i == 0
+                                                        ? string.Concat(entry.ColumnName, "_token")
+                                                        : string.Concat(
+                                                            entry.ColumnName,
+                                                            "_token_",
+                                                            i.ToString()
+                                                        );
 
-                                            parameters.Add(nameNow, DateTime.Now);
+                                                parameters.Add(nameNow, DateTime.Now);
 
-                                            sb.Append(Settings.ParamterName(nameNow));
+                                                sb.Append(Settings.ParamterName(nameNow));
 
-                                            break;
-                                        }
+                                                break;
+                                            }
                                     }
 
                                     break;

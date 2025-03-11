@@ -21,7 +21,7 @@ namespace Inkslab.Linq
             : base(adapter) { }
 
         /// <inheritdoc/>
-        public override void Startup(MethodCallExpression node)
+        protected override void Startup(MethodCallExpression node)
         {
             switch (node.Method.Name)
             {
@@ -150,7 +150,7 @@ namespace Inkslab.Linq
             }
 
             /// <inheritdoc/>
-            public override void Startup(MethodCallExpression node)
+            protected override void Startup(MethodCallExpression node)
             {
                 switch (node.Method.Name)
                 {

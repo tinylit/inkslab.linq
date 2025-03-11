@@ -381,7 +381,7 @@ namespace Inkslab.Linq.Tests
             _businessConsultationReps = businessConsultationReps;
         }
 
-        //[Fact]
+        [Fact]
         public async Task TestAsync()
         {
             var id = 9000000000000000;
@@ -490,6 +490,12 @@ namespace Inkslab.Linq.Tests
                                     };
 
             var consultations = await consultationQuery.ToListAsync();
+        }
+
+        [Fact]
+        public async Task Test4Async()
+        {
+            var businessConsultationCount = await _businessConsultationReps.CountAsync(x => x.BusinessLineId == 9000000000000000);
         }
     }
 }

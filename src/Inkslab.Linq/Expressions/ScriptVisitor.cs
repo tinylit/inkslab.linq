@@ -123,7 +123,7 @@ namespace Inkslab.Linq.Expressions
         /// 启动方法。
         /// </summary>
         /// <param name="node">节点。</param>
-        public sealed override void Startup(MethodCallExpression node)
+        protected sealed override void Startup(MethodCallExpression node)
         {
             string name = node.Method.Name;
 

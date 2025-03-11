@@ -192,15 +192,41 @@ namespace Inkslab.Linq.Expressions
                     Member(string.Empty, field, name);
                 }
             }
-            else if (hasBaseStartup || node.NodeType != ExpressionType.Call)
+            else if (hasBaseStartup)
             {
                 Visit(node);
             }
-            else
+            else if (node.NodeType == ExpressionType.Call && node is MethodCallExpression methodCall)
             {
+                var instanceArg = methodCall.Arguments[0];
+
+                switch (methodCall.Method.Name)
+                {
+                    case nameof(Queryable.GroupJoin):
+
+                        //? 分析 JOIN 表。
+                        instanceArg = methodCall.Arguments[1];
+
+                        goto default;
+                    default:
+                        if (
+                            instanceArg.NodeType == ExpressionType.Constant
+                            && instanceArg is ConstantExpression constant
+                            && constant.Value is IQueryable queryable
+                        )
+                        {
+                            tableInformation ??= TableAnalyzer.Table(queryable.ElementType);
+                        }
+                        break;
+                }
+
                 hasBaseStartup = true;
 
-                Startup((MethodCallExpression)node);
+                Startup(methodCall);
+            }
+            else
+            {
+                Visit(node);
             }
         }
 
@@ -208,11 +234,11 @@ namespace Inkslab.Linq.Expressions
         /// 启动方法。
         /// </summary>
         /// <param name="node">节点。</param>
-        public virtual void Startup(MethodCallExpression node)
+        protected virtual void Startup(MethodCallExpression node)
         {
             if (hasBaseStartup)
             {
-                VisitMethodCall(node);
+                MethodCall(node);
             }
             else
             {
@@ -1816,7 +1842,7 @@ namespace Inkslab.Linq.Expressions
         /// </summary>
         /// <param name="node">The expression to visit.</param>
         protected virtual void Binary(BinaryExpression node) =>
-            BinaryCore(node.Left, node.NodeType, node.Right);
+            Binary(node.Left, node.NodeType, node.Right);
 
         private static bool IsNewEquals(Expression node)
         {
@@ -1853,7 +1879,7 @@ namespace Inkslab.Linq.Expressions
                 throw new ArgumentNullException(nameof(right));
             }
 
-            if (IsNewEquals(left) && IsNewEquals(right))
+            if (IsNewEquals(right) || IsNewEquals(left))
             {
                 var compareExpressions = new Dictionary<MemberInfo, Expression>();
 
@@ -1885,6 +1911,8 @@ namespace Inkslab.Linq.Expressions
 
                         if (partitionFlag)
                         {
+                            domain.Flyback();
+
                             Writer.Keyword(SqlKeyword.AND);
                         }
                         else

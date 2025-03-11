@@ -25,7 +25,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        public override void Startup(MethodCallExpression node)
+        protected override void Startup(MethodCallExpression node)
         {
             //? 分析表名称和分组键。
             new KeyVisitor(this, _keyExpressions)

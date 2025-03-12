@@ -125,7 +125,7 @@ namespace Inkslab.Linq.Expressions
                 else
                 {
                     //? 准备参数。
-                    _transverterVisitor.Prepare();
+                    _transverterVisitor.Prepare(node.Arguments[1]);
 
                     using (var domain = Writer.Domain())
                     {
@@ -180,14 +180,7 @@ namespace Inkslab.Linq.Expressions
         private void Join(MethodCallExpression node, bool buildSelect)
         {
             //? 准备参数。
-            if (node.Method.Name == nameof(Queryable.Join))
-            {
-                _transverterVisitor.Prepare();
-            }
-            else
-            {
-                _transverterVisitor.Prepare(node.Arguments[2]);
-            }
+            _transverterVisitor.Prepare(node.Arguments[2]);
 
             using (var domain = Writer.Domain())
             {
@@ -350,8 +343,10 @@ namespace Inkslab.Linq.Expressions
             }
         }
 
-        private class TransverterVisitor
+        private class TransverterVisitor : BaseVisitor
         {
+            private bool readyComplete = false;
+
             private readonly JoinVisitor _visitor;
             private readonly ScriptVisitor _scriptVisitor;
             private readonly List<Expression> _expressions = new List<Expression>(1);
@@ -362,7 +357,7 @@ namespace Inkslab.Linq.Expressions
                 JoinVisitor visitor,
                 ScriptVisitor scriptVisitor,
                 Dictionary<(Type, string), SelectVisitor> joinRelationships
-            )
+            ) : base(scriptVisitor)
             {
                 _visitor = visitor;
                 _scriptVisitor = scriptVisitor;
@@ -373,61 +368,43 @@ namespace Inkslab.Linq.Expressions
 
             public void ReadyWith(Expression node) => _expressions.Add(node);
 
-            public void Prepare()
-            {
-                using (
-                    var visitor = new PrepareVisitor(
-                        _visitor,
-                        _scriptVisitor,
-                        _joinRelationships,
-                        _hashSet
-                    )
-                )
-                {
-                    foreach (var expression in _expressions)
-                    {
-                        visitor.Visit(expression);
-                    }
-                }
-            }
-
             public void Prepare(Expression node)
             {
-                using (
-                    var visitor = new PrepareVisitor(
-                        _visitor,
-                        _scriptVisitor,
-                        _joinRelationships,
-                        _hashSet
-                    )
-                )
+                var visitor = new PrepareVisitor(
+                    _visitor,
+                    _joinRelationships,
+                    _hashSet
+                );
+
+                foreach (var expression in _expressions)
                 {
-                    foreach (var expression in _expressions)
-                    {
-                        visitor.Visit(expression);
-                    }
+                    visitor.Visit(expression);
                 }
 
-                using (var visitor = new PrepareMainVisitor(_scriptVisitor))
+                Startup(node); //? 分析主表达式表别名。
+
+                readyComplete = true;
+            }
+
+            protected override void PreparingParameter(LambdaExpression node)
+            {
+                if (!readyComplete)
                 {
-                    visitor.Startup(node);
+                    base.PreparingParameter(node); //? 准备主查询表别名。
                 }
             }
 
-            public void Build()
+            protected override void Lambda<T>(Expression<T> node)
             {
-                new BuildVisitor(_scriptVisitor).Visit(_expressions[0]);
+                if (readyComplete)
+                {
+                    _scriptVisitor.Visit(node.Body);//? 生成查询字段。
+                }
             }
 
-            private class PrepareMainVisitor : BaseVisitor
-            {
-                public PrepareMainVisitor(ScriptVisitor scriptVisitor)
-                    : base(scriptVisitor) { }
+            public void Build() => Visit(_expressions[0]);
 
-                protected override void Lambda<T>(Expression<T> node) { }
-            }
-
-            private class PrepareVisitor : BaseVisitor
+            private class PrepareVisitor : ExpressionVisitor
             {
                 private readonly JoinVisitor _visitor;
                 private readonly HashSet<(Type, string)> _hashSet;
@@ -435,18 +412,16 @@ namespace Inkslab.Linq.Expressions
 
                 public PrepareVisitor(
                     JoinVisitor visitor,
-                    ScriptVisitor scriptVisitor,
                     Dictionary<(Type, string), SelectVisitor> joinRelationships,
                     HashSet<(Type, string)> hashSet
                 )
-                    : base(scriptVisitor)
                 {
                     _hashSet = hashSet;
                     _visitor = visitor;
                     _joinRelationships = joinRelationships;
                 }
 
-                protected override void PreparingParameter(LambdaExpression node)
+                protected override Expression VisitLambda<T>(Expression<T> node)
                 {
                     var parameter = node.Parameters[^1];
 
@@ -467,25 +442,6 @@ namespace Inkslab.Linq.Expressions
                     }
 
                     _joinRelationships.TryAdd((parameter.Type, parameter.Name), _visitor);
-
-                    base.PreparingParameter(node);
-                }
-
-                protected override void Lambda<T>(Expression<T> node) { }
-            }
-
-            private class BuildVisitor : ExpressionVisitor
-            {
-                private readonly ScriptVisitor _scriptVisitor;
-
-                public BuildVisitor(ScriptVisitor scriptVisitor)
-                {
-                    _scriptVisitor = scriptVisitor;
-                }
-
-                protected override Expression VisitLambda<T>(Expression<T> node)
-                {
-                    _scriptVisitor.Visit(node.Body);
 
                     return node;
                 }

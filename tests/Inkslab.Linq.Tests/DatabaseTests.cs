@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Inkslab.Transcations;
+using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -35,6 +37,14 @@ namespace Inkslab.Linq.Tests
             string sql = "SELECT * FROM `user` WHERE id = @id";
 
             await _database.FirstOrDefaultAsync<User>(sql, new { id = 1 });
+        }
+
+        [Fact]
+        public async Task SimpleWithArgTest2Async()
+        {
+            string sql = "SELECT * FROM `user` WHERE id = @id";
+
+            await _database.FirstOrDefaultAsync<User>(sql, new Dictionary<string, object> { ["@id"] = 1 });
         }
 
         [Fact]
@@ -111,6 +121,18 @@ namespace Inkslab.Linq.Tests
             string sql = "SELECT * FROM `user` WHERE id IN @ids LIMIT 5,10;SELECT COUNT(1) FROM `user` WHERE id IN @ids";
 
             await using (var reader = await _database.QueryMultipleAsync(sql, new { ids = new int[] { 1, 2 } }))
+            {
+                await reader.ReadAsync<User>();
+                await reader.ReadAsync<int>(RowStyle.Single);
+            }
+        }
+
+        [Fact]
+        public async Task QueryMultipleTest2Async()
+        {
+            string sql = "SELECT * FROM `user` WHERE id IN @ids LIMIT 5,10;SELECT COUNT(1) FROM `user` WHERE id IN @ids";
+
+            await using (var reader = await _database.QueryMultipleAsync(sql, new Dictionary<string, object> { ["@ids"] = new int[] { 1, 2 } }))
             {
                 await reader.ReadAsync<User>();
                 await reader.ReadAsync<int>(RowStyle.Single);

@@ -249,7 +249,7 @@ namespace Inkslab.Linq
                     return mt.Value;
                 }
 
-                if (dictionaries.TryGetValue(name, out var value))
+                if (dictionaries.TryGetValue(name, out var value) || dictionaries.TryGetValue(mt.Value, out value))
                 {
                     if (value is null or DBNull) //? 空值处理为 null。
                     {
@@ -301,7 +301,7 @@ namespace Inkslab.Linq
                     {
                         if (analysisFirst)
                         {
-                            if (!dictionaries.TryGetValue(name, out var value))
+                            if (!dictionaries.TryGetValue(name, out var value) && !dictionaries.TryGetValue(mt.Value, out value))
                             {
                                 return mt.Value;
                             }

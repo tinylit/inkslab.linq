@@ -497,5 +497,40 @@ namespace Inkslab.Linq.Tests
         {
             var businessConsultationCount = await _businessConsultationReps.CountAsync(x => x.BusinessLineId == 9000000000000000);
         }
+
+        [Fact]
+        public async Task Test5Async()
+        {
+            var id = 9000000000000000;
+
+            var specialistQuery = from a in _businessDepartmentConsultationRels
+                                  join b in _users on a.SpecialistId equals b.Id // a join b
+                                  where a.Id == id
+                                  orderby a.Id descending
+                                  select new
+                                  {
+                                      BusinessDepartmentId = a.BusinessDepartmentId,
+                                      SpecialistId = a.SpecialistId,
+                                      BusinessLineId = a.BusinessLineId,
+                                      SpecialistName = b.Name,
+                                  };
+
+
+            var consultationQuery = from a in _businessDepartmentConsultationRels
+                                    join b in _businessConsultationReps on a.BusinessConsultationId equals b.Id into ab // a left join b                                  
+                                    from b in ab.DefaultIfEmpty()
+                                    join c in specialistQuery.Skip(5).Take(5) on new { a.BusinessDepartmentId, a.SpecialistId, a.BusinessLineId } equals new { c.BusinessDepartmentId, c.SpecialistId, c.BusinessLineId }
+                                    select new
+                                    {
+                                        a.BusinessDepartmentId,
+                                        a.SpecialistId,
+                                        a.BusinessLineId,
+                                        a.BusinessConsultationId,
+                                        c.SpecialistName,
+                                        ConsultationName = b.Name
+                                    };
+
+            var consultations = await consultationQuery.ToListAsync();
+        }
     }
 }

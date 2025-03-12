@@ -883,14 +883,13 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override bool TryGetSourceTableInfo(ParameterExpression node, out ITableInfo tableInfo)
         {
-            if (_joinRelationships.TryGetValue((node.Type, node.Name), out var visitor))
-            {
-                tableInfo = visitor.Table(true);
+            tableInfo = _joinRelationships.TryGetValue((node.Type, node.Name), out var visitor)
+                ? visitor.Table(true)
+                : Table(true);
 
-                return tableInfo is not null;
-            }
-
-            return base.TryGetSourceTableInfo(node, out tableInfo);
+            return tableInfo is null
+                ? base.TryGetSourceTableInfo(node, out tableInfo)
+                : tableInfo.TypeIs(node.Type);
         }
         #endregion
 

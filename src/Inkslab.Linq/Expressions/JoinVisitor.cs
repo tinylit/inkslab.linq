@@ -100,6 +100,12 @@ namespace Inkslab.Linq.Expressions
             return base.TryGetSourceParameter(node, out parameterExpression);
         }
 
+        ///<inheritdoc/>
+        protected override bool TryGetSourceTableInfo(ParameterExpression node, out ITableInfo tableInfo)
+        {
+            return _transverterVisitor.TryGetTableInfo(node, out tableInfo);
+        }
+
         /// <inheritdoc/>
         protected override void StartupCore(MethodCallExpression node)
         {
@@ -392,6 +398,11 @@ namespace Inkslab.Linq.Expressions
                 {
                     base.PreparingParameter(node); //? 准备主查询表别名。
                 }
+            }
+
+            public bool TryGetTableInfo(ParameterExpression node, out ITableInfo tableInfo)
+            {
+                return base.TryGetSourceTableInfo(node, out tableInfo);
             }
 
             protected override void Lambda<T>(Expression<T> node)

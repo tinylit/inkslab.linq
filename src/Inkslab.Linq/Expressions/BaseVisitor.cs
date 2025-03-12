@@ -174,22 +174,29 @@ namespace Inkslab.Linq.Expressions
         {
             if (node.NodeType == ExpressionType.Constant)
             {
-                bool commaFlag = false;
-
-                var tableInfo = Table();
-
-                foreach (var (name, field) in tableInfo.Fields)
+                if (node is ConstantExpression constant && constant.Value is IQueryable queryable)
                 {
-                    if (commaFlag)
-                    {
-                        Writer.Delimiter();
-                    }
-                    else
-                    {
-                        commaFlag = true;
-                    }
+                    bool commaFlag = false;
 
-                    Member(string.Empty, field, name);
+                    tableInformation ??= TableAnalyzer.Table(queryable.ElementType);
+
+                    foreach (var (name, field) in tableInformation.Fields)
+                    {
+                        if (commaFlag)
+                        {
+                            Writer.Delimiter();
+                        }
+                        else
+                        {
+                            commaFlag = true;
+                        }
+
+                        Member(string.Empty, field, name);
+                    }
+                }
+                else
+                {
+                    throw new InvalidOperationException();
                 }
             }
             else if (hasBaseStartup)
@@ -1612,21 +1619,14 @@ namespace Inkslab.Linq.Expressions
             out ITableInfo tableInfo
         )
         {
-            if (tableInformation is null || this is JoinVisitor) //? JoinVisitor
+            if (_visitor is null)
             {
-                if (_visitor is null)
-                {
-                    tableInfo = null;
+                tableInfo = null;
 
-                    return false;
-                }
-
-                return _visitor.TryGetSourceTableInfo(node, out tableInfo);
+                return false;
             }
 
-            tableInfo = tableInformation;
-
-            return tableInformation.TypeIs(node.Type);
+            return _visitor.TryGetSourceTableInfo(node, out tableInfo);
         }
 
         /// <summary>

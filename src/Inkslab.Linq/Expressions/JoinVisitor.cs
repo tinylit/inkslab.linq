@@ -157,7 +157,7 @@ namespace Inkslab.Linq.Expressions
             {
                 _transverterVisitor.ReadySelect(node.Arguments[4]);
 
-                Join(node, _buildSelect);
+                LinqCore(node);
             }
         }
 
@@ -169,6 +169,9 @@ namespace Inkslab.Linq.Expressions
                 case nameof(Queryable.GroupJoin):
 
                     _transverterVisitor.ReadyWith(node.Arguments[3]); //? 分析分支数据源的表别名。
+
+                    goto case nameof(Queryable.Join);
+                case nameof(Queryable.Join):
 
                     Join(node, _buildSelect);
 

@@ -152,12 +152,11 @@ namespace Inkslab.Linq.Expressions
                 && node is ConstantExpression constant
                 && constant.Value is IQueryable queryable)
             {
-                //? 这里不能调用 Startup({Expression}) 方法递归，会造成死循环。
-                var variable = queryable.Expression;
+                var variable = queryable.Expression ?? node;
 
-                if (variable.NodeType == ExpressionType.Call)
+                if (variable.NodeType == ExpressionType.Constant)
                 {
-                    Startup((MethodCallExpression)variable);
+                    base.Startup(node);
                 }
                 else
                 {
@@ -185,7 +184,7 @@ namespace Inkslab.Linq.Expressions
 
                     _joinVisitors.Add(visitor);
 
-                    visitor.Startup(node);
+                    visitor.Startup((Expression)node);
 
                     break;
                 default:
@@ -516,7 +515,7 @@ namespace Inkslab.Linq.Expressions
 
                     _joinVisitors.Add(visitor);
 
-                    visitor.Startup(node);
+                    visitor.Startup((Expression)node);
 
                     break;
                 default:

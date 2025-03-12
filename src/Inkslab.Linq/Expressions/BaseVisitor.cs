@@ -209,7 +209,9 @@ namespace Inkslab.Linq.Expressions
 
                 switch (methodCall.Method.Name)
                 {
+                    case nameof(Queryable.Join):
                     case nameof(Queryable.GroupJoin):
+                    case nameof(Queryable.SelectMany): //? CROSS JONT
 
                         //? 分析 JOIN 表。
                         instanceArg = methodCall.Arguments[1];

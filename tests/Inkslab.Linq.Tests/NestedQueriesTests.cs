@@ -6,9 +6,11 @@ using System.ComponentModel.DataAnnotations;
 using Inkslab.Linq.Annotations;
 using Xunit;
 using System.Linq.Expressions;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Inkslab.Linq.Tests
 {
+    #region 实体
     /// <summary>
     /// 用户表
     /// </summary>
@@ -357,6 +359,212 @@ namespace Inkslab.Linq.Tests
         public bool IsOnline { get; set; }
     }
 
+    /// <summary>
+    /// 订单
+    /// </summary>
+    [Table("order")]
+    public partial class Order
+    {
+        /// <summary>
+        /// id
+        /// </summary>
+        [Key]
+        [Field("id")]
+        public long Id { get; set; }
+
+        /// <summary>
+        /// 业务线id
+        /// </summary>
+        [Field("business_line_id")]
+        public long BusinessLineId { get; set; }
+
+        /// <summary>
+        /// 订单编号
+        /// </summary>
+        [Field("code")]
+        [StringLength(50)]
+        public string Code { get; set; }
+
+        /// <summary>
+        /// 用户id
+        /// </summary>
+        [Field("user_id")]
+        public long UserId { get; set; }
+
+        /// <summary>
+        /// 客户编号
+        /// </summary>
+        [Field("customer_code")]
+        [StringLength(36)]
+        public string CustomerCode { get; set; }
+
+        /// <summary>
+        /// 咨询费用
+        /// </summary>
+        [Field("amount")]
+        public decimal Amount { get; set; }
+
+        /// <summary>
+        /// 付费方式
+        /// </summary>
+        [Field("payment_method")]
+        public int PaymentMethod { get; set; }
+
+        /// <summary>
+        /// 订单状态
+        /// </summary>
+        [Field("state")]
+        public int State { get; set; }
+
+        /// <summary>
+        /// 支付状态
+        /// </summary>
+        [Field("pay_state")]
+        public int PayState { get; set; }
+
+        /// <summary>
+        /// 业务线名称
+        /// </summary>
+        [Field("business_line_name")]
+        [StringLength(100)]
+        public string BusinessLineName { get; set; }
+
+        /// <summary>
+        /// 专家id
+        /// </summary>
+        [Field("expert_id")]
+        public long ExpertId { get; set; }
+
+        /// <summary>
+        /// 专家名称
+        /// </summary>
+        [Field("expert_name")]
+        [StringLength(50)]
+        public string ExpertName { get; set; }
+
+        /// <summary>
+        /// 咨询类型编码
+        /// </summary>
+        [Field("consult_code")]
+        [StringLength(20), NotNull]
+        public string ConsultCode { get; set; }
+
+        /// <summary>
+        /// 咨询类型名称
+        /// </summary>
+        [Field("consult_type_name")]
+        [StringLength(50)]
+        public string ConsultTypeName { get; set; }
+
+        /// <summary>
+        /// 咨询方式
+        /// </summary>
+        [Field("consult_mode")]
+        public int ConsultMode { get; set; }
+
+        /// <summary>
+        /// 支付超时时间
+        /// </summary>
+        [Field("pay_timeout")]
+        public DateTime PayTimeout { get; set; }
+
+        /// <summary>
+        /// 支付成功时间
+        /// </summary>
+        [Field("pay_success_time")]
+        public DateTime? PaySuccessTime { get; set; }
+
+        /// <summary>
+        /// 评价星级
+        /// </summary>
+        [Field("assess_star")]
+        public float? AssessStar { get; set; }
+
+        /// <summary>
+        /// 是否开启问诊单
+        /// </summary>
+        [Field("is_enable_inquiry")]
+        public bool IsEnableInquiry { get; set; }
+
+        /// <summary>
+        /// 创建时间
+        /// </summary>
+        [Field("create_time")]
+        public DateTime CreateTime { get; set; }
+
+        /// <summary>
+        /// 创建人
+        /// </summary>
+        [Field("create_by")]
+        public long CreateBy { get; set; }
+
+        /// <summary>
+        /// 更新时间
+        /// </summary>
+        [Field("update_time")]
+        public DateTime UpdateTime { get; set; }
+
+        /// <summary>
+        /// 更新人
+        /// </summary>
+        [Field("update_by")]
+        public long UpdateBy { get; set; }
+    }
+
+    /// <summary>
+    /// 业务常用语
+    /// </summary>
+    [Table("business_term_rep")]
+    public partial class BusinessTermRep
+    {
+        /// <summary>
+        /// 自增主键id
+        /// </summary>
+        [Key]
+        [DatabaseGenerated]
+        [Field("id")]
+        public long Id { get; set; }
+
+        /// <summary>
+        /// 业务线编码
+        /// </summary>
+        [Field("business_line_id")]
+        public long BusinessLineId { get; set; }
+
+        /// <summary>
+        /// 业务名称
+        /// </summary>
+        [Field("content")]
+        [StringLength(500)]
+        public string Content { get; set; } = null!;
+
+        /// <summary>
+        /// 创建人id
+        /// </summary>
+        [Field("create_by")]
+        public long CreateBy { get; set; }
+
+        /// <summary>
+        /// 创建时间
+        /// </summary>
+        [Field("create_time")]
+        public DateTime CreateTime { get; set; }
+
+        /// <summary>
+        /// 更新人id
+        /// </summary>
+        [Field("update_by")]
+        public long UpdateBy { get; set; }
+
+        /// <summary>
+        /// 更新时间
+        /// </summary>
+        [Field("update_time")]
+        public DateTime UpdateTime { get; set; }
+    }
+
+    #endregion
+
     public class NestedQueriesTests
     {
         private readonly IQueryable<BusinessConsultationRep> _businessConsultationReps;
@@ -365,16 +573,22 @@ namespace Inkslab.Linq.Tests
         private readonly IQueryable<Specialist> _specialists;
         private readonly IQueryable<SpecialistCostRep> _specialistCostReps;
         private readonly IQueryable<BusinessDepartmentRel> _businessDepartmentRels;
+        private readonly IQueryable<Order> _orderReps;
+        private readonly IQueryable<BusinessTermRep> _businessTermReps;
 
         public NestedQueriesTests(IQueryable<BusinessConsultationRep> businessConsultationReps,
         IQueryable<BusinessDepartmentConsultationRel> businessDepartmentConsultationRels,
         IQueryable<MyUser> users,
         IQueryable<Specialist> specialists,
         IQueryable<SpecialistCostRep> specialistCostReps,
-        IQueryable<BusinessDepartmentRel> businessDepartmentRels)
+        IQueryable<BusinessDepartmentRel> businessDepartmentRels,
+        IQueryable<Order> orderReps,
+        IQueryable<BusinessTermRep> businessTermReps)
         {
             _specialistCostReps = specialistCostReps;
             _businessDepartmentRels = businessDepartmentRels;
+            _orderReps = orderReps;
+            _businessTermReps = businessTermReps;
             _users = users;
             _specialists = specialists;
             _businessDepartmentConsultationRels = businessDepartmentConsultationRels;
@@ -531,6 +745,21 @@ namespace Inkslab.Linq.Tests
                                     };
 
             var consultations = await consultationQuery.ToListAsync();
+        }
+
+        [Fact]
+        public async Task Test6Async()
+        {
+            var query = from a in _orderReps
+                        join b in _businessTermReps on a.BusinessLineId equals b.BusinessLineId
+                        where a.Id == 9000000000000000
+                        orderby b.CreateTime descending
+                        select new
+                        {
+                            Content = b.Content,
+                            Id = b.Id
+                        };
+            var list = await query.ToListAsync();
         }
     }
 }

@@ -1071,5 +1071,41 @@ namespace Inkslab.Linq.Tests
 
             await Task.WhenAll(linq.ToListAsync(), linq.CountAsync());
         }
+
+        /// <summary>
+        /// 内置包含测试。
+        /// </summary>
+        [Fact]
+        public async Task TestNestedMemoryContainsMultiSelect4Async()
+        {
+            var ids = new List<long> { 1, 2, 5 };
+
+            var linq =
+                from x in _users
+                where x.Id == 100 && ids.Contains(x.Id)
+                orderby x.DateAt, x.Name
+                select x.Id;
+
+            var results = await linq.ToListAsync();
+            var results2 = linq.Count();
+        }
+
+        /// <summary>
+        /// 内置包含测试。
+        /// </summary>
+        [Fact]
+        public async Task TestNestedMemoryContainsMultiSelect5Async()
+        {
+            var ids = new List<long> { 1, 2, 5 };
+
+            var linq =
+                from x in _users
+                where x.Id == 100 && ids.Contains(x.Id)
+                orderby x.DateAt, x.Name
+                select x.Id;
+
+            var results = linq.Count();
+            var results2 = await linq.CountAsync();
+        }
     }
 }

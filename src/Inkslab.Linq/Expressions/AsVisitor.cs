@@ -1,12 +1,14 @@
 using System.Reflection;
 using System.Linq.Expressions;
 using System;
+using System.Diagnostics;
 
 namespace Inkslab.Linq.Expressions
 {
     /// <summary>
     /// 别名访问器。
     /// </summary>
+    [DebuggerDisplay("As")]
     public class AsVisitor : BaseVisitor
     {
         private readonly bool _showAs;
@@ -20,11 +22,7 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         public void Startup(MemberInfo memberInfo, Expression node)
         {
-            if (Engine == DatabaseEngine.MySQL || !IsCondition(node))
-            {
-                Visit(node);
-            }
-            else
+            if (RequiresConditionalEscape() && IsCondition(node))
             {
                 Writer.Keyword(Enums.SqlKeyword.CASE);
                 Writer.Keyword(Enums.SqlKeyword.WHEN);
@@ -40,6 +38,10 @@ namespace Inkslab.Linq.Expressions
                 Writer.False();
 
                 Writer.Keyword(Enums.SqlKeyword.END);
+            }
+            else
+            {
+                Visit(node);
             }
 
             if (_showAs)

@@ -3,6 +3,7 @@ using Inkslab.Linq.Exceptions;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
@@ -12,6 +13,7 @@ namespace Inkslab.Linq.Expressions
     /// <summary>
     /// 核心访问器（负责节点分析，方法声明适配）。
     /// </summary>
+    [DebuggerDisplay("Core")]
     public abstract class CoreVisitor : BaseVisitor
     {
         private readonly BaseVisitor _visitor;
@@ -74,20 +76,7 @@ namespace Inkslab.Linq.Expressions
             }
             else if (declaringType == Types.L2S)
             {
-                switch (node.Method.Name)
-                {
-                    case nameof(Conditions.Condition):
-                        // 准备参数。
-                        var expressions = new List<Expression>();
-                        var argVisitor = new ConditionArgExpressionVisitor(expressions);
-                        argVisitor.Visit(node.Arguments[0]);
-                        // 分析表达式。
-                        var conditionVisitor = new ConditionExpressionVisitor(expressions, this);
-                        conditionVisitor.Visit(node.Arguments[1]);
-                        break;
-                    default:
-                        throw new NotSupportedException();
-                }
+                LinqCustomCall(node);
             }
             else if (declaringType.IsAbstract && declaringType.IsSealed && node.Method.ReturnType.IsQueryable()) //? 静态扩展。
             {
@@ -102,9 +91,233 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <summary>
+        /// Linq 方法。<see cref="Conditions"/>。
+        /// </summary>
+        /// <param name="node">节点。</param>
+        protected virtual void LinqCustomCall(MethodCallExpression node)
+        {
+            switch (node.Method.Name)
+            {
+                case nameof(Conditions.IsTrue):
+                    {
+                        // 准备参数。
+                        var expressions = new List<Expression>();
+                        var argVisitor = new ConditionArgExpressionVisitor(expressions);
+
+                        argVisitor.Visit(node.Arguments[0]);
+
+                        // 分析表达式。
+                        var conditionVisitor = new ConditionExpressionVisitor(expressions, this);
+                        conditionVisitor.Visit(node.Arguments[1]);
+
+                        break;
+                    }
+                case nameof(Conditions.If) when IsPlainVariable(node.Arguments[1], true):
+                    {
+                        bool conditionIsValid = node.Arguments[1].GetValueFromExpression<bool>();
+
+                        if (conditionIsValid)
+                        {
+                            // 准备参数。
+                            var expressions = new List<Expression>();
+                            var argVisitor = new ConditionArgExpressionVisitor(expressions);
+
+                            argVisitor.Visit(node.Arguments[0]);
+
+                            // 分析表达式。
+                            var conditionVisitor = new ConditionExpressionVisitor(expressions, this);
+                            conditionVisitor.Visit(node.Arguments[2]);
+                        }
+
+                        break;
+                    }
+                case nameof(Conditions.If):
+                    {                            // 准备参数。
+                        var expressions = new List<Expression>();
+                        var argVisitor = new ConditionArgExpressionVisitor(expressions);
+
+                        argVisitor.Visit(node.Arguments[0]);
+
+                        var conditionVisitor = new ConditionExpressionVisitor(expressions, this);
+
+                        using (var domain = Writer.Domain())
+                        {
+                            Condition(node.Arguments[1]);
+
+                            if (domain.HasValue)
+                            {
+                                Writer.Keyword(SqlKeyword.THEN);
+
+                                using (var domainSub = Writer.Domain())
+                                {
+                                    conditionVisitor.Visit(node.Arguments[2]);
+
+                                    if (domainSub.IsEmpty)
+                                    {
+                                        Writer.Keyword(SqlKeyword.NULL);
+                                    }
+                                    else if (RequiresConditionalEscape() && IsCondition(node.Arguments[2]))
+                                    {
+                                        Writer.Keyword(SqlKeyword.THEN);
+
+                                        Writer.True();
+
+                                        Writer.Keyword(SqlKeyword.ELSE);
+
+                                        Writer.False();
+
+                                        Writer.Keyword(SqlKeyword.END);
+
+                                        domainSub.Flyback();
+
+                                        Writer.Keyword(SqlKeyword.CASE);
+                                        Writer.Keyword(SqlKeyword.WHEN);
+                                    }
+                                }
+
+                                Writer.Keyword(SqlKeyword.ELSE);
+
+                                Writer.True(); //? 测试条件不满足是始终为真。
+
+                                Writer.Keyword(SqlKeyword.END);
+
+                                Writer.CloseBrace();
+
+                                if (RequiresConditionalEscape())
+                                {
+                                    Writer.Operator(SqlOperator.IsTrue);
+                                }
+
+                                domain.Flyback();
+
+                                Writer.OpenBrace();
+
+                                Writer.Keyword(SqlKeyword.CASE);
+                                Writer.Keyword(SqlKeyword.WHEN);
+                            }
+                        }
+                        break;
+                    }
+                case nameof(Conditions.Conditional) when IsPlainVariable(node.Arguments[1], true):
+                    {
+                        var conditionIsValid = node.Arguments[1].GetValueFromExpression<bool>();
+
+                        // 准备参数。
+                        var expressions = new List<Expression>();
+                        var argVisitor = new ConditionArgExpressionVisitor(expressions);
+
+                        argVisitor.Visit(node.Arguments[0]);
+
+                        // 分析表达式。
+                        var conditionVisitor = new ConditionExpressionVisitor(expressions, this);
+                        conditionVisitor.Visit(node.Arguments[conditionIsValid ? 2 : 3]);
+                        break;
+                    }
+                case nameof(Conditions.Conditional):
+                    {                            // 准备参数。
+                        var expressions = new List<Expression>();
+                        var argVisitor = new ConditionArgExpressionVisitor(expressions);
+
+                        argVisitor.Visit(node.Arguments[0]);
+
+                        var conditionVisitor = new ConditionExpressionVisitor(expressions, this);
+
+                        using (var domain = Writer.Domain())
+                        {
+                            Condition(node.Arguments[1]);
+
+                            if (domain.IsEmpty) //? 测试条件不满足是视为假。
+                            {
+                                conditionVisitor.Visit(node.Arguments[3]);
+                            }
+                            else
+                            {
+                                Writer.Keyword(SqlKeyword.THEN);
+
+                                using (var domainSub = Writer.Domain())
+                                {
+                                    conditionVisitor.Visit(node.Arguments[2]);
+
+                                    if (domainSub.IsEmpty)
+                                    {
+                                        Writer.Keyword(SqlKeyword.NULL);
+                                    }
+                                    else if (RequiresConditionalEscape() && IsCondition(node.Arguments[2]))
+                                    {
+                                        Writer.Keyword(SqlKeyword.THEN);
+
+                                        Writer.True();
+
+                                        Writer.Keyword(SqlKeyword.ELSE);
+
+                                        Writer.False();
+
+                                        Writer.Keyword(SqlKeyword.END);
+
+                                        domainSub.Flyback();
+
+                                        Writer.Keyword(SqlKeyword.CASE);
+                                        Writer.Keyword(SqlKeyword.WHEN);
+                                    }
+                                }
+
+                                Writer.Keyword(SqlKeyword.ELSE);
+
+                                using (var domainSub = Writer.Domain())
+                                {
+                                    conditionVisitor.Visit(node.Arguments[3]);
+
+                                    if (domainSub.IsEmpty)
+                                    {
+                                        Writer.Keyword(SqlKeyword.NULL);
+                                    }
+                                    else if (RequiresConditionalEscape() && IsCondition(node.Arguments[3]))
+                                    {
+                                        Writer.Keyword(SqlKeyword.THEN);
+
+                                        Writer.True();
+
+                                        Writer.Keyword(SqlKeyword.ELSE);
+
+                                        Writer.False();
+
+                                        Writer.Keyword(SqlKeyword.END);
+
+                                        domainSub.Flyback();
+
+                                        Writer.Keyword(SqlKeyword.CASE);
+                                        Writer.Keyword(SqlKeyword.WHEN);
+                                    }
+                                }
+
+                                Writer.Keyword(SqlKeyword.END);
+
+                                Writer.CloseBrace();
+
+                                if (RequiresConditionalEscape())
+                                {
+                                    Writer.Operator(SqlOperator.IsTrue);
+                                }
+
+                                domain.Flyback();
+
+                                Writer.OpenBrace();
+
+                                Writer.Keyword(SqlKeyword.CASE);
+                                Writer.Keyword(SqlKeyword.WHEN);
+                            }
+                        }
+                        break;
+                    }
+                default:
+                    throw new NotSupportedException();
+            }
+        }
+
+        /// <summary>
         /// Linq 方法。<see cref="Queryable"/> 或 <seealso cref="QueryableExtentions"/>。
         /// </summary>
-        /// <param name="node"></param>
+        /// <param name="node">节点。</param>
         protected virtual void LinqCall(MethodCallExpression node)
         {
             using (var visitor = new SelectVisitor(this))
@@ -736,8 +949,8 @@ namespace Inkslab.Linq.Expressions
 
         private void ByContains(MethodCallExpression node)
         {
-            var @object = node.Method.IsStatic 
-                ? node.Arguments[0] 
+            var @object = node.Method.IsStatic
+                ? node.Arguments[0]
                 : node.Object;
 
             IEnumerable valueSet = @object.GetValueFromExpression<IEnumerable>() ?? Enumerable.Empty<object>();
@@ -825,10 +1038,10 @@ namespace Inkslab.Linq.Expressions
 
         private class ReplaceConditionExpressionVisitor : ExpressionVisitor
         {
-            private readonly List<ParameterExpression> _oldExpression;
-            private readonly List<Expression> _newExpression;
+            private readonly IList<ParameterExpression> _oldExpression;
+            private readonly IList<Expression> _newExpression;
 
-            public ReplaceConditionExpressionVisitor(List<ParameterExpression> oldExpression, List<Expression> newExpression)
+            public ReplaceConditionExpressionVisitor(IList<ParameterExpression> oldExpression, IList<Expression> newExpression)
             {
                 _oldExpression = oldExpression;
                 _newExpression = newExpression;
@@ -899,7 +1112,7 @@ namespace Inkslab.Linq.Expressions
 
             protected override Expression VisitLambda<T>(Expression<T> node)
             {
-                var replaceVisitor = new ReplaceConditionExpressionVisitor(new List<ParameterExpression>(node.Parameters), _expressions);
+                var replaceVisitor = new ReplaceConditionExpressionVisitor(node.Parameters, _expressions);
 
                 _visitor.Condition(replaceVisitor.Visit(node.Body));
 

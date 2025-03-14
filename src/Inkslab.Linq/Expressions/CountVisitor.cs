@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using Inkslab.Linq.Enums;
@@ -8,6 +9,7 @@ namespace Inkslab.Linq.Expressions
     /// <summary>
     /// 计数。
     /// </summary>
+    [DebuggerDisplay("Count")]
     public class CountVisitor : ScriptVisitor
     {
         /// <summary>
@@ -97,7 +99,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected virtual void Select(Expression node)
+        protected override void Select(Expression node)
         {
             if (isDistinct)
             {

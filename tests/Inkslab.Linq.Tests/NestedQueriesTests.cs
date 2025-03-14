@@ -562,7 +562,51 @@ namespace Inkslab.Linq.Tests
         [Field("update_time")]
         public DateTime UpdateTime { get; set; }
     }
+    /// <summary>
+    /// 会话群组人员
+    /// </summary>
+    [Table("session_group_user")]
+    public partial class SessionGroupUser
+    {
+        /// <summary>
+        /// 自增主键id
+        /// </summary>
+        [Key]
+        [DatabaseGenerated]
+        [Field("id")]
+        public long Id { get; set; }
 
+        /// <summary>
+        /// 业务线id
+        /// </summary>
+        [Field("business_line_id")]
+        public long BusinessLineId { get; set; }
+
+        /// <summary>
+        /// 会话id
+        /// </summary>
+        [Field("session_id")]
+        public long SessionId { get; set; }
+
+        /// <summary>
+        /// 用户id
+        /// </summary>
+        [Field("user_id")]
+        public long UserId { get; set; }
+
+        /// <summary>
+        /// 客户编号
+        /// </summary>
+        [Field("customer_code")]
+        [StringLength(36)]
+        public string CustomerCode { get; set; }
+
+        /// <summary>
+        /// 是否可以结束会话
+        /// </summary>
+        [Field("is_close")]
+        public bool IsClose { get; set; }
+    }
     #endregion
 
     public class NestedQueriesTests
@@ -575,6 +619,7 @@ namespace Inkslab.Linq.Tests
         private readonly IQueryable<BusinessDepartmentRel> _businessDepartmentRels;
         private readonly IQueryable<Order> _orderReps;
         private readonly IQueryable<BusinessTermRep> _businessTermReps;
+        private readonly IQueryable<SessionGroupUser> _sessionGroupUsers;
 
         public NestedQueriesTests(IQueryable<BusinessConsultationRep> businessConsultationReps,
         IQueryable<BusinessDepartmentConsultationRel> businessDepartmentConsultationRels,
@@ -583,12 +628,14 @@ namespace Inkslab.Linq.Tests
         IQueryable<SpecialistCostRep> specialistCostReps,
         IQueryable<BusinessDepartmentRel> businessDepartmentRels,
         IQueryable<Order> orderReps,
-        IQueryable<BusinessTermRep> businessTermReps)
+        IQueryable<BusinessTermRep> businessTermReps,
+        IQueryable<SessionGroupUser> sessionGroupUsers)
         {
             _specialistCostReps = specialistCostReps;
             _businessDepartmentRels = businessDepartmentRels;
             _orderReps = orderReps;
             _businessTermReps = businessTermReps;
+            _sessionGroupUsers = sessionGroupUsers;
             _users = users;
             _specialists = specialists;
             _businessDepartmentConsultationRels = businessDepartmentConsultationRels;
@@ -760,6 +807,18 @@ namespace Inkslab.Linq.Tests
                             Id = b.Id
                         };
             var list = await query.ToListAsync();
+        }
+
+        [Fact]
+        public async Task Test7Async()
+        {
+            var orderIds = new List<long> { 9000000000000000 };
+
+            var results = await (from gu in _sessionGroupUsers.Where(t => orderIds.Contains(t.SessionId))
+                                 join s in _specialists on gu.UserId equals s.Id
+                                 select s.Id)
+                 .Distinct()
+                 .ToListAsync();
         }
     }
 }

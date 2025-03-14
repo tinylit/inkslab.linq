@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using Inkslab.Linq.Exceptions;
@@ -9,6 +10,7 @@ namespace Inkslab.Linq.Expressions
     /// <summary>
     /// 链表访问器。
     /// </summary>
+    [DebuggerDisplay("Join")]
     public class JoinVisitor : SelectVisitor
     {
         private JoinType joinType = JoinType.INNER;
@@ -109,11 +111,6 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override void StartupCore(MethodCallExpression node)
         {
-            if (_buildSelect)
-            {
-                Writer.Keyword(Enums.SqlKeyword.SELECT);
-            }
-
             if (node.Method.Name == nameof(Queryable.SelectMany))
             {
                 //? 分析是否为左链接。

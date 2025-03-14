@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -9,18 +10,9 @@ namespace Inkslab.Linq.Expressions
     /// <summary>
     /// 查询基础访问器（负责组合、排序、分页等工作）。
     /// </summary>
+    [DebuggerDisplay("Select")]
     public class SelectVisitor : ScriptVisitor
     {
-        /// <summary>
-        /// 生成 SELECT。
-        /// </summary>
-        private bool buildSelect = false;
-
-        /// <summary>
-        /// 去重。
-        /// </summary>
-        private bool isDistinct = false;
-
         /// <summary>
         /// 逆序。
         /// </summary>
@@ -132,72 +124,50 @@ namespace Inkslab.Linq.Expressions
                         visitor.Startup(node);
                     }
                     break;
-                case nameof(Queryable.Join):
-                case nameof(Queryable.SelectMany):
+                case nameof(Queryable.Count) when node.IsGrouping(true):
+                case nameof(Queryable.LongCount) when node.IsGrouping(true):
+                    goto default;
+                case nameof(Queryable.Count) when node.Arguments.Count == 1:
+                case nameof(Queryable.LongCount) when node.Arguments.Count == 1:
 
-                    //? 跳过 buildSelect 问题。
-                    base.StartupCore(node);
+                    using (var visitor = new CountVisitor(this))
+                    {
+                        visitor.Startup(node);
+                    }
+
+                    break;
+                case nameof(Queryable.Count):
+                case nameof(Queryable.LongCount):
+
+                    Writer.Keyword(SqlKeyword.SELECT);
+
+                    Writer.Write("COUNT");
+
+                    Writer.OpenBrace();
+
+                    Writer.Write('*');
+
+                    Writer.CloseBrace();
+
+                    Where(node);
 
                     break;
                 default:
-
-                    if (IsGrouping(node))
-                    {
-                        using (var visitor = new AggregateSelectVisitor(this))
-                        {
-                            visitor.Startup(node);
-                        }
-                    }
-                    else
-                    {
-                        switch (node.Method.Name)
-                        {
-                            case nameof(Queryable.Count) when node.Arguments.Count == 1:
-                            case nameof(Queryable.LongCount) when node.Arguments.Count == 1:
-
-                                using (var visitor = new CountVisitor(this))
-                                {
-                                    visitor.Startup(node);
-                                }
-
-                                break;
-                            case nameof(Queryable.Count):
-                            case nameof(Queryable.LongCount):
-                                Writer.Keyword(SqlKeyword.SELECT);
-
-                                Writer.Write("COUNT");
-
-                                Writer.OpenBrace();
-
-                                Writer.Write('*');
-
-                                Writer.CloseBrace();
-
-                                Where(node);
-
-                                break;
-                            default:
-
-                                buildSelect = true;
-
-                                base.StartupCore(node);
-
-                                break;
-                        }
-                    }
+                    
+                    base.StartupCore(node);
 
                     break;
             }
         }
 
-        private bool IsGrouping(MethodCallExpression node)
-        {
-            return node.Method.Name switch
-            {
-                nameof(Queryable.Take) or nameof(Queryable.Skip) or nameof(Queryable.TakeLast) when node.Arguments[0].NodeType == ExpressionType.Call => IsGrouping((MethodCallExpression)node.Arguments[0]),
-                _ => node.IsGrouping(true),
-            };
-        }
+        /*        private bool IsGrouping(MethodCallExpression node)
+                {
+                    return node.Method.Name switch
+                    {
+                        nameof(Queryable.Take) or nameof(Queryable.Skip) or nameof(Queryable.TakeLast) when node.Arguments[0].NodeType == ExpressionType.Call => IsGrouping((MethodCallExpression)node.Arguments[0]),
+                        _ => node.IsGrouping(true),
+                    };
+                }*/
 
         /// <inheritdoc/>
         protected override void LinqCore(MethodCallExpression node)
@@ -206,94 +176,6 @@ namespace Inkslab.Linq.Expressions
 
             switch (name)
             {
-                case nameof(Queryable.Select):
-
-                    buildSelect &= false;
-
-                    Writer.Keyword(SqlKeyword.SELECT);
-
-                    if (isDistinct)
-                    {
-                        Writer.Keyword(SqlKeyword.DISTINCT);
-                    }
-
-                    using (var domain = Writer.Domain())
-                    {
-                        Visit(node.Arguments[0]);
-
-                        domain.Flyback();
-
-                        Select(node.Arguments[1]); //? 解决 JOIN/GROUP 场景的表别名问题。
-                    }
-                    break;
-
-                case nameof(Queryable.Distinct):
-
-                    isDistinct = true;
-
-                    Visit(node.Arguments[0]);
-
-                    break;
-                case nameof(Queryable.Union):
-                case nameof(Queryable.Concat):
-                case nameof(Queryable.Intersect):
-                case nameof(Queryable.Except):
-
-                    if (buildSelect)
-                    {
-                        Writer.Keyword(SqlKeyword.SELECT);
-
-                        Writer.Write('*');
-
-                        buildSelect = false;
-                    }
-
-                    DataSourceMode();
-
-                    Writer.OpenBrace();
-
-                    //? 解决子查询分页的问题。
-                    Writer.OpenBrace();
-
-                    using (var visitor = new SelectVisitor(this, _showAs))
-                    {
-                        visitor.Startup(node.Arguments[0]);
-                    }
-
-                    Writer.CloseBrace();
-
-                    switch (name)
-                    {
-                        case nameof(Queryable.Union):
-                            Writer.Keyword(SqlKeyword.UNION);
-                            break;
-                        case nameof(Queryable.Intersect):
-                            Writer.Keyword(SqlKeyword.INTERSECT);
-                            break;
-                        case nameof(Queryable.Except):
-                            Writer.Keyword(SqlKeyword.EXCEPT);
-                            break;
-                        default:
-                            Writer.Keyword(SqlKeyword.UNION);
-                            Writer.Keyword(SqlKeyword.ALL);
-                            break;
-                    }
-
-                    //? 解决子查询分页的问题。
-                    Writer.OpenBrace();
-
-                    using (var visitor = new SelectVisitor(this))
-                    {
-                        visitor.Startup(node.Arguments[1]);
-                    }
-
-                    Writer.CloseBrace();
-
-                    Writer.CloseBrace();
-
-                    TableAs();
-
-                    break;
                 case nameof(Queryable.Contains):
 
                     Visit(node.Arguments[1]);
@@ -328,16 +210,6 @@ namespace Inkslab.Linq.Expressions
 
                     Writer.CloseBrace();
 
-                    break;
-                case nameof(Queryable.Max):
-                case nameof(Queryable.Min):
-                case nameof(Queryable.Average):
-                case nameof(Queryable.Aggregate):
-
-                    using (var visitor = new AggregateVisitor(this))
-                    {
-                        visitor.Startup(node);
-                    }
                     break;
                 case nameof(Queryable.First):
                 case nameof(Queryable.FirstOrDefault):
@@ -434,27 +306,6 @@ namespace Inkslab.Linq.Expressions
             }
         }
 
-        /// <inheritdoc/>
-        protected override void Constant(IQueryable value)
-        {
-            if (buildSelect)
-            {
-                Writer.Keyword(SqlKeyword.SELECT);
-
-                if (isDistinct)
-                {
-                    Writer.Keyword(SqlKeyword.DISTINCT);
-                }
-
-                Select(value.Expression);
-
-                buildSelect = false;
-            }
-
-            base.Constant(value);
-        }
-
-
         /// <summary>
         /// 逆序和条件分析。
         /// </summary>
@@ -485,7 +336,7 @@ namespace Inkslab.Linq.Expressions
         /// 查询字段。
         /// </summary>
         /// <param name="node">节点。</param>
-        protected virtual void Select(Expression node)
+        protected override void Select(Expression node)
         {
             using (var visitor = new SelectListVisitor(this, _showAs))
             {
@@ -562,7 +413,7 @@ namespace Inkslab.Linq.Expressions
         private class AnyAllVisitor : SelectVisitor
         {
             /// <inheritdoc/>
-            public AnyAllVisitor(BaseVisitor visitor) : base(visitor, ConditionType.Where, true)
+            public AnyAllVisitor(SelectVisitor visitor) : base(visitor, ConditionType.Where, true)
             {
             }
 

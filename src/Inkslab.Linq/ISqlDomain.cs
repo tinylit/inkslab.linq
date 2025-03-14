@@ -18,11 +18,6 @@ namespace Inkslab.Linq
         bool HasValue { get; }
 
         /// <summary>
-        /// 领域内容长度。
-        /// </summary>
-        int Length { get; }
-
-        /// <summary>
         /// 插入指针回扫到领域起点。
         /// </summary>
         /// <returns></returns>

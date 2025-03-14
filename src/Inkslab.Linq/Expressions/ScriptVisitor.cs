@@ -5,12 +5,14 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Reflection;
 using Inkslab.Linq.Exceptions;
+using System.Diagnostics;
 
 namespace Inkslab.Linq.Expressions
 {
     /// <summary>
     /// 脚本访问器（独立语句的核心结构，负责分析表名称、别名、条件等工作）。
     /// </summary>
+    [DebuggerDisplay("Script")]
     public class ScriptVisitor : CoreVisitor, IBackflowVisitor
     {
         /// <summary>
@@ -27,6 +29,16 @@ namespace Inkslab.Linq.Expressions
         /// 允许 SELECT。
         /// </summary>
         private bool allowSelect = true;
+
+        /// <summary>
+        /// 构建。
+        /// </summary>
+        private bool buildSelect = false;
+
+        /// <summary>
+        /// 去重。
+        /// </summary>
+        private bool isDistinct = false;
 
         /// <summary>
         /// 分组表达式。
@@ -127,19 +139,45 @@ namespace Inkslab.Linq.Expressions
         {
             string name = node.Method.Name;
 
-            isGrouping = name == nameof(Queryable.Max)
-                || name == nameof(Queryable.Min)
-                || name == nameof(Queryable.Average)
-                || name == nameof(Queryable.Aggregate)
-                || node.IsGrouping(true);
+            switch (node.Method.Name)
+            {
+                case nameof(Queryable.Max):
+                case nameof(Queryable.Min):
+                case nameof(Queryable.Average):
+                case nameof(Queryable.Aggregate):
+                    isGrouping = true;
+                    break;
+                case nameof(Queryable.Count):
+                case nameof(Queryable.LongCount):
+                    isAggregateCount = true;
+                    break;
+                case nameof(Queryable.Union):
+                case nameof(Queryable.Concat):
+                case nameof(Queryable.Intersect):
+                case nameof(Queryable.Except):
+                    buildSelect = true;
+                    break;
+                case nameof(Queryable.Select) when this is AggregateSelectVisitor:
+                    isGrouping = true;
+                    break;
+                case nameof(QueryableExtentions.Insert):
+                case nameof(QueryableExtentions.Update):
+                case nameof(QueryableExtentions.Delete):
+                case nameof(Queryable.Join) when this is JoinVisitor:
+                case nameof(Queryable.SelectMany) when this is JoinVisitor:
+                    break;
+                default:
+
+                    buildSelect = true;
+
+                    break;
+            }
 
             var declaringType = node.Method.DeclaringType;
 
             isQueryable = declaringType == Types.Queryable || declaringType == Types.QueryableExtentions;
 
-            isAggregateCount = name is (nameof(Queryable.Count)) or (nameof(Queryable.LongCount));
-
-            StartupCore(node);
+            base.Startup(node);
         }
 
         /// <summary>
@@ -169,53 +207,51 @@ namespace Inkslab.Linq.Expressions
             }
         }
 
-        /// <summary>
-        /// 启动核心方法。
-        /// </summary>
-        /// <param name="node">节点。</param>
-        protected virtual void StartupCore(MethodCallExpression node)
+        private bool IsGrouping(MethodCallExpression node)
         {
-            switch (node.Method.Name)
+            return node.Method.Name switch
             {
-                case nameof(Queryable.Join):
-                case nameof(Queryable.SelectMany):
+                nameof(Queryable.Take) or nameof(Queryable.Skip) or nameof(Queryable.TakeLast) when node.Arguments[0].NodeType == ExpressionType.Call => IsGrouping((MethodCallExpression)node.Arguments[0]),
+                _ => node.IsGrouping(true),
+            };
+        }
 
-                    var visitor = new JoinVisitor(this, _joinRelationships, true);
-
-                    _joinVisitors.Add(visitor);
-
-                    visitor.Startup((Expression)node);
-
-                    break;
-                default:
-
-                    base.Startup(node);
-
-                    break;
+        private bool SkipLinqCall(MethodCallExpression node)
+        {
+            if (isGrouping) //? 已经在分组分析器中了，继续进行分析。
+            {
+                return false;
             }
+
+            if (isGrouping = node.IsGrouping(true))
+            {
+                if (isAggregateCount)
+                {
+                    Circuity(node);
+
+                    return true;
+                }
+
+                buildSelect = false;
+
+                using (ScriptVisitor visitor = unsorted ? new AggregateCheckSortSelectVisitor(this) : new AggregateSelectVisitor(this))
+                {
+                    visitor.Startup(node);
+                }
+
+                return true;
+            }
+
+            return false;
         }
 
         /// <inheritdoc/>
         protected sealed override void LinqCall(MethodCallExpression node)
         {
-            if (isGrouping)
+            if (SkipLinqCall(node))
             {
-                goto label_core;
+                return;
             }
-
-            if (isAggregateCount && node.IsGrouping(true))
-            {
-                if (isQueryable)
-                {
-                    Circuity(node);
-
-                    return;
-                }
-
-                throw new DSyntaxErrorException();
-            }
-
-        label_core:
 
             string name = node.Method.Name;
 
@@ -392,6 +428,20 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override void Constant(IQueryable value)
         {
+            if (buildSelect)
+            {
+                Writer.Keyword(SqlKeyword.SELECT);
+
+                if (isDistinct)
+                {
+                    Writer.Keyword(SqlKeyword.DISTINCT);
+                }
+
+                Select(value.Expression);
+
+                buildSelect = false;
+            }
+
             DataSourceMode();
 
             Name();
@@ -463,7 +513,7 @@ namespace Inkslab.Linq.Expressions
 
                     using (var visitor = new SelectVisitor(this, true))
                     {
-                        visitor.Startup(node);
+                        visitor.Startup((Expression)node); //? 分析表信息。
                     }
 
                     Writer.CloseBrace();
@@ -496,10 +546,114 @@ namespace Inkslab.Linq.Expressions
 
             switch (name)
             {
+                case nameof(Queryable.Select):
+
+                    buildSelect = false;
+
+                    Writer.Keyword(SqlKeyword.SELECT);
+
+                    if (isDistinct)
+                    {
+                        Writer.Keyword(SqlKeyword.DISTINCT);
+                    }
+
+                    using (var domain = Writer.Domain())
+                    {
+                        Visit(node.Arguments[0]);
+
+                        domain.Flyback();
+
+                        Select(node.Arguments[1]); //? 解决 JOIN/GROUP 场景的表别名问题。
+                    }
+                    break;
+                case nameof(Queryable.Distinct):
+
+                    isDistinct = true;
+
+                    Visit(node.Arguments[0]);
+
+                    break;
+
+                case nameof(Queryable.Union):
+                case nameof(Queryable.Concat):
+                case nameof(Queryable.Intersect):
+                case nameof(Queryable.Except):
+
+                    if (buildSelect)
+                    {
+                        Writer.Keyword(SqlKeyword.SELECT);
+
+                        Writer.Write('*');
+
+                        buildSelect = false;
+                    }
+
+                    DataSourceMode();
+
+                    Writer.OpenBrace();
+
+                    //? 解决子查询分页的问题。
+                    Writer.OpenBrace();
+
+                    using (var visitor = new SelectVisitor(this, true))
+                    {
+                        visitor.Startup(node.Arguments[0]);
+                    }
+
+                    Writer.CloseBrace();
+
+                    switch (name)
+                    {
+                        case nameof(Queryable.Union):
+                            Writer.Keyword(SqlKeyword.UNION);
+                            break;
+                        case nameof(Queryable.Intersect):
+                            Writer.Keyword(SqlKeyword.INTERSECT);
+                            break;
+                        case nameof(Queryable.Except):
+                            Writer.Keyword(SqlKeyword.EXCEPT);
+                            break;
+                        default:
+                            Writer.Keyword(SqlKeyword.UNION);
+                            Writer.Keyword(SqlKeyword.ALL);
+                            break;
+                    }
+
+                    //? 解决子查询分页的问题。
+                    Writer.OpenBrace();
+
+                    using (var visitor = new SelectVisitor(this))
+                    {
+                        visitor.Startup(node.Arguments[1]);
+                    }
+
+                    Writer.CloseBrace();
+
+                    Writer.CloseBrace();
+
+                    TableAs();
+
+                    break;
                 case nameof(Queryable.Where):
                 case nameof(Queryable.TakeWhile):
 
                     Where(node);
+
+                    break;
+
+                case nameof(QueryableExtentions.WhereIf) when IsPlainVariable(node.Arguments[1]):
+
+                    var conditionIsValid = node.Arguments[1].GetValueFromExpression<bool>();
+
+                    if (conditionIsValid)
+                    {
+                        Where(node.Arguments[0], node.Arguments[2]);
+                    }
+
+                    break;
+                case nameof(QueryableExtentions.WhereIf):
+
+                    WhereIf(node.Arguments[0], node.Arguments[1], node.Arguments[2]);
 
                     break;
                 case nameof(Queryable.SkipWhile):
@@ -510,14 +664,27 @@ namespace Inkslab.Linq.Expressions
                     }
                 case nameof(Queryable.Join):
                 case nameof(Queryable.SelectMany):
+                    {
+                        if (buildSelect)
+                        {
+                            Writer.Keyword(SqlKeyword.SELECT);
 
-                    var visitor = new JoinVisitor(this, _joinRelationships, false);
+                            if (isDistinct)
+                            {
+                                Writer.Keyword(SqlKeyword.DISTINCT);
+                            }
+                        }
 
-                    _joinVisitors.Add(visitor);
+                        var visitor = new JoinVisitor(this, _joinRelationships, buildSelect);
 
-                    visitor.Startup((Expression)node);
+                        _joinVisitors.Add(visitor);
 
-                    break;
+                        buildSelect = false;
+
+                        visitor.Startup((Expression)node); //? 分析表信息。
+
+                        break;
+                    }
                 default:
 
                     Backflow(this, node);
@@ -525,6 +692,12 @@ namespace Inkslab.Linq.Expressions
                     break;
             }
         }
+
+        /// <summary>
+        /// 查询字段。
+        /// </summary>
+        /// <param name="node">节点。</param>
+        protected virtual void Select(Expression node) { }
 
         /// <summary>
         /// 链路回流。
@@ -636,13 +809,99 @@ namespace Inkslab.Linq.Expressions
                     Visit(instance);
                 }
 
-                if (domain.Length > 0)
+                if (domain.HasValue)
                 {
                     _whereSwitch.Execute();
                 }
             }
         }
 
+        /// <summary>
+        /// 条件分析。
+        /// </summary>
+        /// <param name="instance">对象节点。</param>
+        /// <param name="condition">是否满足条件。</param>
+        /// <param name="predicate">满足“<paramref name="condition"/>”时的条件节点。</param>
+        protected virtual void WhereIf(Expression instance, Expression condition, Expression predicate)
+        {
+            if (instance.NodeType != ExpressionType.Constant)
+            {
+                WhereDependency(instance);
+            }
+
+            using (var domainMain = Writer.Domain())
+            {
+                using (var domain = Writer.Domain())
+                {
+                    Condition(condition);
+
+                    if (domain.HasValue)
+                    {
+                        Writer.Keyword(SqlKeyword.THEN);
+
+                        using (var domainSub = Writer.Domain())
+                        {
+                            Visit(predicate);
+
+                            if (domainSub.IsEmpty)
+                            {
+                                Writer.Keyword(SqlKeyword.NULL);
+                            }
+                            else if (RequiresConditionalEscape() && IsCondition(predicate))
+                            {
+                                Writer.Keyword(SqlKeyword.THEN);
+
+                                Writer.True();
+
+                                Writer.Keyword(SqlKeyword.ELSE);
+
+                                Writer.False();
+
+                                Writer.Keyword(SqlKeyword.END);
+
+                                domainSub.Flyback();
+
+                                Writer.Keyword(SqlKeyword.CASE);
+                                Writer.Keyword(SqlKeyword.WHEN);
+                            }
+                        }
+
+                        Writer.Keyword(SqlKeyword.ELSE);
+
+                        Writer.True(); //? 测试条件不满足是始终为真。
+
+                        Writer.Keyword(SqlKeyword.END);
+
+                        Writer.CloseBrace();
+
+                        if (RequiresConditionalEscape())
+                        {
+                            Writer.Operator(SqlOperator.IsTrue);
+                        }
+
+                        domain.Flyback();
+
+                        Writer.OpenBrace();
+
+                        Writer.Keyword(SqlKeyword.CASE);
+                        Writer.Keyword(SqlKeyword.WHEN);
+                    }
+                }
+
+                domainMain.Flyback();
+
+                if (instance.NodeType == ExpressionType.Constant)
+                {
+                    Visit(instance);
+                }
+
+                if (domainMain.HasValue)
+                {
+                    _whereSwitch.Execute();
+                }
+            }
+
+        }
         /// <summary>
         /// 条件依赖对象。
         /// </summary>
@@ -1012,6 +1271,33 @@ namespace Inkslab.Linq.Expressions
             }
         }
 
+        private class AggregateCheckSortSelectVisitor : AggregateSelectVisitor
+        {
+            private readonly ScriptVisitor _scriptVisitor;
+
+            public AggregateCheckSortSelectVisitor(ScriptVisitor visitor, bool showAs = true) : base(visitor, showAs)
+            {
+                _scriptVisitor = visitor;
+            }
+
+            protected override void LinqCore(MethodCallExpression node)
+            {
+                if (_scriptVisitor.unsorted)
+                {
+                    switch (node.Method.Name)
+                    {
+                        case nameof(Queryable.OrderBy):
+                        case nameof(Queryable.ThenBy):
+                        case nameof(Queryable.OrderByDescending):
+                        case nameof(Queryable.ThenByDescending):
+                            _scriptVisitor.unsorted = false;
+                            break;
+                    }
+                }
+
+                base.LinqCore(node);
+            }
+        }
         #endregion
     }
 }

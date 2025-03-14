@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -10,25 +11,25 @@ namespace Inkslab.Linq.Expressions
     /// <summary>
     /// 聚合查询访问器。
     /// </summary>
+    [DebuggerDisplay("AggregateSelect")]
     public class AggregateSelectVisitor : SelectVisitor
     {
         private readonly bool _showAs;
-        private readonly CoreVisitor _visitor;
-
+        private readonly ScriptVisitor _visitor;
         private readonly Dictionary<MemberInfo, Expression> _keyExpressions = new Dictionary<MemberInfo, Expression>(MemberEqualityComparer.Instance);
 
         private readonly Dictionary<Type, Expression> _attachmentExpressions = new Dictionary<Type, Expression>();
         private readonly Dictionary<string, Expression> _elementExpressions = new Dictionary<string, Expression>();
 
         /// <inheritdoc/>
-        public AggregateSelectVisitor(CoreVisitor visitor, bool showAs = true) : base(visitor, ConditionType.Having)
+        public AggregateSelectVisitor(ScriptVisitor visitor, bool showAs = true) : base(visitor, ConditionType.Having)
         {
             _showAs = showAs;
             _visitor = visitor;
         }
 
-        /// <inheritdoc/>
-        protected override void StartupCore(MethodCallExpression node) => LinqCall(node);
+        /*        /// <inheritdoc/>
+                protected override void StartupCore(MethodCallExpression node) => LinqCall(node);*/
 
         /// <inheritdoc/>
         protected override bool Preheat(MethodCallExpression node)

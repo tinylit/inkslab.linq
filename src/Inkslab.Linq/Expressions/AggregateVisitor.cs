@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using Inkslab.Linq.Enums;
@@ -9,6 +10,7 @@ namespace Inkslab.Linq.Expressions
     /// <summary>
     /// 聚合表达式。
     /// </summary>
+    [DebuggerDisplay("Aggregate")]
     public class AggregateVisitor : AggregateSelectVisitor
     {
         /// <summary>

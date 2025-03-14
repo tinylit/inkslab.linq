@@ -1,4 +1,5 @@
-﻿using System.Linq.Expressions;
+﻿using System.Diagnostics;
+using System.Linq.Expressions;
 using System.Reflection;
 
 namespace Inkslab.Linq.Expressions
@@ -6,6 +7,7 @@ namespace Inkslab.Linq.Expressions
     /// <summary>
     /// 排序。
     /// </summary>
+    [DebuggerDisplay("OrderBy")]
     public class OrderByVisitor : CoreVisitor
     {
         private readonly bool _isDescending;

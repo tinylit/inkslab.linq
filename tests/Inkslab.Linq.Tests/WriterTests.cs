@@ -16,7 +16,7 @@ namespace Inkslab.Linq.Tests
             {
                 writer.Write("FROM table");
 
-                if (domain.Length > 0)
+                if (domain.HasValue)
                 {
                     domain.Flyback();
 
@@ -38,7 +38,7 @@ namespace Inkslab.Linq.Tests
             {
                 writer.Write("FROM table x");
 
-                if (transaction.Length > 0)
+                if (transaction.HasValue)
                 {
                     transaction.Flyback();
 
@@ -50,7 +50,7 @@ namespace Inkslab.Linq.Tests
             {
                 writer.Write("x.Id > 0 AND x.timestamp = 1024");
 
-                if (tran.Length > 0)
+                if (tran.HasValue)
                 {
                     tran.Flyback();
 
@@ -76,7 +76,7 @@ namespace Inkslab.Linq.Tests
                 {
                     writer.Write("x.Id > 0 AND x.timestamp = 1024");
 
-                    if (tran.Length > 0)
+                    if (tran.HasValue)
                     {
                         tran.Flyback();
 
@@ -84,7 +84,7 @@ namespace Inkslab.Linq.Tests
                     }
                 }
 
-                if (transaction.Length > 0)
+                if (transaction.HasValue)
                 {
                     transaction.Flyback();
 
@@ -110,7 +110,7 @@ namespace Inkslab.Linq.Tests
                 {
                     writer.Write("x.Id > 0 AND x.timestamp = 1024");
 
-                    if (tran.Length > 0)
+                    if (tran.HasValue)
                     {
                         tran.Flyback();
 
@@ -126,7 +126,7 @@ namespace Inkslab.Linq.Tests
                     {
                         writer.Write("x.role == 1");
 
-                        if (domain.Length > 0)
+                        if (domain.HasValue)
                         {
                             domain.Flyback();
 
@@ -134,7 +134,7 @@ namespace Inkslab.Linq.Tests
                         }
                     }
 
-                    if (tran.Length > 0)
+                    if (tran.HasValue)
                     {
                         tran.Flyback();
 
@@ -142,7 +142,7 @@ namespace Inkslab.Linq.Tests
                     }
                 }
 
-                if (transaction.Length > 0)
+                if (transaction.HasValue)
                 {
                     transaction.Flyback();
 

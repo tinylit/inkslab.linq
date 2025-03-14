@@ -1,4 +1,5 @@
-﻿using System.Linq.Expressions;
+﻿using System.Diagnostics;
+using System.Linq.Expressions;
 using System.Reflection;
 
 namespace Inkslab.Linq.Expressions
@@ -6,6 +7,7 @@ namespace Inkslab.Linq.Expressions
     /// <summary>
     /// <see cref="System.Linq.Queryable.Select{TSource, TResult}(System.Linq.IQueryable{TSource}, Expression{System.Func{TSource, TResult}})"/>。
     /// </summary>
+    [DebuggerDisplay("SelectField")]
     public class SelectListVisitor : BaseVisitor
     {
         private readonly bool _showAs;

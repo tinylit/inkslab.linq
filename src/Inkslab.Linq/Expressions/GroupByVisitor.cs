@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq.Expressions;
 using System.Reflection;
 
@@ -8,6 +9,7 @@ namespace Inkslab.Linq.Expressions
     /// <summary>
     /// 分组。
     /// </summary>
+    [DebuggerDisplay("GroupBy")]
     public class GroupByVisitor : BaseVisitor
     {
         private readonly CoreVisitor _visitor;

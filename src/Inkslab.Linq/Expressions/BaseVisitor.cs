@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -11,6 +12,7 @@ namespace Inkslab.Linq.Expressions
     /// <summary>
     /// 基础访问器（负责条件处理和基础访问器结构管理）。
     /// </summary>
+    [DebuggerDisplay("Base")]
     public abstract class BaseVisitor : ExpressionVisitor, IDisposable
     {
         private bool disposedValue;
@@ -199,39 +201,18 @@ namespace Inkslab.Linq.Expressions
                     throw new InvalidOperationException();
                 }
             }
-            else if (hasBaseStartup)
+            else if (node.NodeType == ExpressionType.Call)
             {
-                Visit(node);
-            }
-            else if (node.NodeType == ExpressionType.Call && node is MethodCallExpression methodCall)
-            {
-                var instanceArg = methodCall.Arguments[0];
-
-                switch (methodCall.Method.Name)
+                if (hasBaseStartup)
                 {
-                    case nameof(Queryable.Join):
-                    case nameof(Queryable.GroupJoin):
-                    case nameof(Queryable.SelectMany): //? CROSS JONT
-
-                        //? 分析 JOIN 表。
-                        instanceArg = methodCall.Arguments[1];
-
-                        goto default;
-                    default:
-                        if (
-                            instanceArg.NodeType == ExpressionType.Constant
-                            && instanceArg is ConstantExpression constant
-                            && constant.Value is IQueryable queryable
-                        )
-                        {
-                            tableInformation ??= TableAnalyzer.Table(queryable.ElementType);
-                        }
-                        break;
+                    StartupCore((MethodCallExpression)node);
                 }
+                else
+                {
+                    hasBaseStartup = true;
 
-                hasBaseStartup = true;
-
-                Startup(methodCall);
+                    Startup((MethodCallExpression)node);
+                }
             }
             else
             {
@@ -245,9 +226,33 @@ namespace Inkslab.Linq.Expressions
         /// <param name="node">节点。</param>
         protected virtual void Startup(MethodCallExpression node)
         {
+            var instanceArg = node.Arguments[0];
+
+            switch (node.Method.Name)
+            {
+                case nameof(Queryable.Join) when this is JoinVisitor:
+                case nameof(Queryable.GroupJoin) when this is JoinVisitor:
+                case nameof(Queryable.SelectMany) when this is JoinVisitor: //? CROSS JONT
+
+                    //? 分析 JOIN 表。
+                    instanceArg = node.Arguments[1];
+
+                    goto default;
+                default:
+                    if (
+                        instanceArg.NodeType == ExpressionType.Constant
+                        && instanceArg is ConstantExpression constant
+                        && constant.Value is IQueryable queryable
+                    )
+                    {
+                        tableInformation ??= TableAnalyzer.Table(queryable.ElementType);
+                    }
+                    break;
+            }
+
             if (hasBaseStartup)
             {
-                MethodCall(node);
+                StartupCore(node);
             }
             else
             {
@@ -256,6 +261,12 @@ namespace Inkslab.Linq.Expressions
                 Startup((Expression)node);
             }
         }
+
+        /// <summary>
+        /// 启动核心方法。
+        /// </summary>
+        /// <param name="node">节点。</param>
+        protected virtual void StartupCore(MethodCallExpression node) => MethodCall(node);
 
         /// <summary>
         /// 是普通变量。
@@ -316,8 +327,7 @@ namespace Inkslab.Linq.Expressions
                             switch (node)
                             {
                                 case MethodCallExpression method
-                                    when method.Object is null
-                                        || IsPlainVariable(method.Object, depthVerification):
+                                    when method.Object is null || IsPlainVariable(method.Object, depthVerification):
                                     return method.Arguments.Count == 0
                                         || method.Arguments.All(arg =>
                                             IsPlainVariable(arg, depthVerification)
@@ -351,6 +361,14 @@ namespace Inkslab.Linq.Expressions
                                     when IsPlainVariable(conditional.Test, depthVerification):
                                     return IsPlainVariable(conditional.IfTrue, depthVerification)
                                         && IsPlainVariable(conditional.IfFalse, depthVerification);
+                                case UnaryExpression unary when unary.NodeType is ExpressionType.Quote
+                                        or ExpressionType.Convert
+                                        or ExpressionType.ConvertChecked
+                                        or ExpressionType.OnesComplement
+                                        or ExpressionType.IsTrue
+                                        or ExpressionType.IsFalse
+                                        or ExpressionType.Not:
+                                    return IsPlainVariable(unary.Operand, depthVerification);
                                 default:
                                     return false;
                             }
@@ -360,6 +378,12 @@ namespace Inkslab.Linq.Expressions
                     }
             }
         }
+
+        /// <summary>
+        /// 是否需要条件转义。
+        /// </summary>
+        /// <returns></returns>
+        protected bool RequiresConditionalEscape() => Engine != DatabaseEngine.MySQL;
 
         /// <summary>
         /// 是否为条件。
@@ -1344,7 +1368,7 @@ namespace Inkslab.Linq.Expressions
 
                 if (domain.IsEmpty)
                 {
-                    if (IsCondition(node.IfFalse))
+                    if (RequiresConditionalEscape() && IsCondition(node.IfFalse))
                     {
                         using (var domainSub = Writer.Domain())
                         {
@@ -1388,7 +1412,7 @@ namespace Inkslab.Linq.Expressions
                 {
                     Writer.Keyword(SqlKeyword.THEN);
 
-                    if (IsCondition(node.IfTrue))
+                    if (RequiresConditionalEscape() && IsCondition(node.IfTrue))
                     {
                         using (var domainSub = Writer.Domain())
                         {
@@ -1424,7 +1448,7 @@ namespace Inkslab.Linq.Expressions
 
                     Writer.Keyword(SqlKeyword.ELSE);
 
-                    if (IsCondition(node.IfFalse))
+                    if (RequiresConditionalEscape() && IsCondition(node.IfFalse))
                     {
                         using (var domainSub = Writer.Domain())
                         {
@@ -2291,7 +2315,7 @@ namespace Inkslab.Linq.Expressions
         /// <param name="node">The expression to visit.</param>
         protected virtual void Condition(Expression node)
         {
-            if (IsCondition(node))
+            if (!RequiresConditionalEscape() || IsCondition(node))
             {
                 Visit(node);
             }

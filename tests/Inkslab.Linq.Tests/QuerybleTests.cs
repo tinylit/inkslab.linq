@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Inkslab.Linq.Exceptions;
 using Xunit;
 
@@ -426,6 +427,7 @@ namespace Inkslab.Linq.Tests
             var linq =
                 from x in _users
                 from y in _userExes
+                where x.Id < 10 && y.Id < 10
                 orderby x.Id descending
                 select new { x.Id, y.RoleType };
 
@@ -438,6 +440,7 @@ namespace Inkslab.Linq.Tests
             var linq =
                 from x in _users
                 from y in _userExes
+                where x.Id < 10 && y.Id < 10
                 orderby x.Id descending
                 where x == null || y == null
                 select new { x.Id, y.RoleType };
@@ -642,12 +645,68 @@ namespace Inkslab.Linq.Tests
         }
 
         [Fact]
-        public void GroupByCondition()
+        public void GroupByConditionIsTrue()
         {
             var linq =
                 from x in _users
                 group x by x.Name into g
-                where Conditions.Condition(g, x => x.Count() > 1)
+                where Conditions.IsTrue(g, x => x.Count() > 1)
+                select g.Key;
+
+            var max = linq.Distinct().Max();
+        }
+
+        [Fact]
+        public void GroupByConditionIfVariable()
+        {
+            string name = "测试";
+
+            var linq =
+                from x in _users
+                group x by x.Name into g
+                where Conditions.IsTrue(g, x => x.Count() > 1) && Conditions.If(g, !string.IsNullOrEmpty(name), x => x.Key.Contains(name))
+                select g.Key;
+
+            var max = linq.Distinct().Max();
+        }
+
+        [Fact]
+        public void GroupByConditionIf()
+        {
+            string name = "测试";
+
+            var linq =
+                from x in _users
+                group x by x.Name into g
+                where Conditions.If(g, g.Count() > 1, x => x.Key.Contains(name))
+                select g.Key;
+
+            var max = linq.Distinct().Max();
+        }
+
+        [Fact]
+        public void GroupByConditionConditionalVariable()
+        {
+            string name = "测试";
+
+            var linq =
+                from x in _users
+                group x by x.Name into g
+                where Conditions.Conditional(g, string.IsNullOrEmpty(name), x => g.Count() > 1, x => x.Key.Contains(name))
+                select g.Key;
+
+            var max = linq.Distinct().Max();
+        }
+
+        [Fact]
+        public void GroupByConditionConditional()
+        {
+            string name = "测试";
+
+            var linq =
+                from x in _users
+                group x by x.Name into g
+                where Conditions.Conditional(g, g.Count() > 1, x => x.Key.Contains(name), x => x.Key.StartsWith(name))
                 select g.Key;
 
             var max = linq.Distinct().Max();
@@ -923,6 +982,59 @@ namespace Inkslab.Linq.Tests
                 .Where(x => x.Id > 100)
                 .OrderByDescending(z => z.DateAt)
                 .FirstOrDefault(y => y.Id < 1000);
+        }
+
+        /// <summary>
+        /// 内置包含测试。
+        /// </summary>
+        [Fact]
+        public void TestNestedMemoryContainsMultiSelect()
+        {
+            var ids = new List<long> { 1, 2, 5 };
+
+            var linq =
+                from x in _users
+                where x.Id == 100 && ids.Contains(x.Id)
+                orderby x.DateAt, x.Name
+                select x.Id;
+
+            var results = linq.ToList();
+            var results2 = linq.ToList();
+        }
+
+        /// <summary>
+        /// 内置包含测试。
+        /// </summary>
+        [Fact]
+        public async Task TestNestedMemoryContainsMultiSelectAsync()
+        {
+            var ids = new List<long> { 1, 2, 5 };
+
+            var linq =
+                from x in _users
+                where x.Id == 100 && ids.Contains(x.Id)
+                orderby x.DateAt, x.Name
+                select x.Id;
+
+            var results = await linq.ToListAsync();
+            var results2 = await linq.ToListAsync();
+        }
+
+        /// <summary>
+        /// 内置包含测试。
+        /// </summary>
+        [Fact]
+        public async Task TestNestedMemoryContainsMultiSelect2Async()
+        {
+            var ids = new List<long> { 1, 2, 5 };
+
+            var linq =
+                from x in _users
+                where x.Id == 100 && ids.Contains(x.Id)
+                orderby x.DateAt, x.Name
+                select x.Id;
+
+            await Task.WhenAll(linq.ToListAsync(), linq.ToListAsync());
         }
     }
 }

@@ -36,6 +36,32 @@ namespace System.Linq
         }
 
         /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="TSource"></typeparam>
+        /// <param name="source"></param>
+        /// <param name="test"></param>
+        /// <param name="ifTrue"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static IQueryable<TSource> WhereIf<TSource>(this IQueryable<TSource> source, bool test, Expression<Func<TSource, bool>> ifTrue)
+        {
+            if (source is null)
+            {
+                throw new ArgumentNullException(nameof(source));
+            }
+
+            if (ifTrue is null)
+            {
+                throw new ArgumentNullException(nameof(ifTrue));
+            }
+
+            return test
+                ? source.Where(ifTrue)
+                : source;
+        }
+
+        /// <summary>
         /// 获取或设置在终止尝试执行命令并生成错误之前的等待时间。
         /// </summary>
         /// <typeparam name="TSource">资源类型。</typeparam>

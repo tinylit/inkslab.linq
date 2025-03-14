@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Linq.Expressions;
 
 namespace Inkslab.Linq.Expressions
@@ -5,6 +6,7 @@ namespace Inkslab.Linq.Expressions
     /// <summary>
     /// 条件。
     /// </summary>
+    [DebuggerDisplay("Condition")]
     public class ConditionVisitor : CoreVisitor
     {
         private readonly bool _isGroupHaving;

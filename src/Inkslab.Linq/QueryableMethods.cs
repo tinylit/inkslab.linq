@@ -444,6 +444,13 @@ namespace System.Linq
         /// <summary>
         ///     The <see cref="QueryableExtentions" /> for
         ///     <see
+        ///         cref="QueryableExtentions.WhereIf{TSource}(IQueryable{TSource}, bool, Expression{Func{TSource, bool}})" />
+        /// </summary>
+        public static MethodInfo WhereIf { get; }
+
+        /// <summary>
+        ///     The <see cref="QueryableExtentions" /> for
+        ///     <see
         ///         cref="QueryableExtentions.Timeout{TSource}(IQueryable{TSource}, int)" />
         /// </summary>
         public static MethodInfo Timeout { get; }
@@ -837,6 +844,7 @@ namespace System.Linq
                 .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.DeclaredOnly);
 
             DataSharding = repositoryMethods.Single(mi => mi.Name == nameof(QueryableExtentions.DataSharding));
+            WhereIf = repositoryMethods.Single(mi => mi.Name == nameof(QueryableExtentions.WhereIf));
             Timeout = repositoryMethods.Single(mi => mi.Name == nameof(QueryableExtentions.Timeout));
             NoElementError = repositoryMethods.Single(mi => mi.Name == nameof(QueryableExtentions.NoElementError));
             Ignore = repositoryMethods.Single(mi => mi.Name == nameof(QueryableExtentions.Ignore));

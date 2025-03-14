@@ -1006,6 +1006,24 @@ namespace Inkslab.Linq.Tests
         /// 内置包含测试。
         /// </summary>
         [Fact]
+        public void TestNestedMemoryContainsMultiSelect2()
+        {
+            var ids = new List<long> { 1, 2, 5 };
+
+            var linq =
+                from x in _users
+                where x.Id == 100 && ids.Contains(x.Id)
+                orderby x.DateAt, x.Name
+                select x.Id;
+
+            var results = linq.ToList();
+            var results2 = linq.Count();
+        }
+
+        /// <summary>
+        /// 内置包含测试。
+        /// </summary>
+        [Fact]
         public async Task TestNestedMemoryContainsMultiSelectAsync()
         {
             var ids = new List<long> { 1, 2, 5 };
@@ -1035,6 +1053,23 @@ namespace Inkslab.Linq.Tests
                 select x.Id;
 
             await Task.WhenAll(linq.ToListAsync(), linq.ToListAsync());
+        }
+
+        /// <summary>
+        /// 内置包含测试。
+        /// </summary>
+        [Fact]
+        public async Task TestNestedMemoryContainsMultiSelect3Async()
+        {
+            var ids = new List<long> { 1, 2, 5 };
+
+            var linq =
+                from x in _users
+                where x.Id == 100 && ids.Contains(x.Id)
+                orderby x.DateAt, x.Name
+                select x.Id;
+
+            await Task.WhenAll(linq.ToListAsync(), linq.CountAsync());
         }
     }
 }

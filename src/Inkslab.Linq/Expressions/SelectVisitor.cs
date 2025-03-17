@@ -410,6 +410,7 @@ namespace Inkslab.Linq.Expressions
         /// <see cref="Queryable.Any{TSource}(IQueryable{TSource})"/> 或
         /// <see cref="Queryable.Any{TSource}(IQueryable{TSource}, Expression{Func{TSource, bool}})"/>
         /// </summary>
+        [DebuggerDisplay("Any/All")]
         private class AnyAllVisitor : SelectVisitor
         {
             /// <inheritdoc/>
@@ -422,7 +423,7 @@ namespace Inkslab.Linq.Expressions
             {
                 if (node.Arguments.Count == 1)
                 {
-                    Startup(node.Arguments[0]);
+                    Visit(node.Arguments[0]);
                 }
                 else if (node.Method.Name == nameof(Queryable.All))
                 {

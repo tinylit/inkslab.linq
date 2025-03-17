@@ -120,6 +120,39 @@ namespace Inkslab.Linq.Tests
     }
 
     /// <summary>
+    /// 系统用户表
+    /// </summary>
+    [Table("system_user")]
+    public partial class SystemUser
+    {
+        /// <summary>
+        /// id
+        /// </summary>
+        [Key]
+        [DatabaseGenerated]
+        [Field("id")]
+        public long Id { get; set; }
+
+        /// <summary>
+        /// 用户id
+        /// </summary>
+        [Field("user_id")]
+        public long UserId { get; set; }
+
+        /// <summary>
+        /// 部门id
+        /// </summary>
+        [Field("department_id")]
+        public long DepartmentId { get; set; }
+
+        /// <summary>
+        /// 岗位id
+        /// </summary>
+        [Field("post_id")]
+        public long PostId { get; set; }
+    }
+
+    /// <summary>
     /// 业务咨询表
     /// </summary>
     [Table("business_consultation_rep")]
@@ -620,6 +653,7 @@ namespace Inkslab.Linq.Tests
         private readonly IQueryable<Order> _orderReps;
         private readonly IQueryable<BusinessTermRep> _businessTermReps;
         private readonly IQueryable<SessionGroupUser> _sessionGroupUsers;
+        private readonly IQueryable<SystemUser> _systemUsers;
 
         public NestedQueriesTests(IQueryable<BusinessConsultationRep> businessConsultationReps,
         IQueryable<BusinessDepartmentConsultationRel> businessDepartmentConsultationRels,
@@ -629,13 +663,15 @@ namespace Inkslab.Linq.Tests
         IQueryable<BusinessDepartmentRel> businessDepartmentRels,
         IQueryable<Order> orderReps,
         IQueryable<BusinessTermRep> businessTermReps,
-        IQueryable<SessionGroupUser> sessionGroupUsers)
+        IQueryable<SessionGroupUser> sessionGroupUsers,
+        IQueryable<SystemUser> systemUsers)
         {
             _specialistCostReps = specialistCostReps;
             _businessDepartmentRels = businessDepartmentRels;
             _orderReps = orderReps;
             _businessTermReps = businessTermReps;
             _sessionGroupUsers = sessionGroupUsers;
+            _systemUsers = systemUsers;
             _users = users;
             _specialists = specialists;
             _businessDepartmentConsultationRels = businessDepartmentConsultationRels;
@@ -819,6 +855,22 @@ namespace Inkslab.Linq.Tests
                                  select s.Id)
                  .Distinct()
                  .ToListAsync();
+        }
+
+        [Fact]
+        public async Task Test8Async()
+        {
+            var id = 9000000000000000;
+
+            await _systemUsers.Where(s => s.UserId == id).AnyAsync();
+        }
+
+        [Fact]
+        public async Task Test9Async()
+        {
+            var id = 9000000000000000;
+
+            await _systemUsers.AllAsync(s => s.UserId == id);
         }
     }
 }

@@ -5,6 +5,17 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": ".NET Core Launch (console)",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/tests/Inkslab.Linq.Tests/bin/Debug/net6.0/Inkslab.Linq.Tests.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/tests/Inkslab.Linq.Tests",
+            "console": "internalConsole",
+            "stopAtEntry": false
+        },
+        {
             "name": ".NET Core Attach",
             "type": "coreclr",
             "request": "attach"

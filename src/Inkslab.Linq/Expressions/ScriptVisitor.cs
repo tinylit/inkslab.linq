@@ -157,9 +157,6 @@ namespace Inkslab.Linq.Expressions
                 case nameof(Queryable.Except):
                     buildSelect = true;
                     break;
-                case nameof(Queryable.Select) when this is AggregateSelectVisitor:
-                    isGrouping = true;
-                    break;
                 case nameof(QueryableExtentions.Insert):
                 case nameof(QueryableExtentions.Update):
                 case nameof(QueryableExtentions.Delete):
@@ -169,6 +166,8 @@ namespace Inkslab.Linq.Expressions
                 default:
 
                     buildSelect = true;
+
+                    isGrouping = this is AggregateSelectVisitor;
 
                     break;
             }
@@ -1141,13 +1140,23 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override bool TryGetSourceTableInfo(ParameterExpression node, out ITableInfo tableInfo)
         {
-            tableInfo = _joinRelationships.TryGetValue((node.Type, node.Name), out var visitor)
-                ? visitor.Table(true)
-                : Table(true);
+            if (_joinRelationships.TryGetValue((node.Type, node.Name), out var visitor))
+            {
+                tableInfo = visitor.Table(true);
+
+                if (tableInfo is null)
+                {
+                    return false;
+                }
+
+                return tableInfo.TypeIs(node.Type);
+            }
+
+            tableInfo = Table(true);
 
             return tableInfo is null
                 ? base.TryGetSourceTableInfo(node, out tableInfo)
-                : tableInfo.TypeIs(node.Type);
+                : tableInfo.TypeIs(node.Type) || base.TryGetSourceTableInfo(node, out tableInfo);
         }
         #endregion
 

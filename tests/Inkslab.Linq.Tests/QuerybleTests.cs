@@ -894,6 +894,40 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
+        /// 内置任意满足测试。
+        /// </summary>
+        [Fact]
+        public void TestWereIfVariableAny()
+        {
+            int? age = 12;
+
+            var linq =
+                from x in _users
+                where x.Id == 100 && _userExes.WhereIf(age.HasValue, y => y.Age > age).Any(y => y.Id == x.Id)
+                orderby x.DateAt, x.Name
+                select x.Id;
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 内置任意满足测试。
+        /// </summary>
+        [Fact]
+        public void TestWereIfAny()
+        {
+            var now = DateTime.Now;
+
+            var linq =
+                from x in _users
+                where x.Id == 100 && _userExes.WhereIf(x.DateAt > now, y => y.Age > 12).Any(y => y.Id == x.Id)
+                orderby x.DateAt, x.Name
+                select x.Id;
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
         /// 内置所有满足测试。
         /// </summary>
         [Fact]

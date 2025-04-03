@@ -5,14 +5,15 @@ using System.Data;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Inkslab.Linq.Abilities;
 using Inkslab.Linq.Enums;
 using Microsoft.Extensions.Logging;
 using static System.Linq.Expressions.Expression;
+
 #if NET6_0_OR_GREATER
+using System.Reflection;
 using System.ComponentModel.DataAnnotations;
 #endif
 
@@ -224,6 +225,8 @@ namespace Inkslab.Linq
             public string Name { get; set; }
 
             public string ColumnName { get; set; }
+
+            public int Length { get; set; }
 
             public bool Mini { get; set; }
 
@@ -439,6 +442,33 @@ namespace Inkslab.Linq
                                 expressions.Add(Convert(valueVar, Types.Object));
                             }
 
+                            int length = -1;
+
+#if NET6_0_OR_GREATER
+                            if (destinationType == Types.String)
+                            {
+                                var maxLengthAttr = property.GetCustomAttribute<MaxLengthAttribute>(true);
+
+                                if (maxLengthAttr is null)
+                                {
+                                    var stringLengthAttr = property.GetCustomAttribute<StringLengthAttribute>(true);
+
+                                    if (stringLengthAttr is null)
+                                    {
+
+                                    }
+                                    else
+                                    {
+                                        length = stringLengthAttr.MaximumLength;
+                                    }
+                                }
+                                else
+                                {
+                                    length = maxLengthAttr.Length;
+                                }
+                            }
+#endif
+
                             var lambdaEx = Lambda<Func<TEntity, object>>(
                                 Block(new ParameterExpression[] { valueVar }, expressions),
                                 entryArg
@@ -450,6 +480,7 @@ namespace Inkslab.Linq
                                 {
                                     Name = property.Name,
                                     ColumnName = value,
+                                    Length = length,
                                     Mini = destinationType.IsMini(),
                                     Nullable = nullable || !destinationType.IsValueType,
                                     ColumnType = destinationType
@@ -612,7 +643,9 @@ namespace Inkslab.Linq
                             Type.GetTypeCode(entry.ColumnType) switch
                             {
                                 TypeCode.Boolean => "bit",
-                                TypeCode.Char => "char(1)",
+                                TypeCode.Char => Settings.Engine == DatabaseEngine.MySQL
+                                        ? "char(1)"
+                                        : "nchar(1)",
                                 TypeCode.Byte => "tinyint",
                                 TypeCode.SByte when Settings.Engine == DatabaseEngine.MySQL
                                     => "tinyint unsigned",
@@ -629,10 +662,21 @@ namespace Inkslab.Linq
                                 TypeCode.Double => "double",
                                 TypeCode.Decimal => "decimal",
                                 TypeCode.DateTime => "datetime",
+                                TypeCode.String when entry.Length == -1
+                                    => Settings.Engine == DatabaseEngine.SqlServer
+                                        ? "ntext"
+                                        : "text",
                                 TypeCode.String
-                                    => Settings.Engine == DatabaseEngine.MySQL
-                                        ? "varchar(1024)"
-                                        : "nvarchar(1024)",
+                                    => Settings.Engine switch
+                                    {
+                                        DatabaseEngine.SqlServer when entry.Length > 8000 => "nvarchar(max)",
+                                        DatabaseEngine.SqlServer => $"nvarchar({entry.Length})",
+                                        DatabaseEngine.MySQL when entry.Length <= 65535 => $"varchar({entry.Length})",
+                                        DatabaseEngine.PostgreSQL when entry.Length <= 65535 => $"varchar({entry.Length})",
+                                        DatabaseEngine.SQLite when entry.Length <= 65532 => $"varchar({entry.Length})",
+                                        DatabaseEngine.Oracle when entry.Length <= 32767 => $"varchar({entry.Length})",
+                                        _ => "text"
+                                    },
                                 _
                                     => throw new NotSupportedException(
                                         $"列“{entry.ColumnName}”的类型“{entry.ColumnType}”不支持批处理！"

@@ -174,34 +174,7 @@ namespace Inkslab.Linq.Expressions
         /// <param name="node">节点。</param>
         public virtual void Startup(Expression node)
         {
-            if (node.NodeType == ExpressionType.Constant)
-            {
-                if (node is ConstantExpression constant && constant.Value is IQueryable queryable)
-                {
-                    bool commaFlag = false;
-
-                    tableInformation ??= TableAnalyzer.Table(queryable.ElementType);
-
-                    foreach (var (name, field) in tableInformation.Fields)
-                    {
-                        if (commaFlag)
-                        {
-                            Writer.Delimiter();
-                        }
-                        else
-                        {
-                            commaFlag = true;
-                        }
-
-                        Member(string.Empty, field, name);
-                    }
-                }
-                else
-                {
-                    throw new InvalidOperationException();
-                }
-            }
-            else if (node.NodeType == ExpressionType.Call)
+            if (node.NodeType == ExpressionType.Call)
             {
                 if (hasBaseStartup)
                 {

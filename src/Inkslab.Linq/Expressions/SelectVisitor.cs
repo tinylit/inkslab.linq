@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
@@ -153,21 +154,12 @@ namespace Inkslab.Linq.Expressions
 
                     break;
                 default:
-                    
+
                     base.StartupCore(node);
 
                     break;
             }
         }
-
-        /*        private bool IsGrouping(MethodCallExpression node)
-                {
-                    return node.Method.Name switch
-                    {
-                        nameof(Queryable.Take) or nameof(Queryable.Skip) or nameof(Queryable.TakeLast) when node.Arguments[0].NodeType == ExpressionType.Call => IsGrouping((MethodCallExpression)node.Arguments[0]),
-                        _ => node.IsGrouping(true),
-                    };
-                }*/
 
         /// <inheritdoc/>
         protected override void LinqCore(MethodCallExpression node)
@@ -286,7 +278,7 @@ namespace Inkslab.Linq.Expressions
                 case nameof(Queryable.OrderByDescending):
                 case nameof(Queryable.ThenByDescending):
 
-                    bool isDescending = reversed ^ name.EndsWith("Descending");
+                    bool isDescending = reversed ^ name.EndsWith("Descending"); //? 是否降序，前置分析是否倒序，否则实际顺序会乱序。
 
                     Visit(node.Arguments[0]);
 
@@ -356,7 +348,6 @@ namespace Inkslab.Linq.Expressions
                 visitor.Startup(node);
             }
         }
-
 
         /// <inheritdoc/>
         protected override void Member(MemberInfo memberInfo, Expression node)

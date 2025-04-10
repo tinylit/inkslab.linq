@@ -229,12 +229,26 @@ namespace System.Linq.Expressions
                 null => default,
                 ConstantExpression constant => (T)constant.Value,
                 Expression<Func<T>> lambda => lambda.Compile().Invoke(),
-                LambdaExpression lambda when lambda.Parameters.Count > 0 => throw new NotSupportedException(),
                 LambdaExpression lambda when lambda.Body.NodeType == ExpressionType.Constant => lambda.Body.GetValueFromExpression<T>(),
+                LambdaExpression lambda when lambda.Parameters.Count == 0 => (T)lambda.Compile().DynamicInvoke(),
+                LambdaExpression => throw new NotSupportedException(),
                 UnaryExpression unary when unary.NodeType == ExpressionType.Quote => unary.Operand.GetValueFromExpression<T>(),
                 _ => Expression.Lambda<Func<T>>(node)
                                         .Compile()
-                                        .Invoke(),
+                                        .Invoke()
+            };
+        }
+
+        internal static T GetValueFromExpressionWithArgs<T>(this Expression node, params object[] args)
+        {
+            args ??= Array.Empty<object>();
+
+            return node switch
+            {
+                null => default,
+                LambdaExpression lambda when lambda.Parameters.Count == args.Length => (T)lambda.Compile().DynamicInvoke(args),
+                UnaryExpression unary when unary.NodeType == ExpressionType.Quote => unary.Operand.GetValueFromExpressionWithArgs<T>(args),
+                _ => throw new NotSupportedException($"不支持的表达式类型：{node.NodeType}")
             };
         }
 

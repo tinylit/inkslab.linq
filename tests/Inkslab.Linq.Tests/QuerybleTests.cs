@@ -692,7 +692,7 @@ namespace Inkslab.Linq.Tests
             var linq =
                 from x in _users
                 group x by x.Name into g
-                where Conditions.Conditional(g, string.IsNullOrEmpty(name), x => g.Count() > 1, x => x.Key.Contains(name))
+                where Conditions.Conditional(g, string.IsNullOrEmpty(name), x => x.Count() > 1, x => x.Key.Contains(name))
                 select g.Key;
 
             var max = linq.Distinct().Max();
@@ -933,10 +933,11 @@ namespace Inkslab.Linq.Tests
         [Fact]
         public void TestNestedAll()
         {
+            var type = 10;
             var linq =
                 from x in _users
                 where x.Id == 100 && _userExes.All(y => y.Id == x.Id && y.Age > 12)
-                orderby x.DateAt, x.Name
+                orderby x.DateAt, x.Name, Ranks.By(x, c => c.When(type < 100).OrderBy(y => y.DateAt))
                 select x.Id;
 
             var results = linq.ToList();
@@ -1140,6 +1141,26 @@ namespace Inkslab.Linq.Tests
 
             var results = linq.Count();
             var results2 = await linq.CountAsync();
+        }
+
+        /// <summary>
+        /// 获取所有数据测试。
+        /// </summary>
+        /// <returns></returns>
+        [Fact]
+        public async Task GetAllTestAsync()
+        {
+            await _users.ToListAsync();
+        }
+
+        /// <summary>
+        /// 获取所有数据条数测试。
+        /// </summary>
+        /// <returns></returns>
+        [Fact]
+        public async Task GetCountAllTestAsync()
+        {
+            await _users.CountAsync();
         }
     }
 }

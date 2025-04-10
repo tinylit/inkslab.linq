@@ -16,9 +16,14 @@ namespace Inkslab.Linq
         public static readonly Type Enumerable = typeof(Enumerable);
 
         /// <summary>
-        /// <see cref="L2S"/>
+        /// <see cref="Conditions"/>
         /// </summary>
-        public static readonly Type L2S = typeof(Conditions);
+        public static readonly Type Conditions = typeof(Conditions);
+
+        /// <summary>
+        /// <see cref="IRank{T}"/>
+        /// </summary>
+        public static readonly Type Ranks = typeof(Ranks);
 
         /// <summary>
         /// <see cref="System.Linq.Queryable"/>

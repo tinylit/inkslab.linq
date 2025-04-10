@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 
@@ -38,6 +39,28 @@ namespace Inkslab.Linq.Expressions
             if (_showAs)
             {
                 Writer.AsName(name);
+            }
+        }
+
+        /// <inheritdoc/>
+        protected override void Constant(IQueryable value)
+        {
+            bool commaFlag = false;
+
+            var tableInformation = Table();
+
+            foreach (var (name, field) in tableInformation.Fields)
+            {
+                if (commaFlag)
+                {
+                    Writer.Delimiter();
+                }
+                else
+                {
+                    commaFlag = true;
+                }
+
+                Member(string.Empty, field, name);
             }
         }
     }

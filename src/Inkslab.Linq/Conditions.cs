@@ -21,12 +21,37 @@ namespace Inkslab.Linq
         /// <summary>
         /// 根据“<paramref name="test"/>”是否为真，拼接条件。
         /// </summary>
+        /// <param name="test">为真时，拼接“<paramref name="test"/>”条件，否则忽略条件。</param>
+        /// <param name="ifTrue">条件。</param>
+        /// <typeparam name="T">参数类型。</typeparam>
+        /// <returns>是否满足。</returns>
+        public static bool If<T>(bool test, bool ifTrue)
+        {
+            throw new NotImplementedException("只能在条件表达式（如：where、on等）中使用！");
+        }
+
+        /// <summary>
+        /// 根据“<paramref name="test"/>”是否为真，拼接条件。
+        /// </summary>
         /// <param name="source">源。</param>
         /// <param name="test">为真时，拼接“<paramref name="test"/>”条件，否则忽略条件。</param>
         /// <param name="ifTrue">条件。</param>
         /// <typeparam name="T">参数类型。</typeparam>
         /// <returns>是否满足。</returns>
         public static bool If<T>(T source, bool test, Expression<Func<T, bool>> ifTrue)
+        {
+            throw new NotImplementedException("只能在条件表达式（如：where、on等）中使用！");
+        }
+
+        /// <summary>
+        /// 根据“<paramref name="test"/>”是否为真，拼接条件。
+        /// </summary>
+        /// <param name="test">为真时，使用“<paramref name="ifTrue"/>”条件，否则使用“<paramref name="ifTrue"/>”条件。</param>
+        /// <param name="ifTrue">“<paramref name="test"/>”为真的条件。</param>
+        /// <param name="ifFalse">“<paramref name="test"/>”为假的条件。</param>
+        /// <typeparam name="T">参数类型。</typeparam>
+        /// <returns>是否满足。</returns>
+        public static bool Conditional<T>(bool test, bool ifTrue, bool ifFalse)
         {
             throw new NotImplementedException("只能在条件表达式（如：where、on等）中使用！");
         }

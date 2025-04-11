@@ -75,6 +75,10 @@ namespace Inkslab.Linq.Expressions
             {
                 ByString(node);
             }
+            else if (declaringType == Types.DateTime)
+            {
+                ByDateTime(node);
+            }
             else if (declaringType == Types.Conditions || declaringType == Types.Ranks) //? 自定义函数。
             {
                 LinqCustomCall(node);
@@ -686,18 +690,41 @@ namespace Inkslab.Linq.Expressions
                     }
 
                     break;
+                case nameof(string.IsNullOrEmpty) when IsPlainVariable(node.Arguments[0], true):
+                    {
+                        var text = node.Arguments[0].GetValueFromExpression<string>();
+
+                        if (string.IsNullOrEmpty(text))
+                        {
+                            Writer.AlwaysTrue();
+                        }
+                        else
+                        {
+                            Writer.AlwaysFalse();
+                        }
+
+                        break;
+                    }
+                case nameof(string.IsNullOrWhiteSpace) when IsPlainVariable(node.Arguments[0], true):
+                    {
+                        var text = node.Arguments[0].GetValueFromExpression<string>();
+
+                        if (string.IsNullOrWhiteSpace(text))
+                        {
+                            Writer.AlwaysTrue();
+                        }
+                        else
+                        {
+                            Writer.AlwaysFalse();
+                        }
+
+                        break;
+                    }
                 case nameof(string.IsNullOrEmpty):
 
                     using (var domain = Writer.Domain())
                     {
                         Visit(node.Arguments[0]);
-
-                        if (domain.IsEmpty)
-                        {
-                            Writer.AlwaysTrue();
-
-                            break;
-                        }
 
                         string text = domain.ToString();
 
@@ -725,13 +752,6 @@ namespace Inkslab.Linq.Expressions
                     using (var domain = Writer.Domain())
                     {
                         Visit(node.Arguments[0]);
-
-                        if (domain.IsEmpty)
-                        {
-                            Writer.AlwaysTrue();
-
-                            break;
-                        }
 
                         string text = domain.ToString();
 
@@ -798,20 +818,13 @@ namespace Inkslab.Linq.Expressions
                     {
                         Visit(node.Object);
 
-                        if (domain.IsEmpty)
-                        {
-                            Writer.Keyword(SqlKeyword.NULL);
-
-                            break;
-                        }
-
                         string text = domain.ToString();
 
                         Writer.Keyword(SqlKeyword.IS);
                         Writer.Keyword(SqlKeyword.NULL);
                         Writer.Keyword(SqlKeyword.THEN);
                         Writer.Keyword(SqlKeyword.NULL);
-                        Writer.Keyword(SqlKeyword.WHEN);
+                        Writer.Keyword(SqlKeyword.ELSE);
 
                         switch (Engine)
                         {
@@ -834,6 +847,8 @@ namespace Inkslab.Linq.Expressions
 
                         Writer.OpenBrace();
 
+                        Writer.Write(text); //? 截取字符串主体。
+
                         var startPairt = node.Arguments[0];
 
                         if (Engine == DatabaseEngine.PostgreSQL)
@@ -851,38 +866,36 @@ namespace Inkslab.Linq.Expressions
                         }
                         else
                         {
-                            using (var domainSub = Writer.Domain())
-                            {
-                                Visit(startPairt);
-
-                                if (domainSub.IsEmpty)
-                                {
-                                    Writer.Write('1');
-                                }
-                            }
+                            Visit(startPairt);
                         }
 
                         if (node.Arguments.Count > 1)
                         {
-                            using (var domainSub = Writer.Domain())
+                            if (Engine == DatabaseEngine.PostgreSQL)
                             {
-                                Visit(node.Arguments[1]);
+                                Writer.Write(" FOR ");
+                            }
+                            else
+                            {
+                                Writer.Delimiter();
+                            }
 
-                                if (!domainSub.IsEmpty)
-                                {
-                                    domainSub.Flyback();
+                            var lengthPairt = node.Arguments[1];
 
-                                    if (Engine == DatabaseEngine.PostgreSQL)
-                                    {
-                                        Writer.Write(" FOR ");
-                                    }
-                                    else
-                                    {
-                                        Writer.Delimiter();
-                                    }
-                                }
+                            if (IsPlainVariable(lengthPairt))
+                            {
+                                Writer.Constant(lengthPairt.GetValueFromExpression<int>());
+                            }
+                            else
+                            {
+                                Visit(lengthPairt);
                             }
                         }
+
+                        domain.Flyback();
+
+                        Writer.Keyword(SqlKeyword.CASE);
+                        Writer.Keyword(SqlKeyword.WHEN);
                     }
 
                     Writer.CloseBrace();
@@ -1001,6 +1014,7 @@ namespace Inkslab.Linq.Expressions
                             }
 
                             Writer.CloseBrace();
+
                             break;
                         case DatabaseEngine.MySQL when node.Arguments.Count <= 2:
 
@@ -1102,6 +1116,8 @@ namespace Inkslab.Linq.Expressions
                             throw new NotSupportedException();
                     }
 
+                    Writer.Write(" - 1"); //? 数据库下标从“1”开始，所以需要减“1”。
+
                     break;
                 case nameof(string.Concat) when node.Arguments.Count > 1:
 
@@ -1124,6 +1140,97 @@ namespace Inkslab.Linq.Expressions
                     break;
                 default:
                     throw new NotSupportedException($"字符串的“{node.Method}”方法不被支持！");
+            }
+        }
+        /// <summary>
+        /// Visits the children of the <see cref="MethodCallExpression"/>, when <see cref="MethodCallExpression.Method"/>.DeclaringType is <see cref="DateTime"/>.
+        /// </summary>
+        /// <param name="node">The expression to visit.</param>
+        protected virtual void ByDateTime(MethodCallExpression node)
+        {
+            switch (Engine)
+            {
+                case DatabaseEngine.MySQL:
+                    Writer.Write("DATE_ADD");
+                    Writer.OpenBrace();
+
+                    Visit(node.Object);
+
+                    Writer.Delimiter();
+
+                    Writer.Write("INTERVAL ");
+
+                    Visit(node.Arguments[0]);
+
+                    Writer.Write(" ");
+
+                    switch (node.Method.Name)
+                    {
+                        case nameof(DateTime.AddMilliseconds):
+                            Writer.Write("MICROSECOND");
+                            break;
+                        case nameof(DateTime.AddSeconds):
+                            Writer.Write("SECOND");
+                            break;
+                        case nameof(DateTime.AddMinutes):
+                            Writer.Write("MINUTE");
+                            break;
+                        case nameof(DateTime.AddHours):
+                            Writer.Write("HOUR");
+                            break;
+                        case nameof(DateTime.AddDays):
+                            Writer.Write("DAY");
+                            break;
+                        case nameof(DateTime.AddMonths):
+                            Writer.Write("HOUR");
+                            break;
+                        case nameof(DateTime.AddYears):
+                            Writer.Write("YEAR");
+                            break;
+                        default:
+                            throw new NotSupportedException($"日期时间的“{node.Method.Name}”方法不被支持！");
+                    }
+
+                    Writer.CloseBrace();
+
+                    break;
+                case DatabaseEngine.SqlServer:
+                    Writer.Write("DATEADD");
+                    Writer.OpenBrace();
+                    switch (node.Method.Name)
+                    {
+                        case nameof(DateTime.AddMilliseconds):
+                            Writer.Write("ms");
+                            break;
+                        case nameof(DateTime.AddSeconds):
+                            Writer.Write("ss");
+                            break;
+                        case nameof(DateTime.AddMinutes):
+                            Writer.Write("mi");
+                            break;
+                        case nameof(DateTime.AddHours):
+                            Writer.Write("hh");
+                            break;
+                        case nameof(DateTime.AddDays):
+                            Writer.Write("dd");
+                            break;
+                        case nameof(DateTime.AddMonths):
+                            Writer.Write("mm");
+                            break;
+                        case nameof(DateTime.AddYears):
+                            Writer.Write("yy");
+                            break;
+                        default:
+                            throw new NotSupportedException($"日期时间的“{node.Method.Name}”方法不被支持！");
+                    }
+                    Writer.Delimiter();
+                    Visit(node.Arguments[0]);
+                    Writer.Delimiter();
+                    Visit(node.Object);
+                    Writer.CloseBrace();
+                    break;
+                default:
+                    throw new NotSupportedException($"日期时间的“{node.Method.Name}”方法不被支持！");
             }
         }
 

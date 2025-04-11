@@ -443,7 +443,7 @@ namespace Inkslab.Linq.Tests
                 where x.Id < 10 && y.Id < 10
                 orderby x.Id descending
                 where x == null || y == null
-                select new { x.Id, y.RoleType };
+                select new { x.Id, Code = x != null ? x.Id : y.Id };
 
             var results = linq.ToList();
         }
@@ -933,11 +933,10 @@ namespace Inkslab.Linq.Tests
         [Fact]
         public void TestNestedAll()
         {
-            var type = 10;
             var linq =
                 from x in _users
                 where x.Id == 100 && _userExes.All(y => y.Id == x.Id && y.Age > 12)
-                orderby x.DateAt, x.Name, Ranks.By(x, c => c.When(type < 100).OrderBy(y => y.DateAt))
+                orderby x.DateAt, x.Name
                 select x.Id;
 
             var results = linq.ToList();
@@ -966,6 +965,23 @@ namespace Inkslab.Linq.Tests
         public void TestNestedMemoryContains()
         {
             var ids = new List<long> { 1, 2, 5 };
+
+            var linq =
+                from x in _users
+                where x.Id == 100 && ids.Contains(x.Id)
+                orderby x.DateAt, x.Name
+                select x.Id;
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 内置包含测试。
+        /// </summary>
+        [Fact]
+        public void TestNestedMemoryHashContains()
+        {
+            var ids = new HashSet<long> { 1, 2, 5 };
 
             var linq =
                 from x in _users
@@ -1161,6 +1177,335 @@ namespace Inkslab.Linq.Tests
         public async Task GetCountAllTestAsync()
         {
             await _users.CountAsync();
+        }
+
+        /// <summary>
+        /// 测试自定义排序。
+        /// </summary>
+        [Fact]
+        public void TestRankBy()
+        {
+            var type = 10;
+            var linq =
+                from x in _users
+                where x.Id == 100
+                orderby x.DateAt, x.Name, Ranks.By(x, c => c.When(type < 100).OrderBy(y => y.DateAt))
+                select x.Id;
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 测试自定义排序。
+        /// </summary>
+        [Fact]
+        public void TestRankByInnerDescending()
+        {
+            var type = 10;
+            var linq =
+                from x in _users
+                where x.Id == 100
+                orderby x.DateAt, x.Name, Ranks.By(x, c => c.When(type < 100).OrderByDescending(y => y.DateAt))
+                select x.Id;
+
+            var results = linq.ToList();
+        }
+
+
+        /// <summary>
+        /// 测试自定义多排序。
+        /// </summary>
+        [Fact]
+        public void TestRankByInnerMultiDescending()
+        {
+            var type = 10;
+            var linq =
+                from x in _users
+                where x.Id == 100
+                orderby x.DateAt, x.Name, Ranks.By(x, c => c.When(type < 100).OrderByDescending(y => y.DateAt).ThenByDescending(y => y.Id))
+                select x.Id;
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 测试自定义多混合排序。
+        /// </summary>
+        [Fact]
+        public void TestRankByInnerMultiBlendDescending()
+        {
+            var type = 10;
+            var linq =
+                from x in _users
+                where x.Id == 100
+                orderby x.DateAt, x.Name, Ranks.By(x, c => c.When(type < 100).OrderBy(y => y.DateAt).ThenByDescending(y => y.Id))
+                select x.Id;
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 测试自定义多混合排序。
+        /// </summary>
+        [Theory]
+        [InlineData(10)]
+        [InlineData(100)]
+        public void TestRankByInnerMultiBlendArgumentDescending(int type)
+        {
+            var linq =
+                from x in _users
+                where x.Id == 100
+                orderby x.DateAt, x.Name, Ranks.By(x, c => c.When(type < 100).OrderBy(y => y.DateAt).ThenByDescending(y => y.Id)
+                        .DefaultByDescending(t => t.DateAt).DefaultBy(t => t.Id))
+                select x.Id;
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 测试自定义排序倒序。
+        /// </summary>
+        [Fact]
+        public void TestRankByDescending()
+        {
+            var type = 10;
+            var linq =
+                from x in _users
+                where x.Id == 100
+                orderby x.DateAt, x.Name, Ranks.By(x, c => c.When(type < 100).OrderBy(y => y.DateAt)) descending
+                select x.Id;
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 测试自定义排序倒序和正常倒序。
+        /// </summary>
+        [Fact]
+        public void TestRankByRepeatDescending()
+        {
+            var type = 10;
+            var linq =
+                from x in _users
+                where x.Id == 100
+                orderby x.DateAt, x.Name, Ranks.By(x, c => c.When(type < 100).OrderByDescending(y => y.DateAt)) descending
+                select x.Id;
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 测试自定义排序倒序。
+        /// </summary>
+        [Fact]
+        public void TestRankByIgnore()
+        {
+            var type = 10;
+            var linq =
+                from x in _users
+                where x.Id == 100
+                orderby x.DateAt, x.Name, Ranks.By(x, c => c.When(type > 100).OrderBy(y => y.DateAt))
+                select x.Id;
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 测试自定义排序倒序。
+        /// </summary>
+        [Fact]
+        public void TestRankByDescendingIgnore()
+        {
+            var type = 10;
+            var linq =
+                from x in _users
+                where x.Id == 100
+                orderby x.DateAt, x.Name, Ranks.By(x, c => c.When(type > 100).OrderBy(y => y.DateAt)) descending
+                select x.Id;
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 测试三目运算排序。
+        /// </summary>
+        [Fact]
+        public void TestOrderByConditional()
+        {
+            var linq =
+                from x in _userExes
+                where x.Id == 100
+                orderby x.Id > 100 ? x.Age : x.RoleType, x.DateAt descending
+                select x.Id;
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 测试三目运算排序倒序。
+        /// </summary>
+        [Fact]
+        public void TestOrderByDescendingConditional()
+        {
+            var linq =
+                from x in _userExes
+                where x.Id == 100
+                orderby x.Id > 100 ? x.Age : x.RoleType descending, x.DateAt descending
+                select x.Id;
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 测试合并运算排序。
+        /// </summary>
+        [Fact]
+        public void TestOrderByCoalesce()
+        {
+            var linq =
+                from x in _users
+                where x.Id == 100
+                orderby x.Name ?? string.Empty, x.DateAt descending
+                select x.Id;
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 测试合并运算排序倒序。
+        /// </summary>
+        [Fact]
+        public void TestOrderByDescendingCoalesce()
+        {
+            var linq =
+                from x in _users
+                where x.Id == 100
+                orderby x.Name ?? string.Empty descending, x.DateAt descending
+                select x.Id;
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 测试二元运算排序倒序。
+        /// </summary>
+        [Fact]
+        public void TestOrderByBinary()
+        {
+            var linq =
+                from x in _userExes
+                where x.Id == 100
+                orderby x.Age + x.RoleType, x.DateAt descending
+                select x.Id;
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 测试一元运算排序倒序。
+        /// </summary>
+        [Fact]
+        public void TestOrderByUnary()
+        {
+            var linq =
+                from x in _userExes
+                where x.Id == 100
+                orderby ~x.Age, x.DateAt descending
+                select x.Id;
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 测试字符串方法排序倒序。
+        /// </summary>
+        [Fact]
+        public void TestOrderByStringMethod()
+        {
+            var linq =
+                from x in _users
+                where x.Id == 100
+                orderby x.Name.Substring(2, 5), x.DateAt descending
+                select x.Id;
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 测试字符串截取。
+        /// </summary>
+        [Fact]
+        public void TestSubstring()
+        {
+            var linq =
+                from x in _users
+                where x.Id == 100
+                orderby x.DateAt descending
+                select new { x.Id, x.Name, NameSubstring = x.Name.Substring(2, 5) };
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 测试字符串空判断。
+        /// </summary>
+        [Fact]
+        public void TestIsNullOrEmpty()
+        {
+            var linq =
+                from x in _users
+                where x.Id == 100
+                orderby x.DateAt descending
+                select new { x.Id, x.Name, Null = string.IsNullOrEmpty(x.Name) };
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 常量字符串空判断。
+        /// </summary>
+        [Fact]
+        public void TestIsNullOrEmptyPlainVariable()
+        {
+            var name = "测试";
+
+            var linq =
+                from x in _users
+                where x.Id == 100
+                orderby x.DateAt descending
+                select new { x.Id, x.Name, Null = string.IsNullOrEmpty(name) };
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 测试字符串替换。
+        /// </summary>
+        [Fact]
+        public void TestReplaceString()
+        {
+            var linq =
+                from x in _users
+                where x.Id == 100
+                orderby x.DateAt descending
+                select new { x.Id, x.Name, NickName = x.Name.Replace("测试", "测试2") };
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 测试字符串截取。
+        /// </summary>
+        [Fact]
+        public void TestIndexOfString()
+        {
+            var linq =
+                from x in _users
+                where x.Id == 100
+                orderby x.DateAt descending
+                select new { x.Id, x.Name, IndexOf = x.Name.IndexOf("测试", 2) };
+
+            var results = linq.ToList();
         }
     }
 }

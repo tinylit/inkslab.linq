@@ -8,13 +8,18 @@ namespace Inkslab.Linq
     public static class Ranks
     {
         /// <summary>
-        /// 根据“<paramref name="rank"/>”计算排名。
+        /// 排名（避免表达式用于其它运算）。
         /// </summary>
-        /// <typeparam name="TSource"></typeparam>
-        /// <param name="source"></param>
-        /// <param name="rank"></param>
+        public readonly struct RankOnly { }
+
+        /// <summary>
+        /// 根据条件“<paramref name="rank"/>”计算排名。
+        /// </summary>
+        /// <typeparam name="TSource">源类型。</typeparam>
+        /// <param name="source">源。</param>
+        /// <param name="rank">排序。</param>
         /// <returns></returns>
-        public static int By<TSource>(TSource source, Func<IRank<TSource>, IRank<TSource>> rank) =>
+        public static RankOnly By<TSource>(TSource source, Func<IRank<TSource>, IRank> rank) =>
                 throw new NotImplementedException("只能在排序表达式中使用！");
     }
 }

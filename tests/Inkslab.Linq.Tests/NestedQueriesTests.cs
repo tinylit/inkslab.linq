@@ -640,6 +640,314 @@ namespace Inkslab.Linq.Tests
         [Field("is_close")]
         public bool IsClose { get; set; }
     }
+    /// <summary>
+    /// 问诊单
+    /// </summary>
+    [Table("inquiry")]
+    public class Inquiry
+    {
+        /// <summary>
+        /// id
+        /// </summary>
+        [Key]
+        [Field("id")]
+        public long Id { get; set; }
+
+        /// <summary>
+        /// 问诊单模版id
+        /// </summary>
+        [Field("inquiry_template_id")]
+        public long InquiryTemplateId { get; set; }
+
+        /// <summary>
+        /// 姓名
+        /// </summary>
+        [Field("name")]
+        [StringLength(20)]
+        public string Name { get; set; }
+
+        /// <summary>
+        /// 编号
+        /// </summary>
+        [Field("code")]
+        [StringLength(50)]
+        public string Code { get; set; }
+
+        /// <summary>
+        /// 性别
+        /// </summary>
+        [Field("gender")]
+        public int Gender { get; set; }
+
+        /// <summary>
+        /// 年龄
+        /// </summary>
+        [Field("age")]
+        public int Age { get; set; }
+
+        /// <summary>
+        /// 电话
+        /// </summary>
+        [Field("phone")]
+        [StringLength(11)]
+        public string Phone { get; set; }
+
+        /// <summary>
+        /// 主诉症状
+        /// </summary>
+        [Field("description")]
+        [StringLength(200)]
+        public string Description { get; set; }
+
+        /// <summary>
+        /// 舌质
+        /// </summary>
+        [Field("tongue_nature")]
+        public int TongueNature { get; set; }
+
+        /// <summary>
+        /// 舌苔
+        /// </summary>
+        [Field("tongue_coating")]
+        public int TongueCoating { get; set; }
+
+        /// <summary>
+        /// 苔色
+        /// </summary>
+        [Field("tongue_color")]
+        public int TongueColor { get; set; }
+
+        /// <summary>
+        /// 体征
+        /// </summary>
+        [Field("physical_signs")]
+        public int? PhysicalSigns { get; set; }
+
+        /// <summary>
+        /// 咳嗽
+        /// </summary>
+        [Field("cough")]
+        public int? Cough { get; set; }
+
+        /// <summary>
+        /// 月经
+        /// </summary>
+        [Field("menstruation")]
+        public int? Menstruation { get; set; }
+
+        /// <summary>
+        /// 订单id
+        /// </summary>
+        [Field("order_id")]
+        public long OrderId { get; set; }
+
+        /// <summary>
+        /// 是否可编辑
+        /// </summary>
+        [Field("is_edit")]
+        public bool IsEdit { get; set; } = false;
+
+        /// <summary>
+        /// 是否开方
+        /// </summary>
+        [Field("is_prescribe")]
+        public bool IsPrescribe { get; set; } = false;
+
+        /// <summary>
+        /// 创建人id
+        /// </summary>
+        [Field("create_by")]
+        public long CreateBy { get; set; }
+
+        /// <summary>
+        /// 创建时间
+        /// </summary>
+        [Field("create_time")]
+        public DateTime CreateTime { get; set; } = DateTime.Now;
+
+        /// <summary>
+        /// 是否妊娠期
+        /// </summary>
+        [Field("is_pregnancy")]
+        public bool? IsPregnancy { get; set; }
+
+        /// <summary>
+        /// 是否月经期
+        /// </summary>
+        [Field("is_menstruation")]
+        public bool? IsMenstruation { get; set; }
+
+        /// <summary>
+        /// 版本号
+        /// </summary>
+        [Field("version")]
+        public int Version { get; set; } = 0;
+    }
+    /// <summary>
+    /// 问诊单关联患者信息表
+    /// </summary>
+    [Table("inquiry_rep")]
+    public class InquiryRep
+    {
+        /// <summary>
+        /// 问诊单Id
+        /// </summary>
+        [Key]
+        [Field("id")]
+        public long Id { get; set; }
+
+        /// <summary>
+        /// 患者id
+        /// </summary>
+        [Field("patient_id")]
+        public long PatientId { get; set; }
+
+        /// <summary>
+        /// 订单id
+        /// </summary>
+        [Field("order_id")]
+        public long OrderId { get; set; }
+    }
+    /// <summary>
+	/// 问诊单图片
+	/// </summary>
+	[Table("inquiry_image")]
+    public class InquiryImage
+    {
+        /// <summary>
+        /// id
+        /// </summary>
+        [Key]
+        [Field("id")]
+        [DatabaseGenerated]
+        public long Id { get; set; }
+
+        /// <summary>
+        /// 问诊单id
+        /// </summary>
+        [Field("inquiry_id")]
+        public long InquiryId { get; set; }
+
+        /// <summary>
+        /// 地址
+        /// </summary>
+        [Field("url")]
+        [StringLength(300)]
+        public string Url { get; set; }
+
+        /// <summary>
+        /// 类型：1为舌面图，2为舌下图
+        /// </summary>
+        [Field("type")]
+        public int Type { get; set; }
+    }
+    /// <summary>
+    /// 处方建议单表
+    /// </summary>
+    [Table("prescription_suggestion")]
+    public class PrescriptionSuggestion
+    {
+        /// <summary>
+        /// 主键id
+        /// </summary>
+        [Key]
+        [Field("id")]
+        public long Id { get; set; }
+
+        /// <summary>
+        /// 处方建议单编码
+        /// </summary>
+        [Field("code")]
+        [StringLength(21)]
+        public string Code { get; set; }
+
+        /// <summary>
+        /// 咨询人id
+        /// </summary>
+        [Field("consultant_id")]
+        public long ConsultantId { get; set; }
+
+        /// <summary>
+        /// 问诊单id
+        /// </summary>
+        [Field("consultant_sheet_id")]
+        public long ConsultationSheetId { get; set; }
+
+        /// <summary>
+        /// 诊断信息
+        /// </summary>
+        [Field("diagnostic_information")]
+        [StringLength(20)]
+        public string DiagnosticInformation { get; set; }
+
+        /// <summary>
+        /// 医嘱
+        /// </summary>
+        [Field("doctor_advice")]
+        [StringLength(400)]
+        public string DoctorAdvice { get; set; } = String.Empty;
+
+        /// <summary>
+        /// 总贴数
+        /// </summary>
+        [Field("total_dose")]
+        public int TotalDose { get; set; }
+
+        /// <summary>
+        /// 每天几帖
+        /// </summary>
+        [Field("daily_dose")]
+        public int DailyDose { get; set; }
+
+        /// <summary>
+        /// 每幅分几次服用
+        /// </summary>
+        [Field("per_dose")]
+        public int PerDose { get; set; }
+
+        /// <summary>
+        /// 使用次数
+        /// </summary>
+        [Field("usedNumber")]
+        public int UsedNumber { get; set; } = 0;
+
+        /// <summary>
+        /// 药材味数
+        /// </summary>
+        [Field("commodity_type_count")]
+        public int CommodityTypeCount { get; set; }
+
+        /// <summary>
+        /// 处方内容
+        /// </summary>
+        [Field("prescription_content")]
+        [StringLength(1000)]
+        public string PrescriptionContent { get; set; }
+
+        /// <summary>
+        /// 创建人
+        /// </summary>
+        [Field("create_by")]
+        public long CreateBy { get; set; }
+
+        /// <summary>
+        /// 创建时间
+        /// </summary>
+        [Field("create_time")]
+        public DateTime CreateTime { get; set; }
+
+        /// <summary>
+        /// 修改人
+        /// </summary>
+        [Field("update_by")]
+        public long UpdateBy { get; set; }
+
+        /// <summary>
+        /// 修改时间
+        /// </summary>
+        [Field("update_time")]
+        public DateTime UpdateTime { get; set; }
+    }
     #endregion
 
     public class NestedQueriesTests
@@ -654,6 +962,11 @@ namespace Inkslab.Linq.Tests
         private readonly IQueryable<BusinessTermRep> _businessTermReps;
         private readonly IQueryable<SessionGroupUser> _sessionGroupUsers;
         private readonly IQueryable<SystemUser> _systemUsers;
+        private readonly IQueryable<Order> _orders;
+        private readonly IQueryable<Inquiry> _inquiries;
+        private readonly IQueryable<InquiryRep> _inquiryReps;
+        private readonly IQueryable<InquiryImage> _inquiryImages;
+        private readonly IQueryable<PrescriptionSuggestion> _prescriptionSuggestions;
 
         public NestedQueriesTests(IQueryable<BusinessConsultationRep> businessConsultationReps,
         IQueryable<BusinessDepartmentConsultationRel> businessDepartmentConsultationRels,
@@ -664,7 +977,12 @@ namespace Inkslab.Linq.Tests
         IQueryable<Order> orderReps,
         IQueryable<BusinessTermRep> businessTermReps,
         IQueryable<SessionGroupUser> sessionGroupUsers,
-        IQueryable<SystemUser> systemUsers)
+        IQueryable<SystemUser> systemUsers,
+        IQueryable<Order> orders,
+        IQueryable<Inquiry> inquiries,
+        IQueryable<InquiryRep> inquiryReps,
+        IQueryable<InquiryImage> inquiryImages,
+        IQueryable<PrescriptionSuggestion> prescriptionSuggestions)
         {
             _specialistCostReps = specialistCostReps;
             _businessDepartmentRels = businessDepartmentRels;
@@ -672,6 +990,11 @@ namespace Inkslab.Linq.Tests
             _businessTermReps = businessTermReps;
             _sessionGroupUsers = sessionGroupUsers;
             _systemUsers = systemUsers;
+            _orders = orders;
+            _inquiries = inquiries;
+            _inquiryReps = inquiryReps;
+            _inquiryImages = inquiryImages;
+            _prescriptionSuggestions = prescriptionSuggestions;
             _users = users;
             _specialists = specialists;
             _businessDepartmentConsultationRels = businessDepartmentConsultationRels;
@@ -871,6 +1194,38 @@ namespace Inkslab.Linq.Tests
             var id = 9000000000000000;
 
             await _systemUsers.AllAsync(s => s.UserId == id);
+        }
+
+        [Fact]
+        public async Task Test10Async()
+        {
+            var query = await (from a in _inquiryReps.Where(a => a.PatientId == 1 && a.OrderId != 1)
+                               join c in _inquiries on a.Id equals c.Id
+                               join e in _orders on a.OrderId equals e.Id
+                               join g in _prescriptionSuggestions on c.Id equals g.ConsultationSheetId into leftg
+                               from lg in leftg.DefaultIfEmpty()
+                               join d in _inquiryImages
+                                   .GroupBy(img => img.InquiryId)
+                                   .Select(g => new
+                                   {
+                                       inquiry_id = g.Key,
+                                       upUrl = g.Where(x => x.Type == 1).Select(x => x.Url).Max(),
+                                       downUrl = g.Where(x => x.Type == 2).Select(x => x.Url).Max()
+                                   }) on c.Id equals d.inquiry_id into leftd
+                               from ld in leftd.DefaultIfEmpty()
+                               orderby e.CreateTime descending, a.Id descending
+                               select new
+                               {
+                                   SessionId = a.OrderId,
+                                   SublingualImg = ld.downUrl,
+                                   LingualImg = ld != null ? ld.upUrl : null,
+                                   Description = c.Description,
+                                   DiagnosticInformation = lg != null ? lg.DiagnosticInformation : null,
+                                   InquiryId = a.Id,
+                                   OrderId = a.OrderId,
+                                   OrderCode = e.Code,
+                                   CreateTime = e.CreateTime
+                               }).ToListAsync(1, 10);
         }
     }
 }

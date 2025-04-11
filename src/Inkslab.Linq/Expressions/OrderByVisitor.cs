@@ -12,21 +12,25 @@ namespace Inkslab.Linq.Expressions
     [DebuggerDisplay("OrderBy")]
     public class OrderByVisitor : CoreVisitor
     {
-        private readonly CoreVisitor _visitor;
+        private readonly SelectVisitor _visitor;
         private readonly bool _isDescending;
+        private readonly Action _declaration;
         private readonly bool _isGroupHaving;
 
         /// <inheritdoc/>
-        public OrderByVisitor(CoreVisitor visitor, bool isDescending, bool isGroupHaving = false) : base(visitor, false)
+        public OrderByVisitor(SelectVisitor visitor, Action declaration, bool isDescending, bool isGroupHaving = false) : base(visitor, false)
         {
             _visitor = visitor;
             _isDescending = isDescending;
+            _declaration = declaration;
             _isGroupHaving = isGroupHaving;
         }
 
         /// <inheritdoc/>
         protected override void Member(MemberExpression node)
         {
+            _declaration.Invoke();
+
             base.Member(node);
 
             if (_isDescending)
@@ -38,7 +42,70 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override void Member(MemberInfo memberInfo, Expression node)
         {
+            _declaration.Invoke();
+
             base.Member(memberInfo, node);
+
+            if (_isDescending)
+            {
+                Writer.Keyword(Enums.SqlKeyword.DESC);
+            }
+        }
+
+        /// <inheritdoc/>
+        protected override void Conditional(ConditionalExpression node)
+        {
+            _declaration.Invoke();
+
+            base.Conditional(node);
+
+            if (_isDescending)
+            {
+                Writer.Keyword(Enums.SqlKeyword.DESC);
+            }
+        }
+
+        /// <inheritdoc/>
+        protected override void Unary(UnaryExpression node)
+        {
+            _declaration.Invoke();
+
+            using (var visitor = new MemberVisitor(this))
+            {
+                visitor.Startup(node);
+            }
+
+            if (_isDescending)
+            {
+                Writer.Keyword(Enums.SqlKeyword.DESC);
+            }
+        }
+
+        /// <inheritdoc/>
+        protected override void Binary(BinaryExpression node)
+        {
+            _declaration.Invoke();
+
+            using (var visitor = new MemberVisitor(this))
+            {
+                visitor.Startup(node);
+            }
+
+            if (_isDescending)
+            {
+                Writer.Keyword(Enums.SqlKeyword.DESC);
+            }
+        }
+
+        /// <inheritdoc/>
+        protected override void ByString(MethodCallExpression node)
+        {
+            _declaration.Invoke();
+
+            using (var visitor = new MemberVisitor(this))
+            {
+                visitor.Startup(node);
+            }
 
             if (_isDescending)
             {
@@ -49,6 +116,8 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override void Member(string schema, string field, string name)
         {
+            _declaration.Invoke();
+
             base.Member(schema, field, name);
 
             if (_isDescending)
@@ -88,8 +157,6 @@ namespace Inkslab.Linq.Expressions
             if (node.Method.DeclaringType == Types.Ranks)
             {
                 RankBy(node);
-
-                return;
             }
             else
             {
@@ -131,7 +198,7 @@ namespace Inkslab.Linq.Expressions
                         foreach (var rankExpression in rank.Ranks)
                         {
                             var rankVisitor = new OrderByExpressionVisitor(rankExpression.IsDescending
-                                    ? (descendingVisitor ??= new OrderByVisitor(_visitor, rankExpression.IsDescending ^ _isDescending, _isGroupHaving))
+                                    ? (descendingVisitor ??= new OrderByVisitor(_visitor, _declaration, rankExpression.IsDescending ^ _isDescending, _isGroupHaving))
                                     : this,
                                 expressions);
 
@@ -203,12 +270,20 @@ namespace Inkslab.Linq.Expressions
 
         private abstract class Rank
         {
-            public List<RankExpression> Ranks { get; } = new List<RankExpression>();
+            public abstract List<RankExpression> Ranks { get; }
         }
 
 
-        private class Rank<TSource> : Rank, IRank<TSource>, IOrderBy<TSource>, IThenBy<TSource>
+        private class Rank<TSource> : Rank, IRank<TSource>, IOrderBy<TSource>, IThenBy<TSource>, IDefaultBy<TSource>
         {
+            private bool initialDefault = true;
+
+            private readonly List<RankExpression> _ranks;
+
+            public Rank() => _ranks = new List<RankExpression>();
+
+            public override List<RankExpression> Ranks => _ranks;
+
             public IThenBy<TSource> OrderBy<TItem>(Expression<Func<TSource, TItem>> rank)
             {
                 if (rank is null)
@@ -261,21 +336,59 @@ namespace Inkslab.Linq.Expressions
             {
                 if (condition)
                 {
+                    initialDefault = false;
+
                     return this;
                 }
 
                 return new EmptyRank<TSource>(this);
             }
+
+            IDefaultBy<TSource> IDefaultBy<TSource>.DefaultBy<TItem>(Expression<Func<TSource, TItem>> rank) => DefaultBy(rank);
+
+            IDefaultBy<TSource> IDefaultBy<TSource>.DefaultByDescending<TItem>(Expression<Func<TSource, TItem>> rank) => DefaultByDescending(rank);
+
+            public IDefaultBy<TSource> DefaultBy<TItem>(Expression<Func<TSource, TItem>> rank)
+            {
+                if (rank is null)
+                {
+                    throw new ArgumentNullException(nameof(rank));
+                }
+
+                if (initialDefault)
+                {
+                    Ranks.Add(new RankExpression(rank, false));
+                }
+
+                return this;
+            }
+
+            public IDefaultBy<TSource> DefaultByDescending<TItem>(Expression<Func<TSource, TItem>> rank)
+            {
+                if (rank is null)
+                {
+                    throw new ArgumentNullException(nameof(rank));
+                }
+                
+                if (initialDefault)
+                {
+                    Ranks.Add(new RankExpression(rank, true));
+                }
+
+                return this;
+            }
         }
 
         private class EmptyRank<TSource> : Rank, IOrderBy<TSource>, IThenBy<TSource>
         {
-            private readonly IRank<TSource> _rank;
+            private readonly Rank<TSource> _rank;
 
-            public EmptyRank(IRank<TSource> rank)
+            public EmptyRank(Rank<TSource> rank)
             {
                 _rank = rank;
             }
+
+            public override List<RankExpression> Ranks => _rank.Ranks;
 
             public IThenBy<TSource> OrderBy<TItem>(Expression<Func<TSource, TItem>> rank)
             {
@@ -318,6 +431,10 @@ namespace Inkslab.Linq.Expressions
             }
 
             public IOrderBy<TSource> When(bool condition) => _rank.When(condition);
+
+            public IDefaultBy<TSource> DefaultBy<TItem>(Expression<Func<TSource, TItem>> rank) => _rank.DefaultBy(rank);
+
+            public IDefaultBy<TSource> DefaultByDescending<TItem>(Expression<Func<TSource, TItem>> rank) => _rank.DefaultByDescending(rank);
         }
 
         /// <summary>

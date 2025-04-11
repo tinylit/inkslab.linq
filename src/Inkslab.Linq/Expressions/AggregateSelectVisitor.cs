@@ -190,9 +190,9 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override void OrderBy(Expression node, bool isDescending)
+        protected override void OrderBy(Expression node, Action declaration, bool isDescending)
         {
-            using (var visitor = new OrderByVisitor(this, isDescending, true))
+            using (var visitor = new OrderByVisitor(this, declaration, isDescending, true))
             {
                 visitor.Startup(node);
             }

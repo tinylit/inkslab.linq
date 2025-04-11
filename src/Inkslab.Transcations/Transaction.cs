@@ -217,7 +217,7 @@ namespace Inkslab.Transcations
             {
                 Status = TransactionStatus.Committed;
 
-                TransactionCompleted.Invoke(this, new TransactionEventArgs(this));
+                TransactionCompleted?.Invoke(this, new TransactionEventArgs(this));
             }
         }
 
@@ -250,7 +250,7 @@ namespace Inkslab.Transcations
             {
                 Status = TransactionStatus.Aborted;
 
-                TransactionCompleted.Invoke(this, new TransactionEventArgs(this));
+                TransactionCompleted?.Invoke(this, new TransactionEventArgs(this));
             }
         }
 
@@ -282,7 +282,7 @@ namespace Inkslab.Transcations
             {
                 Status = TransactionStatus.Aborted;
 
-                TransactionCompleted.Invoke(this, new TransactionEventArgs(this));
+                TransactionCompleted?.Invoke(this, new TransactionEventArgs(this));
             }
         }
 
@@ -319,7 +319,7 @@ namespace Inkslab.Transcations
 
                         Status = TransactionStatus.Aborted;
 
-                        TransactionCompleted.Invoke(this, new TransactionEventArgs(this));
+                        TransactionCompleted?.Invoke(this, new TransactionEventArgs(this));
                     }
                 }
             }
@@ -362,7 +362,7 @@ namespace Inkslab.Transcations
 
                         Status = TransactionStatus.Aborted;
 
-                        TransactionCompleted.Invoke(this, new TransactionEventArgs(this));
+                        TransactionCompleted?.Invoke(this, new TransactionEventArgs(this));
                     }
                 }
             }

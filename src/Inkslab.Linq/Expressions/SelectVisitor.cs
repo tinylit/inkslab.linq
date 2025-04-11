@@ -284,9 +284,7 @@ namespace Inkslab.Linq.Expressions
 
                     using (Writer.OrderByAnalysis())
                     {
-                        _orderBySwitch.Execute();
-
-                        OrderBy(node.Arguments[1], isDescending);
+                        OrderBy(node.Arguments[1], _orderBySwitch.Execute, isDescending);
                     }
 
                     break;
@@ -340,10 +338,11 @@ namespace Inkslab.Linq.Expressions
         /// 排序。
         /// </summary>
         /// <param name="node">节点。</param>
+        /// <param name="declaration">声明。</param>
         /// <param name="isDescending">是否倒序。</param>
-        protected virtual void OrderBy(Expression node, bool isDescending)
+        protected virtual void OrderBy(Expression node, Action declaration, bool isDescending)
         {
-            using (var visitor = new OrderByVisitor(this, isDescending))
+            using (var visitor = new OrderByVisitor(this, declaration, isDescending))
             {
                 visitor.Startup(node);
             }

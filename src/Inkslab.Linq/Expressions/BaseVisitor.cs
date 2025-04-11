@@ -640,6 +640,9 @@ namespace Inkslab.Linq.Expressions
         {
             switch (name)
             {
+                case nameof(DateTime.Date):
+                    Writer.Write("DATE");
+                    break;
                 case nameof(DateTime.Second):
                     Writer.Write("SECOND");
                     break;
@@ -669,6 +672,18 @@ namespace Inkslab.Linq.Expressions
         /// </summary>
         private void SqlServer(string name, Expression node)
         {
+            if (name == nameof(DateTime.Date))
+            {
+
+                Writer.Write("CAST");
+                Writer.OpenBrace();
+                Visit(node);
+                Writer.Write("AS DATE");
+                Writer.CloseBrace();
+
+                return;
+            }
+
             Writer.Write("DATEPART");
             Writer.OpenBrace();
 
@@ -719,7 +734,7 @@ namespace Inkslab.Linq.Expressions
             }
             else if (node.IsLength())
             {
-                switch (_adapter.Engine)
+                switch (Engine)
                 {
                     case DatabaseEngine.Access:
                     case DatabaseEngine.Sybase:
@@ -757,9 +772,23 @@ namespace Inkslab.Linq.Expressions
             {
                 switch (node.Member.Name)
                 {
+                    case nameof(DateTime.Day) when Engine == DatabaseEngine.PostgreSQL:
+                        Writer.Write("EXTRACT");
+                        Writer.OpenBrace();
+                        Writer.Write("DAY FROM ");
+                        Visit(node.Expression);
+                        Writer.CloseBrace();
+                        break;
                     case nameof(DateTime.Day):
                         Writer.Write("DAY");
                         Writer.OpenBrace();
+                        Visit(node.Expression);
+                        Writer.CloseBrace();
+                        break;
+                    case nameof(DateTime.Month) when Engine == DatabaseEngine.PostgreSQL:
+                        Writer.Write("EXTRACT");
+                        Writer.OpenBrace();
+                        Writer.Write("MONTH FROM ");
                         Visit(node.Expression);
                         Writer.CloseBrace();
                         break;
@@ -769,12 +798,20 @@ namespace Inkslab.Linq.Expressions
                         Visit(node.Expression);
                         Writer.CloseBrace();
                         break;
+                    case nameof(DateTime.Year) when Engine == DatabaseEngine.PostgreSQL:
+                        Writer.Write("EXTRACT");
+                        Writer.OpenBrace();
+                        Writer.Write("YEAR FROM ");
+                        Visit(node.Expression);
+                        Writer.CloseBrace();
+                        break;
                     case nameof(DateTime.Year):
                         Writer.Write("YEAR");
                         Writer.OpenBrace();
                         Visit(node.Expression);
                         Writer.CloseBrace();
                         break;
+                    case nameof(DateTime.Date) when Engine == DatabaseEngine.MySQL:
                     case nameof(DateTime.Second) when Engine == DatabaseEngine.MySQL:
                     case nameof(DateTime.Minute) when Engine == DatabaseEngine.MySQL:
                     case nameof(DateTime.Hour) when Engine == DatabaseEngine.MySQL:
@@ -782,6 +819,7 @@ namespace Inkslab.Linq.Expressions
                     case nameof(DateTime.DayOfYear) when Engine == DatabaseEngine.MySQL:
                         MySql(node.Member.Name, node.Expression);
                         break;
+                    case nameof(DateTime.Date) when Engine == DatabaseEngine.SqlServer:
                     case nameof(DateTime.Millisecond) when Engine == DatabaseEngine.SqlServer:
                     case nameof(DateTime.Second) when Engine == DatabaseEngine.SqlServer:
                     case nameof(DateTime.Minute) when Engine == DatabaseEngine.SqlServer:
@@ -1062,6 +1100,11 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override sealed Expression VisitUnary(UnaryExpression node)
         {
+            if (node.NodeType == ExpressionType.Quote)
+            {
+                return base.VisitUnary(node);
+            }
+
             Unary(node);
 
             return node;
@@ -1133,7 +1176,13 @@ namespace Inkslab.Linq.Expressions
         /// </summary>
         /// <param name="memberInfo">成员。</param>
         /// <param name="node">赋值表达式。</param>
-        protected virtual void Member(MemberInfo memberInfo, Expression node) => Visit(node);
+        protected virtual void Member(MemberInfo memberInfo, Expression node)
+        {
+            using (var visitor = new MemberVisitor(this))
+            {
+                visitor.Startup(node);
+            }
+        }
 
         /// <summary>
         /// Visits the children of the <see cref="System.Linq.Expressions.MemberBinding"/>.
@@ -1335,137 +1384,9 @@ namespace Inkslab.Linq.Expressions
         /// <param name="node">The expression to visit.</param>
         protected virtual void Conditional(ConditionalExpression node)
         {
-            using (var domain = Writer.Domain())
+            using (var visitor = new ConditionalVisitor(this))
             {
-                Condition(node.Test);
-
-                if (domain.IsEmpty)
-                {
-                    if (RequiresConditionalEscape() && IsCondition(node.IfFalse))
-                    {
-                        using (var domainSub = Writer.Domain())
-                        {
-                            Visit(node.IfFalse);
-
-                            if (domainSub.IsEmpty)
-                            {
-                                Writer.Keyword(SqlKeyword.NULL);
-                            }
-                            else
-                            {
-                                Writer.Keyword(SqlKeyword.THEN);
-
-                                Writer.True();
-
-                                Writer.Keyword(SqlKeyword.ELSE);
-
-                                Writer.False();
-
-                                Writer.Keyword(SqlKeyword.END);
-
-                                domainSub.Flyback();
-
-                                Writer.Keyword(SqlKeyword.CASE);
-                                Writer.Keyword(SqlKeyword.WHEN);
-
-                                Writer.CloseBrace();
-
-                                domain.Flyback();
-
-                                Writer.OpenBrace();
-                            }
-                        }
-                    }
-                    else
-                    {
-                        Visit(node.IfFalse);
-                    }
-                }
-                else
-                {
-                    Writer.Keyword(SqlKeyword.THEN);
-
-                    if (RequiresConditionalEscape() && IsCondition(node.IfTrue))
-                    {
-                        using (var domainSub = Writer.Domain())
-                        {
-                            Visit(node.IfTrue);
-
-                            if (domainSub.IsEmpty)
-                            {
-                                Writer.Keyword(SqlKeyword.NULL);
-                            }
-                            else
-                            {
-                                Writer.Keyword(SqlKeyword.THEN);
-
-                                Writer.True();
-
-                                Writer.Keyword(SqlKeyword.ELSE);
-
-                                Writer.False();
-
-                                Writer.Keyword(SqlKeyword.END);
-
-                                domainSub.Flyback();
-
-                                Writer.Keyword(SqlKeyword.CASE);
-                                Writer.Keyword(SqlKeyword.WHEN);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        Visit(node.IfTrue);
-                    }
-
-                    Writer.Keyword(SqlKeyword.ELSE);
-
-                    if (RequiresConditionalEscape() && IsCondition(node.IfFalse))
-                    {
-                        using (var domainSub = Writer.Domain())
-                        {
-                            Visit(node.IfFalse);
-
-                            if (domainSub.IsEmpty)
-                            {
-                                Writer.Keyword(SqlKeyword.NULL);
-                            }
-                            else
-                            {
-                                Writer.Keyword(SqlKeyword.THEN);
-
-                                Writer.True();
-
-                                Writer.Keyword(SqlKeyword.ELSE);
-
-                                Writer.False();
-
-                                Writer.Keyword(SqlKeyword.END);
-
-                                domainSub.Flyback();
-
-                                Writer.Keyword(SqlKeyword.CASE);
-                                Writer.Keyword(SqlKeyword.WHEN);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        Visit(node.IfFalse);
-                    }
-
-                    Writer.Keyword(SqlKeyword.END);
-
-                    Writer.CloseBrace();
-
-                    domain.Flyback();
-
-                    Writer.OpenBrace();
-
-                    Writer.Keyword(SqlKeyword.CASE);
-                    Writer.Keyword(SqlKeyword.WHEN);
-                }
+                visitor.Startup(node);
             }
         }
 
@@ -1636,7 +1557,6 @@ namespace Inkslab.Linq.Expressions
         {
             switch (node.NodeType)
             {
-                case ExpressionType.Quote:
                 case ExpressionType.UnaryPlus:
                 case ExpressionType.Convert:
                 case ExpressionType.ConvertChecked:

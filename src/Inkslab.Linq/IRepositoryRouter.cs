@@ -18,7 +18,7 @@ namespace Inkslab.Linq
         /// <param name="shardingKey">分区键。</param>
         /// <param name="commandTimeout">超时时间。</param>
         IInsertable<TEntity> AsInsertable(
-            List<TEntity> entries,
+            IReadOnlyCollection<TEntity> entries,
             bool ignore = false,
             string shardingKey = null,
             int? commandTimeout = null
@@ -32,7 +32,7 @@ namespace Inkslab.Linq
         /// <param name="commandTimeout">超时时间。</param>
         /// <exception cref="NotSupportedException">实体未标记主键！</exception>
         IUpdateable<TEntity> AsUpdateable(
-            List<TEntity> entries,
+            IReadOnlyCollection<TEntity> entries,
             string shardingKey = null,
             int? commandTimeout = null
         );
@@ -45,7 +45,7 @@ namespace Inkslab.Linq
         /// <param name="commandTimeout">超时时间。</param>
         /// <exception cref="NotSupportedException">实体未标记主键！</exception>
         IDeleteable<TEntity> AsDeleteable(
-            List<TEntity> entries,
+            IReadOnlyCollection<TEntity> entries,
             string shardingKey = null,
             int? commandTimeout = null
         );

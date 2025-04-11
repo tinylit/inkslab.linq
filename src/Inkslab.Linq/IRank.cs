@@ -52,7 +52,7 @@ namespace Inkslab.Linq
     /// 继续排序。
     /// </summary>
     /// <typeparam name="TSource">源类型。</typeparam>
-    public interface IThenBy<TSource> : IRank<TSource>
+    public interface IThenBy<TSource> : IDefaultBy<TSource>, IRank<TSource>
     {
         /// <summary>
         /// 根据“<paramref name="rank"/>”计算升序排名。
@@ -69,22 +69,6 @@ namespace Inkslab.Linq
         /// <param name="rank"></param>
         /// <returns></returns>
         IThenBy<TSource> ThenByDescending<TItem>(Expression<Func<TSource, TItem>> rank);
-
-        /// <summary>
-        /// 没有条件满足时的“<paramref name="rank"/>”计算升序排名。
-        /// </summary>
-        /// <typeparam name="TItem">排序项。</typeparam>
-        /// <param name="rank"></param>
-        /// <returns></returns>
-        IDefaultBy<TSource> DefaultBy<TItem>(Expression<Func<TSource, TItem>> rank);
-
-        /// <summary>
-        /// 没有条件满足时的“<paramref name="rank"/>”计算降序排名。
-        /// </summary>
-        /// <typeparam name="TItem">排序项。</typeparam>
-        /// <param name="rank"></param>
-        /// <returns></returns>
-        IDefaultBy<TSource> DefaultByDescending<TItem>(Expression<Func<TSource, TItem>> rank);
     }
 
     /// <summary>

@@ -98,7 +98,7 @@ namespace Inkslab.Linq
 
         /// <inheritdoc/>
         public IInsertable<TEntity> AsInsertable(
-            List<TEntity> entries,
+            IReadOnlyCollection<TEntity> entries,
             bool ignore = false,
             string shardingKey = null,
             int? commandTimeout = null
@@ -134,7 +134,7 @@ namespace Inkslab.Linq
 
         /// <inheritdoc/>
         public IUpdateable<TEntity> AsUpdateable(
-            List<TEntity> entries,
+            IReadOnlyCollection<TEntity> entries,
             string shardingKey = null,
             int? commandTimeout = null
         )
@@ -174,7 +174,7 @@ namespace Inkslab.Linq
 
         /// <inheritdoc/>
         public IDeleteable<TEntity> AsDeleteable(
-            List<TEntity> entries,
+            IReadOnlyCollection<TEntity> entries,
             string shardingKey = null,
             int? commandTimeout = null
         )
@@ -255,7 +255,7 @@ namespace Inkslab.Linq
             > _cachings = new ConcurrentDictionary<Type, Dictionary<string, Entry>>();
 
             public Command(
-                List<TEntity> entities,
+                IReadOnlyCollection<TEntity> entities,
                 IDbCorrectSettings settings,
                 string shardingKey,
                 int? commandTimeout
@@ -280,7 +280,7 @@ namespace Inkslab.Linq
 
             public bool RequiredBulk => Entities.Count > 100;
 
-            protected List<TEntity> Entities { get; }
+            protected IReadOnlyCollection<TEntity> Entities { get; }
 
             public IDbCorrectSettings Settings { get; }
 
@@ -513,7 +513,7 @@ namespace Inkslab.Linq
         private class InsertCommand : Command
         {
             public InsertCommand(
-                List<TEntity> entities,
+                IReadOnlyCollection<TEntity> entities,
                 IDbCorrectSettings settings,
                 bool ignore,
                 string shardingKey,
@@ -547,9 +547,12 @@ namespace Inkslab.Linq
                     }
                 );
 
-                for (int i = 0; i < Entities.Count; i++)
+                foreach (var entity in Entities)
                 {
-                    var entity = Entities[i] ?? throw new InvalidOperationException("实体不能为空！");
+                    if (entity == null)
+                    {
+                        throw new InvalidOperationException("实体不能为空！");
+                    }
 
 #if NET6_0_OR_GREATER
                     Validator.ValidateObject(entity, new ValidationContext(entity), true);
@@ -728,9 +731,12 @@ namespace Inkslab.Linq
                     }
                 );
 
-                for (int i = 0; i < Entities.Count; i++)
+                foreach (var entity in Entities)
                 {
-                    TEntity entity = Entities[i] ?? throw new InvalidOperationException("实体不能为空！");
+                    if (entity is null)
+                    {
+                        throw new InvalidOperationException("实体不能为空！");
+                    }
 
 #if NET6_0_OR_GREATER
                     Validator.ValidateObject(entity, new ValidationContext(entity), true);
@@ -790,9 +796,14 @@ namespace Inkslab.Linq
 
                 var parameters = new Dictionary<string, object>(parameterSingle * Entities.Count);
 
-                for (int i = 0; i < Entities.Count; i++)
+                int i = 0;
+
+                foreach (var entity in Entities)
                 {
-                    var entity = Entities[i] ?? throw new InvalidOperationException("实体不能为空！");
+                    if (entity is null)
+                    {
+                        throw new InvalidOperationException("实体不能为空！");
+                    }
 
 #if NET6_0_OR_GREATER
                     Validator.ValidateObject(entity, new ValidationContext(entity), true);
@@ -843,6 +854,8 @@ namespace Inkslab.Linq
                     }
 
                     sb.Append(')');
+
+                    i++;
                 }
 
                 return new CommandSql(sb.ToString(), parameters, CommandTimeout);
@@ -863,7 +876,7 @@ namespace Inkslab.Linq
             private readonly ILogger _logger;
 
             public UpdateableCommand(
-                List<TEntity> entities,
+                IReadOnlyCollection<TEntity> entities,
                 IDbCorrectSettings settings,
                 string shardingKey,
                 int? commandTimeout,
@@ -1214,9 +1227,12 @@ namespace Inkslab.Linq
                     }
                 );
 
-                for (int i = 0; i < Entities.Count; i++)
+                foreach (var entity in Entities)
                 {
-                    TEntity entity = Entities[i] ?? throw new InvalidOperationException("实体不能为空！");
+                    if (entity is null)
+                    {
+                        throw new InvalidOperationException("实体不能为空！");
+                    }
 
                     var dr = dt.NewRow();
 
@@ -1271,9 +1287,14 @@ namespace Inkslab.Linq
                     (128 + Fields.Count + conditions.Count) * Entities.Count
                 );
 
-                for (var i = 0; i < Entities.Count; i++)
+                int i = 0;
+
+                foreach (var entity in Entities)
                 {
-                    var entity = Entities[i] ?? throw new InvalidOperationException("实体不能为空！");
+                    if (entity is null)
+                    {
+                        throw new InvalidOperationException("实体不能为空！");
+                    }
 
                     sb.Append("UPDATE ");
 
@@ -1428,6 +1449,8 @@ namespace Inkslab.Linq
                     }
 
                     sb.Append(';');
+
+                    i++;
                 }
 
                 return new CommandSql(sb.ToString(), parameters, CommandTimeout);
@@ -1439,7 +1462,7 @@ namespace Inkslab.Linq
             private readonly ILogger _logger;
 
             public DeleteableCommand(
-                List<TEntity> entities,
+                IReadOnlyCollection<TEntity> entities,
                 IDbCorrectSettings settings,
                 string shardingKey,
                 int? commandTimeout,
@@ -1487,9 +1510,14 @@ namespace Inkslab.Linq
                     bool hasValue = false;
                     bool hasKeyNull = false;
 
-                    for (int i = 0; i < Entities.Count; i++)
+                    int i = 0;
+
+                    foreach (var entity in Entities)
                     {
-                        var entity = Entities[i] ?? throw new InvalidOperationException("实体不能为空！");
+                        if (entity is null)
+                        {
+                            throw new InvalidOperationException("实体不能为空！");
+                        }
 
                         var value = entry.GetValue(entity);
 
@@ -1528,6 +1556,8 @@ namespace Inkslab.Linq
                         sb.Append(Settings.ParamterName(name));
 
                         parameters.Add(name, value);
+
+                        i++;
                     }
 
                     if (hasValue)
@@ -1558,9 +1588,14 @@ namespace Inkslab.Linq
                 }
                 else
                 {
-                    for (var i = 0; i < Entities.Count; i++)
+                    int i = 0;
+
+                    foreach (var entity in Entities)
                     {
-                        var entity = Entities[i] ?? throw new InvalidOperationException("实体不能为空！");
+                        if (entity is null)
+                        {
+                            throw new InvalidOperationException("实体不能为空！");
+                        }
 
                         sb.Append("DELETE FROM ");
 
@@ -1618,6 +1653,8 @@ namespace Inkslab.Linq
                         }
 
                         sb.Append(';');
+
+                        i++;
                     }
                 }
 
@@ -1878,7 +1915,7 @@ namespace Inkslab.Linq
                 IDatabaseExecutor executor,
                 IConnectionStrings connectionStrings,
                 IDbCorrectSettings settings,
-                List<TEntity> entities,
+                IReadOnlyCollection<TEntity> entities,
                 int? commandTimeout,
                 string shardingKey,
                 bool ignore
@@ -2062,7 +2099,7 @@ namespace Inkslab.Linq
                 IDatabaseExecutor executor,
                 IConnectionStrings connectionStrings,
                 IDbCorrectSettings settings,
-                List<TEntity> entities,
+                IReadOnlyCollection<TEntity> entities,
                 int? commandTimeout,
                 string shardingKey,
                 ILogger logger
@@ -2230,7 +2267,7 @@ namespace Inkslab.Linq
                 IDatabaseExecutor executor,
                 IConnectionStrings connectionStrings,
                 IDbCorrectSettings settings,
-                List<TEntity> entities,
+                IReadOnlyCollection<TEntity> entities,
                 int? commandTimeout,
                 string shardingKey,
                 ILogger logger

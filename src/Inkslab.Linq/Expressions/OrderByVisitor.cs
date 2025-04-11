@@ -344,10 +344,6 @@ namespace Inkslab.Linq.Expressions
                 return new EmptyRank<TSource>(this);
             }
 
-            IDefaultBy<TSource> IDefaultBy<TSource>.DefaultBy<TItem>(Expression<Func<TSource, TItem>> rank) => DefaultBy(rank);
-
-            IDefaultBy<TSource> IDefaultBy<TSource>.DefaultByDescending<TItem>(Expression<Func<TSource, TItem>> rank) => DefaultByDescending(rank);
-
             public IDefaultBy<TSource> DefaultBy<TItem>(Expression<Func<TSource, TItem>> rank)
             {
                 if (rank is null)

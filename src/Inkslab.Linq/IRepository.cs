@@ -63,7 +63,7 @@ namespace Inkslab.Linq
         /// </summary>
         /// <param name="entries">项目集合。</param>
         /// <exception cref="NotSupportedException">实体未标记主键！</exception>
-        IUpdateable<TEntity> UpdateTo(List<TEntity> entries);
+        IUpdateable<TEntity> UpdateTo(IReadOnlyCollection<TEntity> entries);
 
         /// <summary>
         /// 更新路由执行器。
@@ -84,7 +84,7 @@ namespace Inkslab.Linq
         /// </summary>
         /// <param name="entries">项目集合。</param>
         /// <exception cref="NotSupportedException">实体未标记主键！</exception>
-        IDeleteable<TEntity> DeleteWith(List<TEntity> entries);
+        IDeleteable<TEntity> DeleteWith(IReadOnlyCollection<TEntity> entries);
 
         /// <summary>
         /// 删除路由执行器。
@@ -118,7 +118,7 @@ namespace Inkslab.Linq
         /// 插入路由执行器。
         /// </summary>
         /// <param name="entries">项目集合。</param>
-        IInsertable<TEntity> Into(List<TEntity> entries);
+        IInsertable<TEntity> Into(IReadOnlyCollection<TEntity> entries);
 
         /// <summary>
         /// 插入路由执行器。

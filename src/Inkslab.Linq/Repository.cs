@@ -369,7 +369,7 @@ namespace Inkslab.Linq
         }
 
         /// <inheritdoc/>
-        public IInsertable<TEntity> Into(List<TEntity> entries)
+        public IInsertable<TEntity> Into(IReadOnlyCollection<TEntity> entries)
         {
             if (entries is null)
             {
@@ -391,7 +391,7 @@ namespace Inkslab.Linq
                 throw new ArgumentNullException(nameof(entries));
             }
 
-            return Into(new List<TEntity>(entries));
+            return Into((IReadOnlyCollection<TEntity>)entries);
         }
 
         /// <inheritdoc/>
@@ -406,7 +406,7 @@ namespace Inkslab.Linq
         }
 
         /// <inheritdoc/>
-        public IUpdateable<TEntity> UpdateTo(List<TEntity> entries)
+        public IUpdateable<TEntity> UpdateTo(IReadOnlyCollection<TEntity> entries)
         {
             if (entries is null)
             {
@@ -427,7 +427,7 @@ namespace Inkslab.Linq
                 throw new ArgumentNullException(nameof(entries));
             }
 
-            return UpdateTo(new List<TEntity>(entries));
+            return UpdateTo((IReadOnlyCollection<TEntity>)entries);
         }
 
         /// <inheritdoc/>
@@ -442,7 +442,7 @@ namespace Inkslab.Linq
         }
 
         /// <inheritdoc/>
-        public virtual IDeleteable<TEntity> DeleteWith(List<TEntity> entries)
+        public virtual IDeleteable<TEntity> DeleteWith(IReadOnlyCollection<TEntity> entries)
         {
             if (entries is null)
             {
@@ -463,7 +463,7 @@ namespace Inkslab.Linq
                 throw new ArgumentNullException(nameof(entries));
             }
 
-            return DeleteWith(new List<TEntity>(entries));
+            return DeleteWith((IReadOnlyCollection<TEntity>)entries);
         }
         #endregion
 

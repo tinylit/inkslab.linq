@@ -2209,7 +2209,7 @@ namespace Inkslab.Linq.Expressions
                 } while (node.NodeType is ExpressionType.Convert or ExpressionType.TypeAs);
             }
 
-            return node.Type == Types.String || node.Type.IsNullable();
+            return node.Type.IsNullable();
         }
 
         private bool JoinBranchElementIsNull(Expression left, bool isExpressionNotEqual)

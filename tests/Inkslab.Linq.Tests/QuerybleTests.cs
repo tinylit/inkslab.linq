@@ -1561,12 +1561,13 @@ namespace Inkslab.Linq.Tests
         public void TestNonullableEqualNull()
         {
             int? status = null;
+            string name = null;
             var now = DateTime.Now;
             var takeTime = now.AddDays(-5D);
             var offsetTime = now.AddSeconds(-5D);
 
             var messages = _publisheds
-                    .Where(x => x.Status == status && (null == x.ExpiresAt || x.ExpiresAt > now))
+                    .Where(x => x.Status == status && (null == x.ExpiresAt || x.ExpiresAt > now) && x.ExchangeName != name)
                     .Where(x => x.DeliverTime > takeTime && x.DeliverTime <= offsetTime)
                     .ToList();
 

@@ -2206,7 +2206,7 @@ namespace Inkslab.Linq.Expressions
 
                     return !node.Type.IsNullable();
 
-                } while (node.NodeType is ExpressionType.Convert or ExpressionType.TypeAs);
+                } while (node.NodeType is ExpressionType.Convert or ExpressionType.ConvertChecked or ExpressionType.TypeAs);
             }
 
             return node.Type.IsNullable();

@@ -1929,12 +1929,12 @@ namespace Inkslab.Linq.Expressions
 
                         throw new DSyntaxErrorException($"不支持参数类型“{right.Type}”与非“null”常量值的比较！");
                     }
-                case ExpressionType.Equal when IsConvertToNull(left) ^ IsConvertToNull(right):
-                case ExpressionType.NotEqual when IsConvertToNull(left) ^ IsConvertToNull(right):
-                case ExpressionType.GreaterThan when IsConvertToNull(left) ^ IsConvertToNull(right):
-                case ExpressionType.LessThan when IsConvertToNull(left) ^ IsConvertToNull(right):
-                case ExpressionType.LessThanOrEqual when IsConvertToNull(left) ^ IsConvertToNull(right):
-                case ExpressionType.GreaterThanOrEqual when IsConvertToNull(left) ^ IsConvertToNull(right):
+                case ExpressionType.Equal when BaseVisitor.IsConvertToNull(left) ^ BaseVisitor.IsConvertToNull(right):
+                case ExpressionType.NotEqual when BaseVisitor.IsConvertToNull(left) ^ BaseVisitor.IsConvertToNull(right):
+                case ExpressionType.GreaterThan when BaseVisitor.IsConvertToNull(left) ^ BaseVisitor.IsConvertToNull(right):
+                case ExpressionType.LessThan when BaseVisitor.IsConvertToNull(left) ^ BaseVisitor.IsConvertToNull(right):
+                case ExpressionType.LessThanOrEqual when BaseVisitor.IsConvertToNull(left) ^ BaseVisitor.IsConvertToNull(right):
+                case ExpressionType.GreaterThanOrEqual when BaseVisitor.IsConvertToNull(left) ^ BaseVisitor.IsConvertToNull(right):
 
                     //? 忽略数据库非可空类型的字段与 NULL 的比较表达式。
                     using (var domain = Writer.Domain())
@@ -2191,7 +2191,7 @@ namespace Inkslab.Linq.Expressions
             }
         }
 
-        private bool IsConvertToNull(Expression node)
+        private static bool IsConvertToNull(Expression node)
         {
             if (node.NodeType is ExpressionType.Convert or ExpressionType.ConvertChecked or ExpressionType.TypeAs) //? 类型转换后，结果反转。
             {

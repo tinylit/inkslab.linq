@@ -2193,7 +2193,7 @@ namespace Inkslab.Linq.Expressions
 
         private bool IsConvertToNull(Expression node)
         {
-            if (node.NodeType is ExpressionType.Convert or ExpressionType.TypeAs) //? 类型转换后，结果反转。
+            if (node.NodeType is ExpressionType.Convert or ExpressionType.ConvertChecked or ExpressionType.TypeAs) //? 类型转换后，结果反转。
             {
                 do
                 {

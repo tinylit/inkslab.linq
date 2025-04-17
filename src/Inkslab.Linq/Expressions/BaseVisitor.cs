@@ -1929,33 +1929,19 @@ namespace Inkslab.Linq.Expressions
 
                         throw new DSyntaxErrorException($"不支持参数类型“{right.Type}”与非“null”常量值的比较！");
                     }
-                case ExpressionType.Equal:
-                case ExpressionType.NotEqual:
-                case ExpressionType.GreaterThan:
-                case ExpressionType.LessThan:
-                case ExpressionType.LessThanOrEqual:
-                case ExpressionType.GreaterThanOrEqual:
-
-                    var nullableLeft = left.IsNullable();
-                    var nullableRight = right.IsNullable();
-
-                    if (nullableLeft == nullableRight)
-                    {
-                        Visit(left);
-
-                        Writer.Operator(expressionType.GetOperator());
-
-                        Visit(right);
-
-                        break;
-                    }
+                case ExpressionType.Equal when IsConvertToNull(left) ^ IsConvertToNull(right):
+                case ExpressionType.NotEqual when IsConvertToNull(left) ^ IsConvertToNull(right):
+                case ExpressionType.GreaterThan when IsConvertToNull(left) ^ IsConvertToNull(right):
+                case ExpressionType.LessThan when IsConvertToNull(left) ^ IsConvertToNull(right):
+                case ExpressionType.LessThanOrEqual when IsConvertToNull(left) ^ IsConvertToNull(right):
+                case ExpressionType.GreaterThanOrEqual when IsConvertToNull(left) ^ IsConvertToNull(right):
 
                     //? 忽略数据库非可空类型的字段与 NULL 的比较表达式。
                     using (var domain = Writer.Domain())
                     {
                         ignoreNullable = true;
 
-                        Visit(nullableLeft ? left : right);
+                        Visit(right);
 
                         ignoreNullable = false;
 
@@ -1963,11 +1949,101 @@ namespace Inkslab.Linq.Expressions
                         {
                             break;
                         }
+
+                        domain.Flyback();
+
+                        int length = Writer.Length;
+
+                        ignoreNullable = true;
+
+                        Visit(left);
+
+                        ignoreNullable = false;
+
+                        if (Writer.Length == length)
+                        {
+                            domain.Discard();
+                        }
+                        else
+                        {
+                            Writer.Operator(expressionType.GetOperator());
+                        }
                     }
+                    break;
+                case ExpressionType.Equal:
+                case ExpressionType.NotEqual:
+
+                    bool writeNull = false;
+
+                    using (var domain = Writer.Domain())
+                    {
+                        ignoreNullable = true;
+
+                        Visit(right);
+
+                        ignoreNullable = false;
+
+                        if (domain.IsEmpty)
+                        {
+                            ignoreNullable = true;
+
+                            Visit(left);
+
+                            ignoreNullable = false;
+
+                            if (domain.IsEmpty)
+                            {
+                                break;
+                            }
+
+                            writeNull = true;
+                        }
+                        else
+                        {
+                            domain.Flyback();
+
+                            int length = Writer.Length;
+
+                            ignoreNullable = true;
+
+                            Visit(left);
+
+                            ignoreNullable = false;
+
+                            if (Writer.Length > length)
+                            {
+                                Writer.Operator(expressionType.GetOperator());
+
+                                break;
+                            }
+
+                            writeNull = true;
+                        }
+                    }
+
+                    if (writeNull)
+                    {
+                        Writer.Keyword(SqlKeyword.IS);
+
+                        if (expressionType == ExpressionType.NotEqual)
+                        {
+                            Writer.Keyword(SqlKeyword.NOT);
+                        }
+
+                        Writer.Keyword(SqlKeyword.NULL);
+                    }
+
+                    break;
+                case ExpressionType.GreaterThan:
+                case ExpressionType.LessThan:
+                case ExpressionType.LessThanOrEqual:
+                case ExpressionType.GreaterThanOrEqual:
+
+                    Visit(left);
 
                     Writer.Operator(expressionType.GetOperator());
 
-                    Visit(nullableLeft ? left : right);
+                    Visit(right);
 
                     break;
                 case ExpressionType.And:
@@ -2113,6 +2189,27 @@ namespace Inkslab.Linq.Expressions
                 default:
                     throw new NotSupportedException();
             }
+        }
+
+        private bool IsConvertToNull(Expression node)
+        {
+            if (node.NodeType is ExpressionType.Convert or ExpressionType.TypeAs) //? 类型转换后，结果反转。
+            {
+                do
+                {
+                    if (node is UnaryExpression unary)
+                    {
+                        node = unary.Operand;
+
+                        continue;
+                    }
+
+                    return !node.Type.IsNullable();
+
+                } while (node.NodeType is ExpressionType.Convert or ExpressionType.TypeAs);
+            }
+
+            return node.Type == Types.String || node.Type.IsNullable();
         }
 
         private bool JoinBranchElementIsNull(Expression left, bool isExpressionNotEqual)

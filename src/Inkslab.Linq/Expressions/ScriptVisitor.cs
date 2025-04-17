@@ -657,10 +657,9 @@ namespace Inkslab.Linq.Expressions
                     break;
                 case nameof(Queryable.SkipWhile):
 
-                    using (Writer.ConditionReversal())
-                    {
-                        goto case nameof(Queryable.Where);
-                    }
+                    SkipWhile(node);
+
+                    break;
                 case nameof(Queryable.Join):
                 case nameof(Queryable.SelectMany):
                     {
@@ -800,6 +799,50 @@ namespace Inkslab.Linq.Expressions
             using (var domain = Writer.Domain())
             {
                 Condition(predicate);
+
+                domain.Flyback();
+
+                if (instance.NodeType == ExpressionType.Constant)
+                {
+                    Visit(instance);
+                }
+
+                if (domain.HasValue)
+                {
+                    _whereSwitch.Execute();
+                }
+            }
+        }
+
+        /// <summary>
+        /// 条件。
+        /// </summary>
+        /// <param name="node">节点。</param>
+        protected virtual void SkipWhile(MethodCallExpression node)
+        {
+            var instance = node.Method.IsStatic ? node.Arguments[0] : node.Object; //? 自定义函数。
+
+            SkipWhile(instance, node.Arguments[^1]);
+        }
+
+        /// <summary>
+        /// 条件分析。
+        /// </summary>
+        /// <param name="instance">对象节点。</param>
+        /// <param name="predicate">条件节点。</param>
+        protected virtual void SkipWhile(Expression instance, Expression predicate)
+        {
+            if (instance.NodeType != ExpressionType.Constant)
+            {
+                WhereDependency(instance);
+            }
+
+            using (var domain = Writer.Domain())
+            {
+                using (Writer.ConditionReversal())
+                {
+                    Condition(predicate);
+                }
 
                 domain.Flyback();
 

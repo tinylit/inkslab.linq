@@ -19,16 +19,19 @@ namespace Inkslab.Linq.Tests
         private readonly IQueryable<User> _users;
         private readonly IQueryable<UserEx> _userExes;
         private readonly IQueryable<UserSharding> _userShardings;
+        private readonly IQueryable<Published> _publisheds;
 
         public QuerybleTests(
             IQueryable<User> users,
             IQueryable<UserEx> userExes,
-            IQueryable<UserSharding> userShardings
+            IQueryable<UserSharding> userShardings,
+            IQueryable<Published> publisheds
         )
         {
             _users = users;
             _userExes = userExes;
             _userShardings = userShardings;
+            _publisheds = publisheds;
         }
 
         [Fact]
@@ -1506,6 +1509,68 @@ namespace Inkslab.Linq.Tests
                 select new { x.Id, x.Name, IndexOf = x.Name.IndexOf("测试", 2) };
 
             var results = linq.ToList();
+        }
+
+        [Fact]
+        public void TestNullableEqualNull()
+        {
+            var now = DateTime.Now;
+            var takeTime = now.AddDays(-5D);
+            var offsetTime = now.AddSeconds(-5D);
+
+            var messages = _publisheds
+                    .Where(x => x.Status == 0 && (null == x.ExpiresAt || x.ExpiresAt.Value > now))
+                    .Where(x => x.DeliverTime > takeTime && x.DeliverTime <= offsetTime)
+                    .ToList();
+
+            Assert.Single(messages);
+        }
+
+        [Fact]
+        public void TestNullableNotEqualNull()
+        {
+            var now = DateTime.Now;
+            var takeTime = now.AddDays(-5D);
+            var offsetTime = now.AddSeconds(-5D);
+
+            var messages = _publisheds
+                    .Where(x => x.Status == 0 && null != x.ExpiresAt)
+                    .Where(x => x.DeliverTime > takeTime && x.DeliverTime <= offsetTime)
+                    .ToList();
+
+            Assert.Empty(messages);
+        }
+
+        [Fact]
+        public void TestSkipWhileNullableNotEqualNull()
+        {
+            var now = DateTime.Now;
+            var takeTime = now.AddDays(-5D);
+            var offsetTime = now.AddSeconds(-5D);
+
+            var messages = _publisheds
+                    .Where(x => x.Status == 0)
+                    .SkipWhile(x => null != x.ExpiresAt)
+                    .Where(x => x.DeliverTime > takeTime && x.DeliverTime <= offsetTime)
+                    .ToList();
+
+            Assert.Single(messages);
+        }
+
+        [Fact]
+        public void TestNonullableEqualNull()
+        {
+            int? status = null;
+            var now = DateTime.Now;
+            var takeTime = now.AddDays(-5D);
+            var offsetTime = now.AddSeconds(-5D);
+
+            var messages = _publisheds
+                    .Where(x => x.Status == status && (null == x.ExpiresAt || x.ExpiresAt > now))
+                    .Where(x => x.DeliverTime > takeTime && x.DeliverTime <= offsetTime)
+                    .ToList();
+
+            Assert.Single(messages);
         }
     }
 }

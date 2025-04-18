@@ -640,6 +640,288 @@ namespace Inkslab.Linq.Tests
         [Field("is_close")]
         public bool IsClose { get; set; }
     }
+    /// <summary>
+    /// 订单人员信息
+    /// </summary>
+    [Table("order_user_info")]
+    public partial class OrderUserInfo
+    {
+        /// <summary>
+        /// id(订单id)
+        /// </summary>
+        [Key]
+        [Field("id")]
+        public long Id { get; set; }
+
+        /// <summary>
+        /// 客户(门店)名称
+        /// </summary>
+        [Field("customer_name")]
+        [StringLength(200)]
+        public string CustomerName { get; set; }
+
+        /// <summary>
+        /// 客户来源
+        /// </summary>
+        [Field("customer_source")]
+        [StringLength(50)]
+        public string CustomerSource { get; set; }
+
+        /// <summary>
+        /// 咨询人名字
+        /// </summary>
+        [Field("consult_user_name")]
+        [StringLength(50)]
+        public string ConsultUserName { get; set; }
+
+        /// <summary>
+        /// 咨询人电话
+        /// </summary>
+        [Field("consult_user_phone")]
+        [StringLength(11)]
+        public string ConsultUserPhone { get; set; }
+    }
+    /// <summary>
+    /// 会话
+    /// </summary>
+    [Table("session")]
+    public partial class Session
+    {
+        /// <summary>
+        /// id(订单id)
+        /// </summary>
+        [Key]
+        [Field("id")]
+        public long Id { get; set; }
+
+        /// <summary>
+        /// 咨询开始时间
+        /// </summary>
+        [Field("consult_start_time")]
+        public DateTime? ConsultStartTime { get; set; }
+
+        /// <summary>
+        /// 咨询结束时间
+        /// </summary>
+        [Field("consult_end_time")]
+        public DateTime? ConsultEndTime { get; set; }
+
+        /// <summary>
+        /// 是否已回复
+        /// </summary>
+        [Field("is_replied")]
+        public bool IsReplied { get; set; }
+
+        /// <summary>
+        /// 第一次回复时间
+        /// </summary>
+        [Field("first_replie_time")]
+        public DateTime? FirstReplieTime { get; set; }
+
+        /// <summary>
+        /// 是否会诊
+        /// </summary>
+        [Field("is_consultation")]
+        public bool IsConsultation { get; set; }
+
+        /// <summary>
+        /// 是否转诊
+        /// </summary>
+        [Field("is_referral")]
+        public bool IsReferral { get; set; }
+
+        /// <summary>
+        /// 未回复退款时间
+        /// </summary>
+        [Field("refund_max_time")]
+        public DateTime RefundMaxTime { get; set; }
+
+        /// <summary>
+        /// 是否结束
+        /// </summary>
+        [Field("is_finish")]
+        public bool IsFinish { get; set; }
+
+        /// <summary>
+        /// 强制结束时间
+        /// </summary>
+        [Field("force_finish_time")]
+        public DateTime ForceFinishTime { get; set; }
+
+        /// <summary>
+        /// 是否接通
+        /// </summary>
+        [Field("is_connected")]
+        public bool IsConnected { get; set; }
+
+        /// <summary>
+        /// 接受咨询的专家id
+        /// </summary>
+        [Field("chat_expert_id")]
+        public long ChatExpertId { get; set; }
+
+        /// <summary>
+        /// 接受咨询的专家名称
+        /// </summary>
+        [Field("chat_expert_name")]
+        [StringLength(50)]
+        public string ChatExpertName { get; set; }
+
+        /// <summary>
+        /// 是否启用，支付成功后才启用
+        /// </summary>
+        [Field("is_enable")]
+        public bool IsEnable { get; set; }
+    }
+    /// <summary>
+    /// 问诊单
+    /// </summary>
+    [Table("inquiry")]
+    public class Inquiry
+    {
+        /// <summary>
+        /// id
+        /// </summary>
+        [Key]
+        [Field("id")]
+        public long Id { get; set; }
+
+        /// <summary>
+        /// 问诊单模版id
+        /// </summary>
+        [Field("inquiry_template_id")]
+        public long InquiryTemplateId { get; set; }
+
+        /// <summary>
+        /// 姓名
+        /// </summary>
+        [Field("name")]
+        [StringLength(20)]
+        public string Name { get; set; }
+
+        /// <summary>
+        /// 编号
+        /// </summary>
+        [Field("code")]
+        [StringLength(50)]
+        public string Code { get; set; }
+
+        /// <summary>
+        /// 性别
+        /// </summary>
+        [Field("gender")]
+        public int Gender { get; set; }
+
+        /// <summary>
+        /// 年龄
+        /// </summary>
+        [Field("age")]
+        public int Age { get; set; }
+
+        /// <summary>
+        /// 电话
+        /// </summary>
+        [Field("phone")]
+        [StringLength(11)]
+        public string Phone { get; set; }
+
+        /// <summary>
+        /// 主诉症状
+        /// </summary>
+        [Field("description")]
+        [StringLength(200)]
+        public string Description { get; set; }
+
+        /// <summary>
+        /// 舌质
+        /// </summary>
+        [Field("tongue_nature")]
+        public int TongueNature { get; set; }
+
+        /// <summary>
+        /// 舌苔
+        /// </summary>
+        [Field("tongue_coating")]
+        public int TongueCoating { get; set; }
+
+        /// <summary>
+        /// 苔色
+        /// </summary>
+        [Field("tongue_color")]
+        public int TongueColor { get; set; }
+
+        /// <summary>
+        /// 体征
+        /// </summary>
+        [Field("physical_signs")]
+        public int? PhysicalSigns { get; set; }
+
+        /// <summary>
+        /// 咳嗽
+        /// </summary>
+        [Field("cough")]
+        public int? Cough { get; set; }
+
+        /// <summary>
+        /// 月经
+        /// </summary>
+        [Field("menstruation")]
+        public int? Menstruation { get; set; }
+
+        /// <summary>
+        /// 订单id
+        /// </summary>
+        [Field("order_id")]
+        public long OrderId { get; set; }
+
+        /// <summary>
+        /// 患者id。
+        /// </summary>
+        [Field("patient_id")]
+        public long PatientId { get; set; }
+
+        /// <summary>
+        /// 是否可编辑
+        /// </summary>
+        [Field("is_edit")]
+        public bool IsEdit { get; set; } = false;
+
+        /// <summary>
+        /// 是否开方
+        /// </summary>
+        [Field("is_prescribe")]
+        public bool IsPrescribe { get; set; } = false;
+
+        /// <summary>
+        /// 创建人id
+        /// </summary>
+        [Field("create_by")]
+        public long CreateBy { get; set; }
+
+        /// <summary>
+        /// 创建时间
+        /// </summary>
+        [Field("create_time")]
+        public DateTime CreateTime { get; set; } = DateTime.Now;
+
+        /// <summary>
+        /// 是否妊娠期
+        /// </summary>
+        [Field("is_pregnancy")]
+        public bool? IsPregnancy { get; set; }
+
+        /// <summary>
+        /// 是否月经期
+        /// </summary>
+        [Field("is_menstruation")]
+        public bool? IsMenstruation { get; set; }
+
+        /// <summary>
+        /// 版本号
+        /// </summary>
+        [Field("version")]
+        public int Version { get; set; } = 0;
+    }
     #endregion
 
     public class NestedQueriesTests
@@ -650,10 +932,13 @@ namespace Inkslab.Linq.Tests
         private readonly IQueryable<Specialist> _specialists;
         private readonly IQueryable<SpecialistCostRep> _specialistCostReps;
         private readonly IQueryable<BusinessDepartmentRel> _businessDepartmentRels;
-        private readonly IQueryable<Order> _orderReps;
+        private readonly IQueryable<Order> _orders;
         private readonly IQueryable<BusinessTermRep> _businessTermReps;
         private readonly IQueryable<SessionGroupUser> _sessionGroupUsers;
         private readonly IQueryable<SystemUser> _systemUsers;
+        private readonly IQueryable<OrderUserInfo> _orderUserInfos;
+        private readonly IQueryable<Inquiry> _inquiries;
+        private readonly IQueryable<Session> _sessions;
 
         public NestedQueriesTests(IQueryable<BusinessConsultationRep> businessConsultationReps,
         IQueryable<BusinessDepartmentConsultationRel> businessDepartmentConsultationRels,
@@ -661,17 +946,23 @@ namespace Inkslab.Linq.Tests
         IQueryable<Specialist> specialists,
         IQueryable<SpecialistCostRep> specialistCostReps,
         IQueryable<BusinessDepartmentRel> businessDepartmentRels,
-        IQueryable<Order> orderReps,
+        IQueryable<Order> orders,
         IQueryable<BusinessTermRep> businessTermReps,
         IQueryable<SessionGroupUser> sessionGroupUsers,
-        IQueryable<SystemUser> systemUsers)
+        IQueryable<SystemUser> systemUsers,
+        IQueryable<OrderUserInfo> orderUserInfos,
+        IQueryable<Inquiry> inquiries,
+        IQueryable<Session> sessions)
         {
             _specialistCostReps = specialistCostReps;
             _businessDepartmentRels = businessDepartmentRels;
-            _orderReps = orderReps;
+            _orders = orders;
             _businessTermReps = businessTermReps;
             _sessionGroupUsers = sessionGroupUsers;
             _systemUsers = systemUsers;
+            _orderUserInfos = orderUserInfos;
+            _inquiries = inquiries;
+            _sessions = sessions;
             _users = users;
             _specialists = specialists;
             _businessDepartmentConsultationRels = businessDepartmentConsultationRels;
@@ -833,7 +1124,7 @@ namespace Inkslab.Linq.Tests
         [Fact]
         public async Task Test6Async()
         {
-            var query = from a in _orderReps
+            var query = from a in _orders
                         join b in _businessTermReps on a.BusinessLineId equals b.BusinessLineId
                         where a.Id == 9000000000000000
                         orderby b.CreateTime descending
@@ -871,6 +1162,140 @@ namespace Inkslab.Linq.Tests
             var id = 9000000000000000;
 
             await _systemUsers.AllAsync(s => s.UserId == id);
+        }
+
+        [Fact]
+        public async Task Test10Async()
+        {
+            int patientId = 1;
+            string patientName = null;
+            string patientPhone = "18980861011";
+
+            var query = from o in _orders
+                        join ou in _orderUserInfos on o.Id equals ou.Id
+                        join s in _sessions on o.Id equals s.Id
+                        where (patientId <= 0 || _inquiries.Any(i => i.OrderId == o.Id && i.PatientId == patientId))
+                        && (string.IsNullOrWhiteSpace(patientName) || _inquiries.Any(inquiry => inquiry.OrderId == o.Id && inquiry.Name.Contains(patientName)))
+                        && (string.IsNullOrWhiteSpace(patientPhone) || _inquiries.Any(inquiry => inquiry.OrderId == o.Id && inquiry.Phone.Contains(patientPhone)))
+                        orderby o.CreateTime descending
+                        select new
+                        {
+                            Id = o.Id,
+                            Code = o.Code,
+                            BusinessLineName = o.BusinessLineName,
+                            CustomerName = ou.CustomerName,
+                            ConsultUserName = ou.ConsultUserName,
+                            ConsultUserPhone = ou.ConsultUserPhone,
+                            ConsultMode = o.ConsultMode,
+                            ConsultCode = o.ConsultCode,
+                            ExpertName = s.ChatExpertName,
+                            Amount = o.Amount,
+                            CreateTime = o.CreateTime,
+                            State = o.State,
+                            ConsultType = o.ConsultTypeName,
+                            ConsultStartTime = s.ConsultStartTime,
+                            ConsultEndTime = s.ConsultEndTime,
+                            FirstReplieTime = s.FirstReplieTime,
+                            RefundMaxTime = s.RefundMaxTime,
+                            ForceFinishTime = s.ForceFinishTime,
+                        };
+
+
+            var entities = await query.ToListAsync();
+        }
+
+        [Fact]
+        public async Task Test11Async()
+        {
+            int patientId = 1;
+            string patientName = null;
+            string patientPhone = "18980861011";
+
+            var dto = new
+            {
+                PatientId = patientId,
+                PatientName = patientName,
+                PatientPhone = patientPhone
+            };
+
+            var query = from o in _orders
+                        join ou in _orderUserInfos on o.Id equals ou.Id
+                        join s in _sessions on o.Id equals s.Id
+                        where (patientId <= 0 || _inquiries.Any(i => i.OrderId == o.Id && i.PatientId == patientId))
+                        && (string.IsNullOrWhiteSpace(dto.PatientName) || _inquiries.Any(inquiry => inquiry.OrderId == o.Id && inquiry.Name.Contains(dto.PatientName)))
+                        && (string.IsNullOrWhiteSpace(dto.PatientPhone) || _inquiries.Any(inquiry => inquiry.OrderId == o.Id && inquiry.Phone.Contains(dto.PatientPhone)))
+                        orderby o.CreateTime descending
+                        select new
+                        {
+                            Id = o.Id,
+                            Code = o.Code,
+                            BusinessLineName = o.BusinessLineName,
+                            CustomerName = ou.CustomerName,
+                            ConsultUserName = ou.ConsultUserName,
+                            ConsultUserPhone = ou.ConsultUserPhone,
+                            ConsultMode = o.ConsultMode,
+                            ConsultCode = o.ConsultCode,
+                            ExpertName = s.ChatExpertName,
+                            Amount = o.Amount,
+                            CreateTime = o.CreateTime,
+                            State = o.State,
+                            ConsultType = o.ConsultTypeName,
+                            ConsultStartTime = s.ConsultStartTime,
+                            ConsultEndTime = s.ConsultEndTime,
+                            FirstReplieTime = s.FirstReplieTime,
+                            RefundMaxTime = s.RefundMaxTime,
+                            ForceFinishTime = s.ForceFinishTime,
+                        };
+
+
+            var entities = await query.ToListAsync();
+        }
+
+        [Fact]
+        public async Task Test12Async()
+        {
+            int patientId = 1;
+            string patientName = null;
+            string patientPhone = "18980861011";
+
+            var dto = new
+            {
+                PatientId = patientId,
+                PatientName = patientName,
+                PatientPhone = patientPhone
+            };
+
+            var query = from o in _orders
+                        join ou in _orderUserInfos on o.Id equals ou.Id
+                        join s in _sessions on o.Id equals s.Id
+                        where Conditions.If(patientId > 0, _inquiries.Any(i => i.OrderId == o.Id && i.PatientId == patientId))
+                        && Conditions.If(!string.IsNullOrWhiteSpace(dto.PatientName), _inquiries.Any(inquiry => inquiry.OrderId == o.Id && inquiry.Name.Contains(dto.PatientName)))
+                        && Conditions.If(!string.IsNullOrWhiteSpace(dto.PatientPhone), _inquiries.Any(inquiry => inquiry.OrderId == o.Id && inquiry.Phone.Contains(dto.PatientPhone)))
+                        orderby o.CreateTime descending
+                        select new
+                        {
+                            Id = o.Id,
+                            Code = o.Code,
+                            BusinessLineName = o.BusinessLineName,
+                            CustomerName = ou.CustomerName,
+                            ConsultUserName = ou.ConsultUserName,
+                            ConsultUserPhone = ou.ConsultUserPhone,
+                            ConsultMode = o.ConsultMode,
+                            ConsultCode = o.ConsultCode,
+                            ExpertName = s.ChatExpertName,
+                            Amount = o.Amount,
+                            CreateTime = o.CreateTime,
+                            State = o.State,
+                            ConsultType = o.ConsultTypeName,
+                            ConsultStartTime = s.ConsultStartTime,
+                            ConsultEndTime = s.ConsultEndTime,
+                            FirstReplieTime = s.FirstReplieTime,
+                            RefundMaxTime = s.RefundMaxTime,
+                            ForceFinishTime = s.ForceFinishTime,
+                        };
+
+
+            var entities = await query.ToListAsync();
         }
     }
 }

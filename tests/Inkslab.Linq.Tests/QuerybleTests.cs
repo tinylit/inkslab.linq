@@ -551,7 +551,7 @@ namespace Inkslab.Linq.Tests
         {
             var linq = from x in _users where x.Id == 100 select x;
 
-            var count = linq.Count(x => x.Name.StartsWith("何"));
+            var count = linq.Count(x => x.Name.StartsWith("测试"));
         }
 
         [Fact]

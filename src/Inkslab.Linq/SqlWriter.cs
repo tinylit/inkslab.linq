@@ -724,9 +724,7 @@ namespace Inkslab.Linq
                         break;
                     }
 
-                    Write('\'');
-                    Write(text);
-                    Write('\'');
+                    Variable(null, text);
 
                     break;
                 case Version version:
@@ -855,7 +853,7 @@ namespace Inkslab.Linq
         {
             if (IsConditionReversal)
             {
-                Write('1');
+                True();
 
                 Operator(SqlOperator.IsTrue);
             }
@@ -868,7 +866,7 @@ namespace Inkslab.Linq
         {
             if (!IsConditionReversal)
             {
-                Write('1');
+                True();
 
                 Operator(SqlOperator.IsFalse);
             }

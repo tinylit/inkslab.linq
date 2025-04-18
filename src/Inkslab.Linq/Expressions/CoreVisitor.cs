@@ -616,78 +616,56 @@ namespace Inkslab.Linq.Expressions
                 case nameof(string.EndsWith) when node.Arguments.Count == 1:
                 case nameof(string.StartsWith) when node.Arguments.Count == 1:
 
-                    var fuzzyPairt = node.Arguments[0];
-
-                    if (IsPlainVariable(fuzzyPairt))
-                    {
-                        var value = fuzzyPairt.GetValueFromExpression();
-
-                        if (value is null) //? 忽略内容。
-                        {
-                            break;
-                        }
-
-                        if (value is string text)
-                        {
-
-                        }
-                        else if (value is char c)
-                        {
-                            text = c.ToString();
-                        }
-                        else
-                        {
-                            goto default;
-                        }
-
-                        if (name is (nameof(string.Contains)) or (nameof(string.StartsWith)))
-                        {
-                            text = string.Concat("%", text);
-                        }
-
-                        if (name is (nameof(string.Contains)) or (nameof(string.EndsWith)))
-                        {
-                            text = string.Concat(text, "%");
-                        }
-
-                        Visit(node.Object);
-
-                        Writer.Keyword(SqlKeyword.LIKE);
-
-                        Writer.Constant(text);
-
-                        break;
-                    }
-
                     Visit(node.Object);
 
                     Writer.Keyword(SqlKeyword.LIKE);
+
+                    if (Engine == DatabaseEngine.MySQL)
+                    {
+                        Writer.Write("CONCAT");
+                    }
+
+                    Writer.OpenBrace();
+
+                    if (name is (nameof(string.Contains)) or (nameof(string.EndsWith)))
+                    {
+                        Writer.Write("'%'");
+
+                        if (Engine is DatabaseEngine.PostgreSQL or DatabaseEngine.Oracle)
+                        {
+                            Writer.Write(" || ");
+                        }
+                        else if (Engine == DatabaseEngine.MySQL)
+                        {
+                            Writer.Delimiter();
+                        }
+                        else
+                        {
+                            Writer.Write(" + ");
+                        }
+                    }
+
+                    Visit(node.Arguments[0]);
 
                     if (name is (nameof(string.Contains)) or (nameof(string.StartsWith)))
                     {
                         if (Engine is DatabaseEngine.PostgreSQL or DatabaseEngine.Oracle)
                         {
-                            Writer.Write("'%' || ");
+                            Writer.Write(" || ");
+                        }
+                        else if (Engine == DatabaseEngine.MySQL)
+                        {
+                            Writer.Delimiter();
                         }
                         else
                         {
-                            Writer.Write("'%' + ");
+                            Writer.Write(" + ");
                         }
+
+                        Writer.Write("'%'");
                     }
 
-                    Visit(fuzzyPairt);
-
-                    if (name is (nameof(string.Contains)) or (nameof(string.EndsWith)))
-                    {
-                        if (Engine is DatabaseEngine.PostgreSQL or DatabaseEngine.Oracle)
-                        {
-                            Writer.Write(" || '%'");
-                        }
-                        else
-                        {
-                            Writer.Write(" + '%'");
-                        }
-                    }
+                    Writer.CloseBrace();
 
                     break;
                 case nameof(string.IsNullOrEmpty) when IsPlainVariable(node.Arguments[0], true):
@@ -1121,7 +1099,10 @@ namespace Inkslab.Linq.Expressions
                     break;
                 case nameof(string.Concat) when node.Arguments.Count > 1:
 
-                    Writer.Write("CONCAT");
+                    if (Engine == DatabaseEngine.MySQL)
+                    {
+                        Writer.Write("CONCAT");
+                    }
 
                     Writer.OpenBrace();
 
@@ -1129,7 +1110,18 @@ namespace Inkslab.Linq.Expressions
                     {
                         if (i > 0)
                         {
-                            Writer.Delimiter();
+                            if (Engine is DatabaseEngine.PostgreSQL or DatabaseEngine.Oracle)
+                            {
+                                Writer.Write(" || ");
+                            }
+                            else if (Engine == DatabaseEngine.MySQL)
+                            {
+                                Writer.Delimiter();
+                            }
+                            else
+                            {
+                                Writer.Write(" + ");
+                            }
                         }
 
                         Visit(node.Arguments[i]);

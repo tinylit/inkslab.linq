@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics;
 using System.Linq.Expressions;
 using Inkslab.Linq.Enums;
@@ -16,6 +17,19 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
+        public override void Startup(Expression node)
+        {
+            if (node.NodeType == ExpressionType.Conditional)
+            {
+                base.Startup(node);
+            }
+            else
+            {
+                throw new InvalidOperationException();
+            }
+        }
+
+        /// <inheritdoc/>
         protected override void Conditional(ConditionalExpression node)
         {
             using (var domain = Writer.Domain())
@@ -28,7 +42,7 @@ namespace Inkslab.Linq.Expressions
                     {
                         using (var domainSub = Writer.Domain())
                         {
-                            Visit(node.IfFalse);
+                            Condition(node.IfFalse);
 
                             if (domainSub.IsEmpty)
                             {
@@ -72,7 +86,7 @@ namespace Inkslab.Linq.Expressions
                     {
                         using (var domainSub = Writer.Domain())
                         {
-                            Visit(node.IfTrue);
+                            Condition(node.IfTrue);
 
                             if (domainSub.IsEmpty)
                             {
@@ -108,7 +122,7 @@ namespace Inkslab.Linq.Expressions
                     {
                         using (var domainSub = Writer.Domain())
                         {
-                            Visit(node.IfFalse);
+                            Condition(node.IfFalse);
 
                             if (domainSub.IsEmpty)
                             {

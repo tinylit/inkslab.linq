@@ -693,6 +693,9 @@ namespace Inkslab.Linq
         {
             switch (value)
             {
+                case null:
+                    Write("NULL");
+                    break;
                 case byte:
                 case sbyte:
                 case short:
@@ -755,13 +758,6 @@ namespace Inkslab.Linq
         /// <param name="varValue">参数值。</param>
         public virtual void Variable(string varName, object varValue)
         {
-            if (varValue is null)
-            {
-                Keyword(SqlKeyword.NULL);
-
-                return;
-            }
-
             if (varValue is Version version)
             {
                 varValue = version.ToString();

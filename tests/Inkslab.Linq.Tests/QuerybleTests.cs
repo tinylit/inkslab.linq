@@ -1482,6 +1482,40 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
+        /// 常量字符串空判断。
+        /// </summary>
+        [Fact]
+        public void TestIsNullOrEmptyByEmpty()
+        {
+            string name = string.Empty;
+
+            var linq =
+                from x in _users
+                where x.Id == 100
+                orderby x.DateAt descending
+                select new { x.Id, x.Name, Null = string.IsNullOrEmpty(name) };
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 常量字符串空判断。
+        /// </summary>
+        [Fact]
+        public void TestIsNullOrEmptyByNull()
+        {
+            string name = null;
+
+            var linq =
+                from x in _users
+                where x.Id == 100
+                orderby x.DateAt descending
+                select new { x.Id, x.Name, Null = string.IsNullOrEmpty(name) };
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
         /// 测试字符串替换。
         /// </summary>
         [Fact]

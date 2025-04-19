@@ -21,7 +21,7 @@ namespace Inkslab.Linq.Expressions
             {
                 using (var domain = Writer.Domain())
                 {
-                    Visit(node);
+                    Condition(node);
 
                     if (domain.IsEmpty)
                     {

@@ -668,36 +668,6 @@ namespace Inkslab.Linq.Expressions
                     Writer.CloseBrace();
 
                     break;
-                case nameof(string.IsNullOrEmpty) when IsPlainVariable(node.Arguments[0], true):
-                    {
-                        var text = node.Arguments[0].GetValueFromExpression<string>();
-
-                        if (string.IsNullOrEmpty(text))
-                        {
-                            Writer.AlwaysTrue();
-                        }
-                        else
-                        {
-                            Writer.AlwaysFalse();
-                        }
-
-                        break;
-                    }
-                case nameof(string.IsNullOrWhiteSpace) when IsPlainVariable(node.Arguments[0], true):
-                    {
-                        var text = node.Arguments[0].GetValueFromExpression<string>();
-
-                        if (string.IsNullOrWhiteSpace(text))
-                        {
-                            Writer.AlwaysTrue();
-                        }
-                        else
-                        {
-                            Writer.AlwaysFalse();
-                        }
-
-                        break;
-                    }
                 case nameof(string.IsNullOrEmpty):
 
                     using (var domain = Writer.Domain())

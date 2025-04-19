@@ -1,6 +1,4 @@
-using System.Reflection;
 using System.Linq.Expressions;
-using System;
 using System.Diagnostics;
 
 namespace Inkslab.Linq.Expressions
@@ -11,42 +9,46 @@ namespace Inkslab.Linq.Expressions
     [DebuggerDisplay("As")]
     public class AsVisitor : BaseVisitor
     {
-        private readonly bool _showAs;
-
         /// <inheritdoc/>
-        public AsVisitor(BaseVisitor visitor, bool showAs) : base(visitor)
+        public AsVisitor(BaseVisitor visitor) : base(visitor)
         {
-            _showAs = showAs;
         }
 
         /// <inheritdoc/>
-        public void Startup(MemberInfo memberInfo, Expression node)
+        public override void Startup(Expression node)
         {
             if (RequiresConditionalEscape() && IsCondition(node))
             {
-                Writer.Keyword(Enums.SqlKeyword.CASE);
-                Writer.Keyword(Enums.SqlKeyword.WHEN);
+                using (var domain = Writer.Domain())
+                {
+                    Visit(node);
 
-                Visit(node);
+                    if (domain.IsEmpty)
+                    {
+                        Writer.True();
+                    }
+                    else
+                    {
+                        Writer.Keyword(Enums.SqlKeyword.THEN);
 
-                Writer.Keyword(Enums.SqlKeyword.THEN);
+                        Writer.True();
 
-                Writer.True();
+                        Writer.Keyword(Enums.SqlKeyword.ELSE);
 
-                Writer.Keyword(Enums.SqlKeyword.ELSE);
+                        Writer.False();
 
-                Writer.False();
+                        Writer.Keyword(Enums.SqlKeyword.END);
 
-                Writer.Keyword(Enums.SqlKeyword.END);
+                        domain.Flyback();
+
+                        Writer.Keyword(Enums.SqlKeyword.CASE);
+                        Writer.Keyword(Enums.SqlKeyword.WHEN);
+                    }
+                }
             }
             else
             {
                 Visit(node);
-            }
-
-            if (_showAs)
-            {
-                Writer.AsName(memberInfo.Name);
             }
         }
 

@@ -2062,6 +2062,7 @@ namespace Inkslab.Linq.Expressions
 
                     bool isStringConcat =
                         expressionType == ExpressionType.Add
+                        && Engine is DatabaseEngine.MySQL or DatabaseEngine.PostgreSQL or DatabaseEngine.Oracle
                         && (left.Type == Types.String || right.Type == Types.String);
 
                     using (var domain = Writer.Domain())
@@ -2090,7 +2091,14 @@ namespace Inkslab.Linq.Expressions
 
                             if (isStringConcat)
                             {
-                                Writer.Delimiter();
+                                if (Engine is DatabaseEngine.PostgreSQL or DatabaseEngine.Oracle)
+                                {
+                                    Writer.Write(" || ");
+                                }
+                                else
+                                {
+                                    Writer.Delimiter();
+                                }
                             }
                             else
                             {
@@ -2100,7 +2108,7 @@ namespace Inkslab.Linq.Expressions
 
                         domain.Flyback();
 
-                        if (isStringConcat)
+                        if (isStringConcat && Engine == DatabaseEngine.MySQL)
                         {
                             Writer.Write("CONCAT");
                         }
@@ -2155,7 +2163,12 @@ namespace Inkslab.Linq.Expressions
 
                         if (domain.IsEmpty)
                         {
-                            Condition(right);
+                            if (Writer.IsConditionReversal
+                                ? expressionType == ExpressionType.OrElse
+                                : expressionType == ExpressionType.AndAlso)
+                            {
+                                Condition(right);
+                            }
                         }
                         else
                         {

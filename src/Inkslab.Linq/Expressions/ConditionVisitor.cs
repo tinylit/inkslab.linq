@@ -23,14 +23,6 @@ namespace Inkslab.Linq.Expressions
         /// <param name="node"></param>
         public override void Startup(Expression node) => base.Condition(node);
 
-        /// <summary>
-        /// 比较表达式。
-        /// </summary>
-        /// <param name="left">左节点。</param>
-        /// <param name="expressionType">表达式类型。</param>
-        /// <param name="right">右节点。</param>
-        public void Startup(Expression left, ExpressionType expressionType, Expression right) => Binary(left, expressionType, right);
-
         /// <inheritdoc/>
         protected override void LinqCall(MethodCallExpression node)
         {

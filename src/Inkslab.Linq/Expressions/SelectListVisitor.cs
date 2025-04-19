@@ -6,7 +6,7 @@ using System.Reflection;
 namespace Inkslab.Linq.Expressions
 {
     /// <summary>
-    /// <see cref="System.Linq.Queryable.Select{TSource, TResult}(System.Linq.IQueryable{TSource}, Expression{System.Func{TSource, TResult}})"/>。
+    /// <see cref="Queryable.Select{TSource, TResult}(IQueryable{TSource}, Expression{System.Func{TSource, TResult}})"/>。
     /// </summary>
     [DebuggerDisplay("SelectField")]
     public class SelectListVisitor : BaseVisitor
@@ -25,9 +25,14 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override void Member(MemberInfo memberInfo, Expression node)
         {
-            using (var visitor = new AsVisitor(this, _showAs))
+            using (var visitor = new AsVisitor(this))
             {
-                visitor.Startup(memberInfo, node);
+                visitor.Startup(node);
+            }
+
+            if (_showAs)
+            {
+                Writer.AsName(memberInfo.Name);
             }
         }
 

@@ -351,9 +351,14 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override void Member(MemberInfo memberInfo, Expression node)
         {
-            using (var visitor = new AsVisitor(this, _showAs))
+            using (var visitor = new AsVisitor(this))
             {
-                visitor.Startup(memberInfo, node);
+                visitor.Startup(node);
+            }
+
+            if (_showAs)
+            {
+                Writer.AsName(memberInfo.Name);
             }
         }
 

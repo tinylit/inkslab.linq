@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Threading.Tasks;
 using Inkslab.Linq.Exceptions;
 using Xunit;
@@ -1548,12 +1549,12 @@ namespace Inkslab.Linq.Tests
         [Fact]
         public void TestNullableEqualNull()
         {
-            var now = DateTime.Now;
-            var takeTime = now.AddDays(-5D);
-            var offsetTime = now.AddSeconds(-5D);
+            var date = new DateTime(2025, 4, 20);
+            var takeTime = date.AddDays(-5D);
+            var offsetTime = date.AddSeconds(-5D);
 
             var messages = _publisheds
-                    .Where(x => x.Status == 0 && (null == x.ExpiresAt || x.ExpiresAt.Value > now))
+                    .Where(x => x.Status == 0 && (null == x.ExpiresAt || x.ExpiresAt.Value > date))
                     .Where(x => x.DeliverTime > takeTime && x.DeliverTime <= offsetTime)
                     .ToList();
 
@@ -1563,9 +1564,9 @@ namespace Inkslab.Linq.Tests
         [Fact]
         public void TestNullableNotEqualNull()
         {
-            var now = DateTime.Now;
-            var takeTime = now.AddDays(-5D);
-            var offsetTime = now.AddSeconds(-5D);
+            var date = new DateTime(2025, 4, 20);
+            var takeTime = date.AddDays(-5D);
+            var offsetTime = date.AddSeconds(-5D);
 
             var messages = _publisheds
                     .Where(x => x.Status == 0 && null != x.ExpiresAt)
@@ -1578,9 +1579,9 @@ namespace Inkslab.Linq.Tests
         [Fact]
         public void TestSkipWhileNullableNotEqualNull()
         {
-            var now = DateTime.Now;
-            var takeTime = now.AddDays(-5D);
-            var offsetTime = now.AddSeconds(-5D);
+            var date = new DateTime(2025, 4, 20);
+            var takeTime = date.AddDays(-5D);
+            var offsetTime = date.AddSeconds(-5D);
 
             var messages = _publisheds
                     .Where(x => x.Status == 0)
@@ -1596,16 +1597,166 @@ namespace Inkslab.Linq.Tests
         {
             int? status = null;
             string name = null;
-            var now = DateTime.Now;
-            var takeTime = now.AddDays(-5D);
-            var offsetTime = now.AddSeconds(-5D);
+            var date = new DateTime(2025, 4, 20);
+            var takeTime = date.AddDays(-5D);
+            var offsetTime = date.AddSeconds(-5D);
 
             var messages = _publisheds
-                    .Where(x => x.Status == status && (null == x.ExpiresAt || x.ExpiresAt > now) && x.ExchangeName != name)
+                    .Where(x => x.Status == status && (null == x.ExpiresAt || x.ExpiresAt > date) && x.ExchangeName != name)
                     .Where(x => x.DeliverTime > takeTime && x.DeliverTime <= offsetTime)
                     .ToList();
 
             Assert.Single(messages);
+        }
+
+        /// <summary>
+        /// 布尔字段。
+        /// </summary>
+        [Fact]
+        public void TestBooleanFieldOnly()
+        {
+            var linq =
+                from x in _users
+                where x.IsAdministrator
+                orderby x.DateAt descending
+                select x.Id;
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 布尔字段。
+        /// </summary>
+        [Fact]
+        public void TestBooleanField()
+        {
+            var linq =
+                from x in _users
+                where x.Id == 100 && x.IsAdministrator
+                orderby x.DateAt descending
+                select x.Id;
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 布尔字段。
+        /// </summary>
+        [Fact]
+        public void TestBooleanNullableFieldOnly()
+        {
+            var linq =
+                from x in _users
+                where x.Nullable.Value
+                orderby x.DateAt descending
+                select x.Id;
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 布尔字段。
+        /// </summary>
+        [Fact]
+        public void TestBooleanNullableHasValueFieldOnly()
+        {
+            var linq =
+                from x in _users
+                where x.Nullable.HasValue
+                orderby x.DateAt descending
+                select x.Id;
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 布尔字段。
+        /// </summary>
+        [Fact]
+        public void TestBooleanNullableField()
+        {
+            var linq =
+                from x in _users
+                where x.Id == 100 && x.Nullable.Value
+                orderby x.DateAt descending
+                select x.Id;
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 布尔字段。
+        /// </summary>
+        [Fact]
+        public void TestBooleanNullableHasValueField()
+        {
+            var linq =
+                from x in _users
+                where x.Id == 100 && x.Nullable.HasValue
+                orderby x.DateAt descending
+                select x.Id;
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 布尔字段。
+        /// </summary>
+        [Fact]
+        public void TestBooleanNullableCoalesceField()
+        {
+            var linq =
+                from x in _users
+                where x.Id == 100 && (x.Nullable ?? x.IsAdministrator)
+                orderby x.DateAt descending
+                select x.Id;
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 布尔字段。
+        /// </summary>
+        [Fact]
+        public void TestBooleanNullableExclusiveOrField()
+        {
+            var linq =
+                from x in _users
+                where x.Id == 100 && (x.Nullable.Value ^ x.IsAdministrator)
+                orderby x.DateAt descending
+                select x.Id;
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 布尔字段。
+        /// </summary>
+        [Fact]
+        public void TestBooleanNullableHasValueExclusiveOrField()
+        {
+            var linq =
+                from x in _users
+                where x.Id == 100 && (x.Nullable.HasValue ^ x.IsAdministrator)
+                orderby x.DateAt descending
+                select x.Id;
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 布尔字段。
+        /// </summary>
+        [Fact]
+        public void TestBooleanNullableHasValueAndField()
+        {
+            var linq =
+                from x in _users
+                where x.Id == 100 && (x.Nullable.HasValue & x.IsAdministrator)
+                orderby x.DateAt descending
+                select x.Id;
+
+            var results = linq.ToList();
         }
     }
 }

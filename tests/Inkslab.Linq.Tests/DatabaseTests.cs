@@ -142,7 +142,7 @@ namespace Inkslab.Linq.Tests
         [Fact]
         public void IDENTITY()
         {
-            string sql = "INSERT INTO `user`(`name`,`date`) VALUES(@name,@now);SELECT @@IDENTITY;";
+            string sql = "INSERT INTO `user`(`name`,`date`,`is_administrator`) VALUES(@name,@now,0);SELECT @@IDENTITY;";
 
             var i = _database.Single<long?>(sql, new { name = "测试", now = DateTime.Now });
         }

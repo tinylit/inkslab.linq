@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using Inkslab.Collections;
 using Inkslab.Linq.Enums;
 using Inkslab.Linq.Exceptions;
 
@@ -192,6 +193,95 @@ namespace Inkslab.Linq.Expressions
         /// <returns>是否是常规变量。</returns>
         protected virtual bool IsPlainVariable(Expression node) => IsPlainVariable(node, false);
 
+        private static readonly Lfu<Expression, bool> _lfu = new Lfu<Expression, bool>(10000, ExpressionEqualityComparer.Instance, IsPlainVariableNS);
+
+        private static bool IsPlainVariableNS(Expression node)
+        {
+            if (node.NodeType == ExpressionType.Parameter)
+            {
+                return false;
+            }
+
+            switch (node)
+            {
+                case ConstantExpression constant:
+                    return constant.Value is not IQueryable;
+                case MemberExpression member:
+                    if (member.Expression is null)
+                    {
+                        return true;
+                    }
+
+                    switch (member.Member)
+                    {
+                        case FieldInfo fieldInfo:
+                            if (fieldInfo.IsStatic)
+                            {
+                                return true;
+                            }
+
+                            break;
+
+                        default:
+                            var declaringType = member.Member.DeclaringType;
+
+                            if (declaringType.IsSealed && declaringType.IsAbstract) //? 静态类。
+                            {
+                                return true;
+                            }
+
+                            break;
+                    }
+
+                    return IsPlainVariableNS(member.Expression);
+                case MethodCallExpression method
+                                    when method.Object is null || IsPlainVariableNS(method.Object):
+                    return method.Arguments.Count == 0
+                        || method.Arguments.All(arg =>
+                            IsPlainVariableNS(arg)
+                        );
+                case BinaryExpression binary:
+                    return IsPlainVariableNS(binary.Left)
+                        && IsPlainVariableNS(binary.Right);
+                case LambdaExpression lambda when lambda.Parameters.Count == 0:
+                    return IsPlainVariableNS(lambda.Body);
+                case NewExpression newExpression when newExpression.Members.Count == 0:
+                    return newExpression.Arguments.Count == 0
+                        || newExpression.Arguments.All(arg =>
+                            IsPlainVariableNS(arg)
+                        );
+                case MemberInitExpression memberInit
+                                    when IsPlainVariableNS(memberInit.NewExpression):
+                    foreach (var binding in memberInit.Bindings)
+                    {
+                        if (
+                            binding is MemberAssignment assignment
+                            && IsPlainVariableNS(assignment.Expression)
+                        )
+                        {
+                            continue;
+                        }
+
+                        return false;
+                    }
+                    return true;
+                case ConditionalExpression conditional
+                                    when IsPlainVariableNS(conditional.Test):
+                    return IsPlainVariableNS(conditional.IfTrue)
+                        && IsPlainVariableNS(conditional.IfFalse);
+                case UnaryExpression unary when unary.NodeType is ExpressionType.Quote
+                                        or ExpressionType.Convert
+                                        or ExpressionType.ConvertChecked
+                                        or ExpressionType.OnesComplement
+                                        or ExpressionType.IsTrue
+                                        or ExpressionType.IsFalse
+                                        or ExpressionType.Not:
+                    return IsPlainVariableNS(unary.Operand);
+                default:
+                    return false;
+            }
+        }
+
         /// <summary>
         /// 是普通变量。
         /// </summary>
@@ -238,61 +328,7 @@ namespace Inkslab.Linq.Expressions
 
                     return IsPlainVariable(member.Expression, depthVerification);
                 default:
-                    {
-                        if (depthVerification)
-                        {
-                            switch (node)
-                            {
-                                case MethodCallExpression method
-                                    when method.Object is null || IsPlainVariable(method.Object, depthVerification):
-                                    return method.Arguments.Count == 0
-                                        || method.Arguments.All(arg =>
-                                            IsPlainVariable(arg, depthVerification)
-                                        );
-                                case BinaryExpression binary:
-                                    return IsPlainVariable(binary.Left, depthVerification)
-                                        && IsPlainVariable(binary.Right, depthVerification);
-                                case LambdaExpression lambda when lambda.Parameters.Count == 0:
-                                    return IsPlainVariable(lambda.Body, depthVerification);
-                                case NewExpression newExpression when newExpression.Members.Count == 0:
-                                    return newExpression.Arguments.Count == 0
-                                        || newExpression.Arguments.All(arg =>
-                                            IsPlainVariable(arg, depthVerification)
-                                        );
-                                case MemberInitExpression memberInit
-                                    when IsPlainVariable(memberInit.NewExpression, depthVerification):
-                                    foreach (var binding in memberInit.Bindings)
-                                    {
-                                        if (
-                                            binding is MemberAssignment assignment
-                                            && IsPlainVariable(assignment.Expression, depthVerification)
-                                        )
-                                        {
-                                            continue;
-                                        }
-
-                                        return false;
-                                    }
-                                    return true;
-                                case ConditionalExpression conditional
-                                    when IsPlainVariable(conditional.Test, depthVerification):
-                                    return IsPlainVariable(conditional.IfTrue, depthVerification)
-                                        && IsPlainVariable(conditional.IfFalse, depthVerification);
-                                case UnaryExpression unary when unary.NodeType is ExpressionType.Quote
-                                        or ExpressionType.Convert
-                                        or ExpressionType.ConvertChecked
-                                        or ExpressionType.OnesComplement
-                                        or ExpressionType.IsTrue
-                                        or ExpressionType.IsFalse
-                                        or ExpressionType.Not:
-                                    return IsPlainVariable(unary.Operand, depthVerification);
-                                default:
-                                    return false;
-                            }
-                        }
-
-                        return false;
-                    }
+                    return depthVerification && _lfu.Get(node);
             }
         }
 
@@ -313,6 +349,8 @@ namespace Inkslab.Linq.Expressions
             {
                 case ExpressionType.AndAlso:
                 case ExpressionType.OrElse:
+                case ExpressionType.IsTrue:
+                case ExpressionType.IsFalse:
                 case ExpressionType.Equal:
                 case ExpressionType.NotEqual:
                 case ExpressionType.GreaterThan:
@@ -325,8 +363,6 @@ namespace Inkslab.Linq.Expressions
                 case ExpressionType.Convert:
                 case ExpressionType.ConvertChecked:
                 case ExpressionType.OnesComplement:
-                case ExpressionType.IsTrue:
-                case ExpressionType.IsFalse:
                 case ExpressionType.Not:
                     return IsCondition(((UnaryExpression)node).Operand);
                 case ExpressionType.Lambda:
@@ -619,7 +655,9 @@ namespace Inkslab.Linq.Expressions
 
                 Writer.Write("CAST");
                 Writer.OpenBrace();
+
                 Visit(node);
+
                 Writer.Write("AS DATE");
                 Writer.CloseBrace();
 
@@ -654,7 +692,9 @@ namespace Inkslab.Linq.Expressions
             }
 
             Writer.Delimiter();
+
             Visit(node);
+
             Writer.CloseBrace();
         }
 
@@ -701,78 +741,18 @@ namespace Inkslab.Linq.Expressions
             }
             else if (node.Expression.IsNullable())
             {
-                Visit(node.Expression);
-
                 if (node.Member.Name == "HasValue")
                 {
-                    Writer.Keyword(SqlKeyword.IS);
-                    Writer.Keyword(SqlKeyword.NOT);
-                    Writer.Keyword(SqlKeyword.NULL);
+                    MemberHasValue(node.Expression);
+                }
+                else
+                {
+                    Visit(node.Expression);
                 }
             }
             else if (node.Expression.Type == Types.DateTime)
             {
-                switch (node.Member.Name)
-                {
-                    case nameof(DateTime.Day) when Engine == DatabaseEngine.PostgreSQL:
-                        Writer.Write("EXTRACT");
-                        Writer.OpenBrace();
-                        Writer.Write("DAY FROM ");
-                        Visit(node.Expression);
-                        Writer.CloseBrace();
-                        break;
-                    case nameof(DateTime.Day):
-                        Writer.Write("DAY");
-                        Writer.OpenBrace();
-                        Visit(node.Expression);
-                        Writer.CloseBrace();
-                        break;
-                    case nameof(DateTime.Month) when Engine == DatabaseEngine.PostgreSQL:
-                        Writer.Write("EXTRACT");
-                        Writer.OpenBrace();
-                        Writer.Write("MONTH FROM ");
-                        Visit(node.Expression);
-                        Writer.CloseBrace();
-                        break;
-                    case nameof(DateTime.Month):
-                        Writer.Write("MOUTH");
-                        Writer.OpenBrace();
-                        Visit(node.Expression);
-                        Writer.CloseBrace();
-                        break;
-                    case nameof(DateTime.Year) when Engine == DatabaseEngine.PostgreSQL:
-                        Writer.Write("EXTRACT");
-                        Writer.OpenBrace();
-                        Writer.Write("YEAR FROM ");
-                        Visit(node.Expression);
-                        Writer.CloseBrace();
-                        break;
-                    case nameof(DateTime.Year):
-                        Writer.Write("YEAR");
-                        Writer.OpenBrace();
-                        Visit(node.Expression);
-                        Writer.CloseBrace();
-                        break;
-                    case nameof(DateTime.Date) when Engine == DatabaseEngine.MySQL:
-                    case nameof(DateTime.Second) when Engine == DatabaseEngine.MySQL:
-                    case nameof(DateTime.Minute) when Engine == DatabaseEngine.MySQL:
-                    case nameof(DateTime.Hour) when Engine == DatabaseEngine.MySQL:
-                    case nameof(DateTime.DayOfWeek) when Engine == DatabaseEngine.MySQL:
-                    case nameof(DateTime.DayOfYear) when Engine == DatabaseEngine.MySQL:
-                        MySql(node.Member.Name, node.Expression);
-                        break;
-                    case nameof(DateTime.Date) when Engine == DatabaseEngine.SqlServer:
-                    case nameof(DateTime.Millisecond) when Engine == DatabaseEngine.SqlServer:
-                    case nameof(DateTime.Second) when Engine == DatabaseEngine.SqlServer:
-                    case nameof(DateTime.Minute) when Engine == DatabaseEngine.SqlServer:
-                    case nameof(DateTime.Hour) when Engine == DatabaseEngine.SqlServer:
-                    case nameof(DateTime.DayOfWeek) when Engine == DatabaseEngine.SqlServer:
-                    case nameof(DateTime.DayOfYear) when Engine == DatabaseEngine.SqlServer:
-                        SqlServer(node.Member.Name, node.Expression);
-                        break;
-                    default:
-                        throw new NotSupportedException($"不支持“{node.Member.Name}”日期片段计算!");
-                }
+                DateTimeMember(node);
             }
             else if (IsPlainVariable(node, true))
             {
@@ -801,6 +781,92 @@ namespace Inkslab.Linq.Expressions
             }
 
             return node;
+        }
+
+        /// <summary>
+        /// 是否有值成员。
+        /// </summary>
+        /// <param name="node">节点。</param>
+        protected virtual void MemberHasValue(Expression node)
+        {
+            Writer.OpenBrace();
+
+            Visit(node);
+
+            Writer.Keyword(SqlKeyword.IS);
+            Writer.Keyword(SqlKeyword.NOT);
+            Writer.Keyword(SqlKeyword.NULL);
+
+            Writer.CloseBrace();
+        }
+
+        /// <summary>
+        /// 日期成员。
+        /// </summary>
+        /// <param name="node">节点。</param>
+        protected virtual void DateTimeMember(MemberExpression node)
+        {
+            switch (node.Member.Name)
+            {
+                case nameof(DateTime.Day) when Engine == DatabaseEngine.PostgreSQL:
+                    Writer.Write("EXTRACT");
+                    Writer.OpenBrace();
+                    Writer.Write("DAY FROM ");
+                    Visit(node.Expression);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Day):
+                    Writer.Write("DAY");
+                    Writer.OpenBrace();
+                    Visit(node.Expression);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Month) when Engine == DatabaseEngine.PostgreSQL:
+                    Writer.Write("EXTRACT");
+                    Writer.OpenBrace();
+                    Writer.Write("MONTH FROM ");
+                    Visit(node.Expression);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Month):
+                    Writer.Write("MOUTH");
+                    Writer.OpenBrace();
+                    Visit(node.Expression);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Year) when Engine == DatabaseEngine.PostgreSQL:
+                    Writer.Write("EXTRACT");
+                    Writer.OpenBrace();
+                    Writer.Write("YEAR FROM ");
+                    Visit(node.Expression);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Year):
+                    Writer.Write("YEAR");
+                    Writer.OpenBrace();
+                    Visit(node.Expression);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Date) when Engine == DatabaseEngine.MySQL:
+                case nameof(DateTime.Second) when Engine == DatabaseEngine.MySQL:
+                case nameof(DateTime.Minute) when Engine == DatabaseEngine.MySQL:
+                case nameof(DateTime.Hour) when Engine == DatabaseEngine.MySQL:
+                case nameof(DateTime.DayOfWeek) when Engine == DatabaseEngine.MySQL:
+                case nameof(DateTime.DayOfYear) when Engine == DatabaseEngine.MySQL:
+                    MySql(node.Member.Name, node.Expression);
+                    break;
+                case nameof(DateTime.Date) when Engine == DatabaseEngine.SqlServer:
+                case nameof(DateTime.Millisecond) when Engine == DatabaseEngine.SqlServer:
+                case nameof(DateTime.Second) when Engine == DatabaseEngine.SqlServer:
+                case nameof(DateTime.Minute) when Engine == DatabaseEngine.SqlServer:
+                case nameof(DateTime.Hour) when Engine == DatabaseEngine.SqlServer:
+                case nameof(DateTime.DayOfWeek) when Engine == DatabaseEngine.SqlServer:
+                case nameof(DateTime.DayOfYear) when Engine == DatabaseEngine.SqlServer:
+                    SqlServer(node.Member.Name, node.Expression);
+                    break;
+                default:
+                    throw new NotSupportedException($"不支持“{node.Member.Name}”日期片段计算!");
+            }
         }
 
         /// <inheritdoc/>

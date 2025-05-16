@@ -717,7 +717,14 @@ namespace Inkslab.Linq
 
                     break;
                 case bool boolean:
-                    Write(boolean ? '1' : '0');
+                    if (boolean)
+                    {
+                        True();
+                    }
+                    else
+                    {
+                        False();
+                    }
                     break;
                 case string text:
                     if (text.Length == 0)

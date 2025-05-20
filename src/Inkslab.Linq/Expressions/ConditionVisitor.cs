@@ -145,18 +145,6 @@ namespace Inkslab.Linq.Expressions
             {
                 ByString(node);
             }
-            else if (RequiresConditionalEscape() && node.Type.IsBoolean())
-            {
-                using (var domain = Writer.Domain())
-                {
-                    base.MethodCall(node);
-
-                    if (domain.HasValue)
-                    {
-                        Writer.Operator(SqlOperator.IsTrue);
-                    }
-                }
-            }
             else
             {
                 base.MethodCall(node);

@@ -537,12 +537,10 @@ namespace Inkslab.Linq
                     Write('+');
                     break;
                 case SqlOperator.IsTrue:
-                    Write(" = ");
-                    True();
+                    Write(" = 1");
                     break;
                 case SqlOperator.IsFalse:
-                    Write(" = ");
-                    False();
+                    Write(" = 0");
                     break;
                 default:
                     throw new NotSupportedException();

@@ -20,7 +20,7 @@ namespace Inkslab.Linq.SqlServer
         }
 
         /// <inheritdoc/>
-        public DatabaseEngine Engine => DatabaseEngine.MySQL;
+        public DatabaseEngine Engine => DatabaseEngine.SqlServer;
         /// <inheritdoc/>
         public IDbCorrectSettings Settings => _settings;
         /// <inheritdoc/>

@@ -21,12 +21,9 @@ namespace Inkslab.Linq
 
         private RowStyle rowStyle = RowStyle.FirstOrDefault;
 
-        private readonly IDbAdapter _adapter;
-
         /// <inheritdoc/>
         public QueryVisitor(IDbAdapter adapter) : base(adapter)
         {
-            _adapter = adapter;
         }
 
         /// <inheritdoc/>
@@ -41,7 +38,7 @@ namespace Inkslab.Linq
 
                     Writer.Keyword(Enums.SqlKeyword.SELECT);
 
-                    if (_adapter.Engine == DatabaseEngine.MySQL)
+                    if (Engine == DatabaseEngine.MySQL)
                     {
                         base.LinqCore(node);
 
@@ -55,11 +52,11 @@ namespace Inkslab.Linq
 
                     Writer.Keyword(Enums.SqlKeyword.THEN);
 
-                    Writer.AlwaysTrue();
+                    Writer.True();
 
                     Writer.Keyword(Enums.SqlKeyword.ELSE);
 
-                    Writer.AlwaysFalse();
+                    Writer.False();
 
                     Writer.Keyword(Enums.SqlKeyword.END);
 

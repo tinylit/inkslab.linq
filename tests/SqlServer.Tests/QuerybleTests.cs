@@ -165,13 +165,42 @@ namespace SqlServer.Tests
             public DateTime CreateTime { get; set; }
         }
 
+        /// <summary>
+        /// 客户活动表:按照客户id分表
+        /// </summary>
+        [Table("CustomerActivity[sharding_key]")]
+        public class CustomerActivity
+        {
+            /// <summary>
+            /// ID
+            /// </summary>
+            public long Id { get; set; }
+            /// <summary>
+            /// 事业部ID
+            /// </summary>
+            public long DivisionId { get; set; }
+            /// <summary>
+            /// 客户ID
+            /// </summary>
+            public long CustomerId { get; set; }
+            /// <summary>
+            /// 活动ID
+            /// </summary>
+            public long ActivityId { get; set; }
+            /// <summary>
+            /// 终端类型
+            /// </summary>
+            public int TerminalType { get; set; }
+        }
+
         #endregion
         private readonly IQueryable<Activity> _activities;
+        private readonly IQueryable<CustomerActivity> _customerActivities;
 
-        public QuerybleTests(IQueryable<Activity> activities)
+        public QuerybleTests(IQueryable<Activity> activities, IQueryable<CustomerActivity> customerActivities)
         {
             _activities = activities;
-
+            _customerActivities = customerActivities;
         }
 
         [Fact]
@@ -184,6 +213,19 @@ namespace SqlServer.Tests
                         .Where(s => activityIds.Contains(s.Id) && s.EndTime > now && s.IsEnable)
                         .OrderByDescending(s => s.Id)
                         .ToListAsync();
+        }
+
+        [Fact]
+        public async Task Test2Async()
+        {
+            long divisionId = 1;
+            long customerId = 1;
+            long activityId = 1;
+            var terminalTypes = new List<int> { 0, 1 };
+
+            var flag = await _customerActivities.DataSharding("000")
+                    .Where(s => s.CustomerId == customerId && s.ActivityId == activityId && s.DivisionId == divisionId && terminalTypes.Contains(s.TerminalType))
+                    .AnyAsync();
         }
     }
 }

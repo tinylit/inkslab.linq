@@ -410,7 +410,9 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override sealed Expression VisitMethodCall(MethodCallExpression node)
         {
-            var instanceArg = node.Arguments[0];
+            var instanceArg = node.Method.IsStatic
+                ? node.Arguments[0] 
+                : node.Object;
 
             switch (node.Method.Name)
             {

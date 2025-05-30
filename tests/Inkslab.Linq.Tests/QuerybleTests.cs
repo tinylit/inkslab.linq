@@ -1757,5 +1757,19 @@ namespace Inkslab.Linq.Tests
 
             var results = linq.ToList();
         }
+
+        [Fact]
+        public void ToStringTest()
+        {
+            var id = 100;
+
+            var linq =
+                from x in _users
+                where x.Name == id.ToString()
+                orderby x.DateAt descending
+                select x;
+
+            var results = linq.ToList();
+        }
     }
 }

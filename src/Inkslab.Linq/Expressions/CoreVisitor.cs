@@ -68,7 +68,7 @@ namespace Inkslab.Linq.Expressions
                 }
                 else
                 {
-                    throw new NotSupportedException();
+                    throw new NotSupportedException(NotSupportedErrorMsg(node));
                 }
             }
             else if (declaringType == Types.String)
@@ -97,10 +97,27 @@ namespace Inkslab.Linq.Expressions
 
                 Visit(queryable?.Expression);
             }
+            else if ((node.Method.IsStatic ? node.Type.IsSimple() : declaringType.IsSimple()) && IsPlainVariable(node, true))
+            {
+                //? 直接使用变量。
+                var value = node.GetValueFromExpression();
+
+                Writer.Constant(value);
+            }
             else
             {
-                throw new NotSupportedException();
+                throw new NotSupportedException(NotSupportedErrorMsg(node));
             }
+        }
+
+        private static string NotSupportedErrorMsg(MethodCallExpression node)
+        {
+            if (node.Method.IsStatic)
+            { 
+                return $"不支持将静态方法（{node.Method.Name}）结果直接作为表达式的一部分！请参考 {node.Method.ReturnType.Name} {{variable}} = *[{node.Method.DeclaringType.Name}.{node.Method.Name}(...args)]; 然后使用 {{variable}} 替换表达式 *.{node.Method.Name}(...args)！";
+            }
+
+            return $"不支持将方法（{node.Method.Name}）结果直接作为表达式的一部分！请参考 {node.Method.ReturnType.Name} {{variable}} = *[{node.Method.Name}(...args)]; 然后使用 {{variable}} 替换表达式 *.{node.Method.Name}(...args)！";
         }
 
         /// <summary>
@@ -1104,7 +1121,7 @@ namespace Inkslab.Linq.Expressions
                     throw new NotSupportedException($"字符串的“{node.Method}”方法不被支持！");
             }
         }
-        
+
         /// <summary>
         /// Visits the children of the <see cref="MethodCallExpression"/>, when <see cref="MethodCallExpression.Method"/>.DeclaringType is <see cref="DateTime"/>.
         /// </summary>

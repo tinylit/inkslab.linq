@@ -674,6 +674,20 @@ namespace Inkslab.Linq.Tests
         }
 
         [Fact]
+        public void GroupByConditionIfVariableNull()
+        {
+            string name = null;
+
+            var linq =
+                from x in _users
+                group x by x.Name into g
+                where !string.IsNullOrEmpty(name) && !g.Key.Contains(name)
+                select g.Key;
+
+            var max = linq.Distinct().Max();
+        }
+
+        [Fact]
         public void GroupByConditionIf()
         {
             string name = "测试";

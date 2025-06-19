@@ -71,10 +71,12 @@ namespace Inkslab.Linq.Tests
         [Fact]
         public void UpdateLinq()
         {
+            bool? nullable = true;
+            
             _userRpo
                 .Timeout(500)
                 .Where(x => _userExes.Where(y => y.RoleType == 2).Any(y => x.Id == y.Id))
-                .Update(x => new User { DateAt = DateTime.Now });
+                .Update(x => new User { DateAt = DateTime.Now, Nullable = nullable ?? false });
         }
 
         /// <summary>

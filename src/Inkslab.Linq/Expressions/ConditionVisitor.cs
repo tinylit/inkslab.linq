@@ -18,8 +18,6 @@ namespace Inkslab.Linq.Expressions
         /// 忽略可空类型。
         /// </summary>
         private bool ignoreNull = false;
-        private bool ignoreEmptyString = false;
-        private bool ignoreWhiteSpace = false;
         private bool isConditionBalance = true;
 
         private readonly bool _isGroupHaving;
@@ -61,13 +59,6 @@ namespace Inkslab.Linq.Expressions
         protected override void Variable(string name, object value)
         {
             if (ignoreNull && value is null)
-            {
-            }
-            else if (ignoreEmptyString
-                && value is string text
-                && (ignoreWhiteSpace
-                    ? string.IsNullOrWhiteSpace(text)
-                    : string.IsNullOrEmpty(text)))
             {
             }
             else
@@ -135,8 +126,6 @@ namespace Inkslab.Linq.Expressions
         protected override void MethodCall(MethodCallExpression node)
         {
             ignoreNull &= false;
-            ignoreEmptyString &= false;
-            ignoreWhiteSpace &= false;
             isConditionBalance &= false;
 
             var declaringType = node.Method.DeclaringType;
@@ -154,183 +143,25 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override void ByString(MethodCallExpression node)
         {
-            string name = node.Method.Name;
-
-            switch (name)
+            switch (node.Method.Name)
             {
-                case nameof(string.Contains) when node.Arguments.Count == 1:
-                case nameof(string.EndsWith) when node.Arguments.Count == 1:
-                case nameof(string.StartsWith) when node.Arguments.Count == 1:
-
-                    using (var domain = Writer.Domain())
-                    {
-                        ignoreNull = true;
-                        ignoreEmptyString = true;
-
-                        Visit(node.Arguments[0]);
-
-                        ignoreEmptyString = false;
-                        ignoreNull = false;
-
-                        if (domain.IsEmpty)
-                        {
-                            Writer.AlwaysTrue();
-
-                            break;
-                        }
-
-                        if (name is (nameof(string.Contains)) or (nameof(string.StartsWith)))
-                        {
-                            if (Engine is DatabaseEngine.PostgreSQL or DatabaseEngine.Oracle)
-                            {
-                                Writer.Write(" || ");
-                            }
-                            else if (Engine == DatabaseEngine.MySQL)
-                            {
-                                Writer.Delimiter();
-                            }
-                            else
-                            {
-                                Writer.Write(" + ");
-                            }
-
-                            Writer.Write("'%'");
-                        }
-
-                        Writer.CloseBrace();
-
-                        domain.Flyback();
-
-                        Visit(node.Object);
-
-                        Writer.Keyword(SqlKeyword.LIKE);
-
-                        if (Engine == DatabaseEngine.MySQL)
-                        {
-                            Writer.Write("CONCAT");
-                        }
-
-                        Writer.OpenBrace();
-
-                        if (name is (nameof(string.Contains)) or (nameof(string.EndsWith)))
-                        {
-                            Writer.Write("'%'");
-
-                            if (Engine is DatabaseEngine.PostgreSQL or DatabaseEngine.Oracle)
-                            {
-                                Writer.Write(" || ");
-                            }
-                            else if (Engine == DatabaseEngine.MySQL)
-                            {
-                                Writer.Delimiter();
-                            }
-                            else
-                            {
-                                Writer.Write(" + ");
-                            }
-                        }
-                    }
-
-                    break;
+                case nameof(string.Contains):
+                case nameof(string.EndsWith):
+                case nameof(string.StartsWith):
                 case nameof(string.IsNullOrEmpty):
-
-                    using (var domain = Writer.Domain())
-                    {
-                        ignoreNull = true;
-                        ignoreEmptyString = true;
-
-                        Visit(node.Arguments[0]);
-
-                        ignoreEmptyString = false;
-                        ignoreNull = false;
-
-                        if (domain.IsEmpty)
-                        {
-                            Writer.AlwaysTrue();
-
-                            break;
-                        }
-
-                        string text = domain.ToString();
-
-                        Writer.Keyword(SqlKeyword.IS);
-                        Writer.Keyword(SqlKeyword.NULL);
-
-                        Writer.Keyword(SqlKeyword.OR);
-
-                        Writer.Write(text);
-
-                        Writer.Operator(SqlOperator.Equal);
-
-                        Writer.EmptyString();
-
-                        Writer.CloseBrace();
-
-                        domain.Flyback();
-
-                        Writer.OpenBrace();
-                    }
-
-                    break;
                 case nameof(string.IsNullOrWhiteSpace):
 
-                    using (var domain = Writer.Domain())
+                    using (var visitor = new ByStringCallVisitor(this))
                     {
-                        ignoreNull = true;
-                        ignoreEmptyString = true;
-                        ignoreWhiteSpace = true;
-
-                        Visit(node.Arguments[0]);
-
-                        ignoreWhiteSpace = false;
-                        ignoreEmptyString = false;
-                        ignoreNull = false;
-
-                        if (domain.IsEmpty)
+                        using (var domain = Writer.Domain()) //? 字符串为空时，处理为真。
                         {
-                            Writer.AlwaysTrue();
+                            visitor.Startup(node);
 
-                            break;
+                            if (domain.IsEmpty)
+                            {
+                                Writer.AlwaysTrue();
+                            }
                         }
-
-                        string text = domain.ToString();
-
-                        Writer.Keyword(SqlKeyword.IS);
-                        Writer.Keyword(SqlKeyword.NULL);
-
-                        Writer.Keyword(SqlKeyword.OR);
-
-                        if (Engine == DatabaseEngine.PostgreSQL)
-                        {
-                            Writer.Write("TRIM");
-                            Writer.OpenBrace();
-                            Writer.Write("BOTH FROM ");
-
-                            Writer.Write(text);
-                        }
-                        else
-                        {
-                            Writer.Write("LTRIM");
-                            Writer.OpenBrace();
-                            Writer.Write("RTRIM");
-                            Writer.OpenBrace();
-
-                            Writer.Write(text);
-
-                            Writer.CloseBrace();
-                        }
-
-                        Writer.CloseBrace();
-
-                        Writer.Operator(SqlOperator.Equal);
-
-                        Writer.EmptyString();
-
-                        Writer.CloseBrace();
-
-                        domain.Flyback();
-
-                        Writer.OpenBrace();
                     }
 
                     break;
@@ -346,7 +177,17 @@ namespace Inkslab.Linq.Expressions
         protected override void Condition(Expression node) => Visit(node);
 
         /// <inheritdoc/>
-        protected override void Binary(BinaryExpression node) => Binary(node.Left, node.NodeType, node.Right);
+        protected override void Binary(BinaryExpression node)
+        {
+            if (node.NodeType == ExpressionType.Coalesce)
+            {
+                base.Coalesce(node);
+            }
+            else
+            {
+                Binary(node.Left, node.NodeType, node.Right);
+            }
+        }
 
         /// <summary>
         /// Visits the children of the <see cref="BinaryExpression"/>.(NewExpression support).
@@ -437,26 +278,6 @@ namespace Inkslab.Linq.Expressions
 
             switch (expressionType)
             {
-                case ExpressionType.Coalesce when isConditionBalance:
-                    {
-                        isConditionBalance = false;
-
-                        var length = Writer.Length;
-
-                        Coalesce(left, right);
-
-                        if (Writer.Length > length)
-                        {
-                            Writer.Operator(SqlOperator.IsTrue);
-                        }
-
-                        break;
-                    }
-                case ExpressionType.Coalesce:
-
-                    Coalesce(left, right);
-
-                    break;
                 case ExpressionType.Equal
                     when right.NodeType == ExpressionType.Constant
                         && left.NodeType == ExpressionType.MemberAccess

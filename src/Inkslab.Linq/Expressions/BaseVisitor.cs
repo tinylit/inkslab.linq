@@ -411,7 +411,7 @@ namespace Inkslab.Linq.Expressions
         protected override sealed Expression VisitMethodCall(MethodCallExpression node)
         {
             var instanceArg = node.Method.IsStatic
-                ? node.Arguments[0] 
+                ? node.Arguments[0]
                 : node.Object;
 
             switch (node.Method.Name)
@@ -987,7 +987,7 @@ namespace Inkslab.Linq.Expressions
         {
             if (node.Arguments.Count == 0)
             {
-                Writer.Constant(node.GetValueFromExpression());
+                Constant(node.GetValueFromExpression());
             }
             else if (node.Arguments.Count == 1)
             {
@@ -1591,6 +1591,44 @@ namespace Inkslab.Linq.Expressions
                 case ExpressionType.OnesComplement when node.Type.IsBoolean():
                     switch (node.Operand.NodeType)
                     {
+                        case ExpressionType.Call when node.Type.IsBoolean():
+                            goto default;
+                        case ExpressionType.Constant:
+                        case ExpressionType.MemberAccess:
+                        case ExpressionType.Parameter:
+                        case ExpressionType.MemberInit:
+                        case ExpressionType.NewArrayInit:
+                        case ExpressionType.RightShift:
+                        case ExpressionType.LeftShift:
+                        case ExpressionType.Add:
+                        case ExpressionType.AddChecked:
+                        case ExpressionType.Subtract:
+                        case ExpressionType.SubtractChecked:
+                        case ExpressionType.Multiply:
+                        case ExpressionType.MultiplyChecked:
+                        case ExpressionType.Divide:
+                        case ExpressionType.Modulo:
+                        case ExpressionType.Coalesce:
+                        case ExpressionType.ArrayIndex:
+                        case ExpressionType.Negate:
+                        case ExpressionType.UnaryPlus:
+                        case ExpressionType.Convert:
+                        case ExpressionType.ConvertChecked:
+                        case ExpressionType.Unbox:
+                        case ExpressionType.ArrayLength:
+                        case ExpressionType.AndAssign:
+                        case ExpressionType.OrAssign:
+                        case ExpressionType.ExclusiveOrAssign:
+                        case ExpressionType.Assign:
+                            Writer.Keyword(SqlKeyword.NOT);
+
+                            Writer.OpenBrace();
+
+                            Visit(node.Operand);
+
+                            Writer.CloseBrace();
+
+                            break;
                         case ExpressionType.AndAlso:
                         case ExpressionType.OrElse:
                         case ExpressionType.Equal:
@@ -1602,21 +1640,12 @@ namespace Inkslab.Linq.Expressions
                         case ExpressionType.NotEqual:
                         case ExpressionType.Conditional:
                         case ExpressionType.Quote:
+                        default:
 
                             using (Writer.ConditionReversal())
                             {
                                 Visit(node.Operand);
                             }
-
-                            break;
-                        default:
-                            Writer.Keyword(SqlKeyword.NOT);
-
-                            Writer.OpenBrace();
-
-                            Visit(node.Operand);
-
-                            Writer.CloseBrace();
 
                             break;
                     }
@@ -1649,7 +1678,17 @@ namespace Inkslab.Linq.Expressions
         /// Visits the children of the <see cref="BinaryExpression"/>.
         /// </summary>
         /// <param name="node">The expression to visit.</param>
-        protected virtual void Binary(BinaryExpression node) => Condition(node);
+        protected virtual void Binary(BinaryExpression node)
+        {
+            if (node.NodeType == ExpressionType.Coalesce)
+            {
+                Coalesce(node);
+            }
+            else
+            {
+                Condition(node);
+            }
+        }
 
         /// <summary>
         /// Visits the children of the <see cref="Expression"/> and process it as a condition.
@@ -1658,6 +1697,18 @@ namespace Inkslab.Linq.Expressions
         protected virtual void Condition(Expression node)
         {
             using (var visitor = new ConditionVisitor(this))
+            {
+                visitor.Startup(node);
+            }
+        }
+
+        /// <summary>
+        /// Visits the children of the <see cref="Expression"/> and process it as a coalesce.
+        /// </summary>
+        /// <param name="node">The expression to visit.</param>
+        protected virtual void Coalesce(Expression node)
+        {
+            using (var visitor = new CoalesceVisitor(this))
             {
                 visitor.Startup(node);
             }

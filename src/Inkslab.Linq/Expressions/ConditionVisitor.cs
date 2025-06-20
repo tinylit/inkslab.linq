@@ -151,16 +151,13 @@ namespace Inkslab.Linq.Expressions
                 case nameof(string.IsNullOrEmpty):
                 case nameof(string.IsNullOrWhiteSpace):
 
-                    using (var visitor = new ByStringCallVisitor(this))
+                    using (var domain = Writer.Domain()) //? 字符串为空时，处理为真。
                     {
-                        using (var domain = Writer.Domain()) //? 字符串为空时，处理为真。
-                        {
-                            visitor.Startup(node);
+                        base.ByString(node);
 
-                            if (domain.IsEmpty)
-                            {
-                                Writer.AlwaysTrue();
-                            }
+                        if (domain.IsEmpty)
+                        {
+                            Writer.AlwaysTrue();
                         }
                     }
 

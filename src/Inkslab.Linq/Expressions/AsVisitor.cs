@@ -48,7 +48,21 @@ namespace Inkslab.Linq.Expressions
             }
             else
             {
+                var length = Writer.Length;
+
                 Visit(node);
+
+                if (length == Writer.Length)
+                {
+                    if (IsCondition(node))
+                    {
+                        Writer.True();
+                    }
+                    else
+                    {
+                        Writer.Keyword(Enums.SqlKeyword.NULL);
+                    }
+                }
             }
         }
 

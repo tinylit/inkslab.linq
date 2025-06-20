@@ -625,36 +625,9 @@ namespace Inkslab.Linq.Expressions
         /// <param name="node">The expression to visit.</param>
         protected virtual void ByString(MethodCallExpression node)
         {
-            switch (node.Method.Name)
+            using (var visitor = new ByStringCallVisitor(this))
             {
-                case nameof(string.Contains):
-                case nameof(string.EndsWith):
-                case nameof(string.StartsWith):
-                case nameof(string.IsNullOrEmpty):
-                case nameof(string.IsNullOrWhiteSpace):
-
-                    using (var visitor = new ByStringCallVisitor(this))
-                    {
-                        using (var domain = Writer.Domain()) //? 字符串为空时，处理为真。
-                        {
-                            visitor.Startup(node);
-
-                            if (domain.IsEmpty)
-                            {
-                                Writer.True();
-                            }
-                        }
-                    }
-
-                    break;
-                default:
-
-                    using (var visitor = new ByStringCallVisitor(this))
-                    {
-                        visitor.Startup(node);
-                    }
-
-                    break;
+                visitor.Startup(node);
             }
         }
 

@@ -151,7 +151,7 @@ namespace Inkslab.Linq.Expressions
                         ignoreNull = false;
 
                         if (domain.IsEmpty)
-                        {                      
+                        {
                             break;
                         }
 
@@ -566,12 +566,13 @@ namespace Inkslab.Linq.Expressions
             if (ignoreNull && value is null)
             {
             }
-            else if (ignoreEmptyString
+            else if ((ignoreEmptyString || ignoreWhiteSpace)
                 && value is string text
                 && (ignoreWhiteSpace
                     ? string.IsNullOrWhiteSpace(text)
                     : string.IsNullOrEmpty(text)))
             {
+
             }
             else
             {
@@ -583,14 +584,20 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override void Variable(string name, object value)
         {
-            if (value is string text)
+            if (ignoreNull && value is null)
             {
-                if (ignoreWhiteSpace ? string.IsNullOrWhiteSpace(text)
-                    : string.IsNullOrEmpty(text))
-                {
-                    return;
-                }
-                
+                return;
+            }
+            else if ((ignoreEmptyString || ignoreWhiteSpace)
+                && value is string text
+                && (ignoreWhiteSpace
+                    ? string.IsNullOrWhiteSpace(text)
+                    : string.IsNullOrEmpty(text)))
+            {
+
+            }
+            else
+            {
                 base.Variable(name, value);
             }
         }

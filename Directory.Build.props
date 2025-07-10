@@ -3,7 +3,7 @@
 		<TargetFrameworks Condition="'$(LibraryFrameworks)'==''">netstandard2.1;net6.0;</TargetFrameworks>
 		<TargetFrameworks Condition="'$(LibraryFrameworks)'!=''">$(LibraryFrameworks)</TargetFrameworks>
 		<!-- 版本 -->
-		<Version>1.2.36</Version>
+		<Version>1.2.37</Version>
 		<!-- 语法提示 -->
 		<Features>strict</Features>
 		<!-- 语法版本 -->

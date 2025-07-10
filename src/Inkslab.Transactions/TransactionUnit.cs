@@ -2,7 +2,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Inkslab.Transcations
+namespace Inkslab.Transactions
 {
     /// <summary>
     /// 事务单元。

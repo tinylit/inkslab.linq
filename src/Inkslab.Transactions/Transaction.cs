@@ -4,7 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Transactions;
 
-namespace Inkslab.Transcations
+namespace Inkslab.Transactions
 {
     /// <summary>
     /// 事务提交事件。

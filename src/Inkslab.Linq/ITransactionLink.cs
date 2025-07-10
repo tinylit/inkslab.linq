@@ -3,7 +3,7 @@
 namespace Inkslab.Linq
 {
     /// <summary>
-    /// 事务链接（在事务单元“<see cref="Transcations.TransactionUnit"/>”或事务范围“<see cref="System.Transactions.TransactionScope"/>”内的链接）。
+    /// 事务链接（在事务单元“<see cref="Transactions.TransactionUnit"/>”或事务范围“<see cref="System.Transactions.TransactionScope"/>”内的链接）。
     /// </summary>
     public interface ITransactionLink
     {

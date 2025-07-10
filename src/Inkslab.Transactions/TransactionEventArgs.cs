@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Inkslab.Transcations
+namespace Inkslab.Transactions
 {
     /// <summary>
     /// 事务事件参数。

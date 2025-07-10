@@ -24,7 +24,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Inkslab.Linq", "src\Inkslab
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Inkslab.Linq.Tests", "tests\Inkslab.Linq.Tests\Inkslab.Linq.Tests.csproj", "{7B52187D-2234-4814-AFC8-0704A4EB5EDE}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Inkslab.Transcations", "src\Inkslab.Transcations\Inkslab.Transcations.csproj", "{E1B10397-AFFE-435D-BFDE-854842FA225C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Inkslab.Transactions", "src\Inkslab.Transactions\Inkslab.Transactions.csproj", "{E1B10397-AFFE-435D-BFDE-854842FA225C}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Inkslab.Linq.MySql", "src\Inkslab.Linq.MySql\Inkslab.Linq.MySql.csproj", "{6EBFBC51-1B7E-4AF7-8763-833044E31AC2}"
 EndProject

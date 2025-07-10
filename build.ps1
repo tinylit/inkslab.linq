@@ -9,7 +9,7 @@ Write-Host "  dotnet --version:" (dotnet --version)
 
 $packageOutputFolder = "$PSScriptRoot\.nupkgs"
 $projectsToBuild =
-    'Inkslab.Transcations',
+    'Inkslab.Transactions',
     'Inkslab.Linq',
     'Inkslab.Linq.MySql',
     'Inkslab.Linq.SqlServer'

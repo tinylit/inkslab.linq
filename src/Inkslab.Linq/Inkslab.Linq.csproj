@@ -9,6 +9,6 @@
 		<PackageReference Include="System.ComponentModel.Annotations" Version="4.6.0" />
 	</ItemGroup>
 	<ItemGroup>
-		<ProjectReference Include="..\Inkslab.Transcations\Inkslab.Transcations.csproj" />
+		<ProjectReference Include="..\Inkslab.Transactions\Inkslab.Transactions.csproj" />
 	</ItemGroup>
 </Project>

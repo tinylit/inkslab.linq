@@ -1,4 +1,4 @@
-﻿using Inkslab.Transcations;
+﻿using Inkslab.Transactions;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -8,7 +8,7 @@ using System.Data.Common;
 using System.Threading;
 using System.Threading.Tasks;
 using Transaction = System.Transactions.Transaction;
-using OwnerTransaction = Inkslab.Transcations.Transaction;
+using OwnerTransaction = Inkslab.Transactions.Transaction;
 
 namespace Inkslab.Linq
 {
@@ -55,15 +55,15 @@ namespace Inkslab.Linq
 
         #region 事务。
 
-        private static System.Data.IsolationLevel ToIsolationLevel(Transcations.IsolationLevel isolationLevel) => isolationLevel switch
+        private static System.Data.IsolationLevel ToIsolationLevel(Transactions.IsolationLevel isolationLevel) => isolationLevel switch
         {
-            Transcations.IsolationLevel.Chaos => System.Data.IsolationLevel.Chaos,
-            Transcations.IsolationLevel.ReadUncommitted => System.Data.IsolationLevel.ReadUncommitted,
-            Transcations.IsolationLevel.ReadCommitted => System.Data.IsolationLevel.ReadCommitted,
-            Transcations.IsolationLevel.RepeatableRead => System.Data.IsolationLevel.RepeatableRead,
-            Transcations.IsolationLevel.Serializable => System.Data.IsolationLevel.Serializable,
-            Transcations.IsolationLevel.Snapshot => System.Data.IsolationLevel.Snapshot,
-            Transcations.IsolationLevel.Unspecified => System.Data.IsolationLevel.Unspecified,
+            Transactions.IsolationLevel.Chaos => System.Data.IsolationLevel.Chaos,
+            Transactions.IsolationLevel.ReadUncommitted => System.Data.IsolationLevel.ReadUncommitted,
+            Transactions.IsolationLevel.ReadCommitted => System.Data.IsolationLevel.ReadCommitted,
+            Transactions.IsolationLevel.RepeatableRead => System.Data.IsolationLevel.RepeatableRead,
+            Transactions.IsolationLevel.Serializable => System.Data.IsolationLevel.Serializable,
+            Transactions.IsolationLevel.Snapshot => System.Data.IsolationLevel.Snapshot,
+            Transactions.IsolationLevel.Unspecified => System.Data.IsolationLevel.Unspecified,
             _ => System.Data.IsolationLevel.Unspecified,
         };
 

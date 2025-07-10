@@ -1,4 +1,4 @@
-﻿namespace Inkslab.Transcations
+﻿namespace Inkslab.Transactions
 {
     /// <summary>
     /// 事务配置。

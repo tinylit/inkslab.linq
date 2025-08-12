@@ -517,7 +517,7 @@ namespace Inkslab.Linq.Tests
                     RelationName = y.Name
                 };
 
-            var results = linq.ToList();
+            var results = linq.Take(1).ToList();
         }
 
         [Fact]
@@ -1782,6 +1782,27 @@ namespace Inkslab.Linq.Tests
                 where x.Name == id.ToString()
                 orderby x.DateAt descending
                 select x;
+
+            var results = linq.ToList();
+        }
+
+        [Fact]
+        public void NullableSelect()
+        {
+            var id = 100;
+
+            var linq =
+                from x in _users
+                where x.Id == id
+                orderby x.DateAt descending
+                select new User
+                {
+                    Id = x.Id,
+                    Name = x.Name,
+                    DateAt = x.DateAt,
+                    IsAdministrator = x.IsAdministrator,
+                    Nullable = x.Nullable ?? false
+                };
 
             var results = linq.ToList();
         }

@@ -26,6 +26,8 @@ namespace Inkslab.Linq
         private readonly IBulkAssistant _assistant;
         private readonly ILogger<DatabaseExecutor> _logger;
 
+        private const string LinqBinary = "System.Data.Linq.Binary";
+
         /// <summary>
         /// 数据库链接。
         /// </summary>
@@ -1487,19 +1489,6 @@ namespace Inkslab.Linq
             };
             private static readonly Dictionary<Type, Dictionary<Type, TypeCode>> _typeTransforms = new Dictionary<Type, Dictionary<Type, TypeCode>>
             {
-                [typeof(bool)] = new Dictionary<Type, TypeCode>
-                {
-                    [typeof(char)] = TypeCode.Char,
-                    [typeof(string)] = TypeCode.String,
-                    [typeof(sbyte)] = TypeCode.SByte,
-                    [typeof(byte)] = TypeCode.Byte,
-                    [typeof(short)] = TypeCode.Int16,
-                    [typeof(ushort)] = TypeCode.UInt16,
-                    [typeof(int)] = TypeCode.Int32,
-                    [typeof(uint)] = TypeCode.UInt32,
-                    [typeof(long)] = TypeCode.Int64,
-                    [typeof(ulong)] = TypeCode.UInt64
-                },
                 [typeof(sbyte)] = new Dictionary<Type, TypeCode>
                 {
                     [typeof(byte)] = TypeCode.Byte,
@@ -1710,6 +1699,11 @@ namespace Inkslab.Linq
 
             public Expression ToSolve(Type propertyType, ParameterExpression dbVar, Expression iVar)
             {
+                if (propertyType.FullName == LinqBinary)
+                {
+                    return New(propertyType.GetConstructor(new Type[] { Types.Object }), Call(dbVar, _getValue, iVar));
+                }
+
                 if (!_typeMap.TryGetValue(propertyType, out MethodInfo originalFn))
                 {
                     var typeArg = Variable(typeof(Type));
@@ -1720,7 +1714,7 @@ namespace Inkslab.Linq
                 {
                     return Call(dbVar, originalFn, iVar);
                 }
-                else
+                else if (propertyType == Types.Char || propertyType == Types.String)
                 {
                     var typeArg = Variable(typeof(Type));
 
@@ -1730,6 +1724,10 @@ namespace Inkslab.Linq
                             Call(dbVar, originalFn, iVar),
                             ToSolveByTransform(propertyType, dbVar, iVar, typeArg))
                     );
+                }
+                else
+                {
+                    return Call(dbVar, originalFn, iVar);
                 }
             }
 
@@ -1789,45 +1787,6 @@ namespace Inkslab.Linq
                 }
 
                 var switchCases = new List<SwitchCase>(transforms.Count);
-
-                if (propertyType == Types.Boolean)
-                {
-                    foreach (var (key, typeCode) in transforms)
-                    {
-                        if (_typeMap.TryGetValue(key, out var transformFn))
-                        {
-                            object comparisonValue = typeCode switch
-                            {
-                                TypeCode.Boolean => true,
-                                TypeCode.Char => '1',
-                                TypeCode.Int32 => 1,
-                                TypeCode.UInt32 => 1U,
-                                TypeCode.Int64 => 1L,
-                                TypeCode.UInt64 => 1UL,
-                                TypeCode.Single => 1F,
-                                TypeCode.Double => 1D,
-                                TypeCode.Decimal => 1M,
-                                TypeCode.String => "1",
-                                _ => System.Convert.ChangeType(1, key),
-                            };
-
-                            switchCases.Add(SwitchCase(Assign(valueVar, Equal(Call(dbVar, transformFn, iVar), Constant(comparisonValue, key))), Constant(typeCode)));
-                        }
-                    }
-
-                    expressions.Add(Switch(
-                            typeof(void),
-                            Call(_typeCode, typeArg),
-                            throwUnary,
-                            null,
-                            switchCases.ToArray()
-                        ));
-
-
-                    expressions.Add(valueVar);
-
-                    return Block(propertyType, variables, expressions);
-                }
 
                 var code = Type.GetTypeCode(propertyType);
 
@@ -2254,7 +2213,7 @@ namespace Inkslab.Linq
             {
                 var type = typeof(T);
 
-                if (type.IsSimple())
+                if (type.IsSimple() || type.FullName == LinqBinary)
                 {
                     return new DbMapper<T>(MakeSimple(type), true);
                 }

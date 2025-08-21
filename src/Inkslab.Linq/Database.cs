@@ -23,7 +23,7 @@ namespace Inkslab.Linq
         /// <summary>
         /// 数据库。
         /// </summary>
-        public Database(IDatabaseExecutor executor, IConnectionStrings connectionStrings, IDbCorrectSettings settings) : base(executor, connectionStrings, settings)
+        public Database(IDatabaseExecutor executor, IDatabaseStrings databaseStrings, IDbCorrectSettings settings) : base(executor, databaseStrings, settings)
         {
         }
     }
@@ -34,7 +34,7 @@ namespace Inkslab.Linq
     public class Database<TConnectionStrings> : IDatabase<TConnectionStrings> where TConnectionStrings : IConnectionStrings
     {
         private readonly IDatabaseExecutor _executor;
-        private readonly TConnectionStrings _connectionStrings;
+        private readonly IDatabaseStrings<TConnectionStrings> _databaseStrings;
         private readonly IDbCorrectSettings _settings;
         private static readonly Regex _literalTokens = new Regex(@"(?<![\p{L}\p{N}@_])\{=([\p{L}\p{N}_][\p{L}\p{N}@_]*)\}", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.CultureInvariant | RegexOptions.Compiled);
         private static readonly Regex _smellsLikeOleDb = new Regex(@"(?<![\p{L}\p{N}@_])[?@:]([\p{L}\p{N}_][\p{L}\p{N}@_]*)", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.CultureInvariant | RegexOptions.Compiled);
@@ -44,10 +44,10 @@ namespace Inkslab.Linq
         /// <summary>
         /// 数据库。
         /// </summary>
-        public Database(IDatabaseExecutor executor, TConnectionStrings connectionStrings, IDbCorrectSettings settings)
+        public Database(IDatabaseExecutor executor, IDatabaseStrings<TConnectionStrings> databaseStrings, IDbCorrectSettings settings)
         {
             _executor = executor;
-            _connectionStrings = connectionStrings;
+            _databaseStrings = databaseStrings;
             _settings = settings;
         }
 
@@ -58,7 +58,7 @@ namespace Inkslab.Linq
 
             var commandSql = MakeCommandSql(sql, dictionaries, commandTimeout);
 
-            return _executor.Execute(_connectionStrings.Strings, commandSql);
+            return _executor.Execute(_databaseStrings, commandSql);
         }
 
         /// <inheritdoc/>
@@ -68,7 +68,7 @@ namespace Inkslab.Linq
 
             var commandSql = MakeCommandSql(sql, dictionaries, commandTimeout);
 
-            return _executor.ExecuteAsync(_connectionStrings.Strings, commandSql, cancellationToken);
+            return _executor.ExecuteAsync(_databaseStrings, commandSql, cancellationToken);
         }
 
         /// <inheritdoc/>
@@ -78,7 +78,7 @@ namespace Inkslab.Linq
 
             var commandSql = MakeCommandSql(sql, dictionaries, commandTimeout);
 
-            return _executor.Query<T>(_connectionStrings.Strings, commandSql);
+            return _executor.Query<T>(_databaseStrings, commandSql);
         }
 
         /// <inheritdoc/>
@@ -88,7 +88,7 @@ namespace Inkslab.Linq
 
             var commandSql = MakeCommandSql(sql, dictionaries, commandTimeout);
 
-            var asyncEnumerable = _executor.QueryAsync<T>(_connectionStrings.Strings, commandSql);
+            var asyncEnumerable = _executor.QueryAsync<T>(_databaseStrings, commandSql);
 
             var results = new List<T>();
 
@@ -110,7 +110,7 @@ namespace Inkslab.Linq
 
             var commandSql = MakeCommandSql(sql, dictionaries, commandTimeout);
 
-            return _executor.Read(_connectionStrings.Strings, new CommandSql<T>(commandSql, RowStyle.First));
+            return _executor.Read(_databaseStrings, new CommandSql<T>(commandSql, RowStyle.First));
         }
 
         /// <inheritdoc/>
@@ -120,7 +120,7 @@ namespace Inkslab.Linq
 
             var commandSql = MakeCommandSql(sql, dictionaries, commandTimeout);
 
-            return _executor.ReadAsync(_connectionStrings.Strings, new CommandSql<T>(commandSql, RowStyle.First), cancellationToken);
+            return _executor.ReadAsync(_databaseStrings, new CommandSql<T>(commandSql, RowStyle.First), cancellationToken);
         }
 
         /// <inheritdoc/>
@@ -130,7 +130,7 @@ namespace Inkslab.Linq
 
             var commandSql = MakeCommandSql(sql, dictionaries, commandTimeout);
 
-            return _executor.Read(_connectionStrings.Strings, new CommandSql<T>(commandSql, RowStyle.FirstOrDefault));
+            return _executor.Read(_databaseStrings, new CommandSql<T>(commandSql, RowStyle.FirstOrDefault));
         }
 
         /// <inheritdoc/>
@@ -140,7 +140,7 @@ namespace Inkslab.Linq
 
             var commandSql = MakeCommandSql(sql, dictionaries, commandTimeout);
 
-            return _executor.ReadAsync(_connectionStrings.Strings, new CommandSql<T>(commandSql, RowStyle.FirstOrDefault), cancellationToken);
+            return _executor.ReadAsync(_databaseStrings, new CommandSql<T>(commandSql, RowStyle.FirstOrDefault), cancellationToken);
         }
 
         /// <inheritdoc/>
@@ -150,7 +150,7 @@ namespace Inkslab.Linq
 
             var commandSql = MakeCommandSql(sql, dictionaries, commandTimeout);
 
-            return _executor.QueryMultiple(_connectionStrings.Strings, commandSql);
+            return _executor.QueryMultiple(_databaseStrings, commandSql);
         }
 
         /// <inheritdoc/>
@@ -160,7 +160,7 @@ namespace Inkslab.Linq
 
             var commandSql = MakeCommandSql(sql, dictionaries, commandTimeout);
 
-            return _executor.QueryMultipleAsync(_connectionStrings.Strings, commandSql);
+            return _executor.QueryMultipleAsync(_databaseStrings, commandSql);
         }
 
         /// <inheritdoc/>
@@ -170,7 +170,7 @@ namespace Inkslab.Linq
 
             var commandSql = MakeCommandSql(sql, dictionaries, commandTimeout);
 
-            return _executor.Read(_connectionStrings.Strings, new CommandSql<T>(commandSql, RowStyle.Single));
+            return _executor.Read(_databaseStrings, new CommandSql<T>(commandSql, RowStyle.Single));
         }
 
         /// <inheritdoc/>
@@ -180,7 +180,7 @@ namespace Inkslab.Linq
 
             var commandSql = MakeCommandSql(sql, dictionaries, commandTimeout);
 
-            return _executor.ReadAsync(_connectionStrings.Strings, new CommandSql<T>(commandSql, RowStyle.Single), cancellationToken);
+            return _executor.ReadAsync(_databaseStrings, new CommandSql<T>(commandSql, RowStyle.Single), cancellationToken);
         }
 
         /// <inheritdoc/>
@@ -190,7 +190,7 @@ namespace Inkslab.Linq
 
             var commandSql = MakeCommandSql(sql, dictionaries, commandTimeout);
 
-            return _executor.Read(_connectionStrings.Strings, new CommandSql<T>(commandSql, RowStyle.SingleOrDefault));
+            return _executor.Read(_databaseStrings, new CommandSql<T>(commandSql, RowStyle.SingleOrDefault));
         }
 
         /// <inheritdoc/>
@@ -200,14 +200,14 @@ namespace Inkslab.Linq
 
             var commandSql = MakeCommandSql(sql, dictionaries, commandTimeout);
 
-            return _executor.ReadAsync(_connectionStrings.Strings, new CommandSql<T>(commandSql, RowStyle.SingleOrDefault), cancellationToken);
+            return _executor.ReadAsync(_databaseStrings, new CommandSql<T>(commandSql, RowStyle.SingleOrDefault), cancellationToken);
         }
 
         /// <inheritdoc/>
-        public int WriteToServer(DataTable dt, int? commandTimeout = null) => _executor.WriteToServer(_connectionStrings.Strings, dt, commandTimeout);
+        public int WriteToServer(DataTable dt, int? commandTimeout = null) => _executor.WriteToServer(_databaseStrings, dt, commandTimeout);
 
         /// <inheritdoc/>
-        public Task<int> WriteToServerAsync(DataTable dt, int? commandTimeout = null, CancellationToken cancellationToken = default) => _executor.WriteToServerAsync(_connectionStrings.Strings, dt, commandTimeout, cancellationToken);
+        public Task<int> WriteToServerAsync(DataTable dt, int? commandTimeout = null, CancellationToken cancellationToken = default) => _executor.WriteToServerAsync(_databaseStrings, dt, commandTimeout, cancellationToken);
 
         private CommandSql MakeCommandSql(string sql, Dictionary<string, object> dictionaries, int? commandTimeout = null)
         {

@@ -10,8 +10,8 @@ namespace Inkslab.Linq
         /// <summary>
         /// 获取数据库链接。
         /// </summary>
-        /// <param name="connectionStrings">数据库链接字符串。</param>
+        /// <param name="databaseStrings">数据库链接字符串。</param>
         /// <returns>数据库链接。</returns>
-        DbConnection Get(string connectionStrings);
+        DbConnection Get(IConnection databaseStrings);
     }
 }

@@ -10,7 +10,6 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Inkslab.Linq.Exceptions;
-using Inkslab.Map;
 using Microsoft.Extensions.Logging;
 using static System.Linq.Expressions.Expression;
 
@@ -42,25 +41,25 @@ namespace Inkslab.Linq
         }
 
         /// <inheritdoc/>
-        public int Execute(string connectionStrings, CommandSql commandSql)
+        public int Execute(IConnection databaseStrings, CommandSql commandSql)
         {
             if (_logger.IsEnabled(LogLevel.Debug))
             {
                 _logger.LogDebug(commandSql.ToString());
             }
 
-            using var connection = _connectionPipeline.Get(connectionStrings);
+            using var dbConnection = _connectionPipeline.Get(databaseStrings);
 
-            bool isClosedConnection = connection.State == ConnectionState.Closed;
+            bool isClosedConnection = dbConnection.State == ConnectionState.Closed;
 
             if (isClosedConnection)
             {
-                connection.Open();
+                dbConnection.Open();
             }
 
             try
             {
-                using (var command = connection.CreateCommand())
+                using (var command = dbConnection.CreateCommand())
                 {
                     command.CommandText = commandSql.Text;
 
@@ -81,14 +80,14 @@ namespace Inkslab.Linq
             {
                 if (isClosedConnection)
                 {
-                    connection.Close();
+                    dbConnection.Close();
                 }
             }
         }
 
         /// <inheritdoc/>
         public async Task<int> ExecuteAsync(
-            string connectionStrings,
+            IConnection databaseStrings,
             CommandSql commandSql,
             CancellationToken cancellationToken = default
         )
@@ -98,18 +97,18 @@ namespace Inkslab.Linq
                 _logger.LogDebug(commandSql.ToString());
             }
 
-            await using var connection = _connectionPipeline.Get(connectionStrings);
+            await using var dbConnection = _connectionPipeline.Get(databaseStrings);
 
-            bool isClosedConnection = connection.State == ConnectionState.Closed;
+            bool isClosedConnection = dbConnection.State == ConnectionState.Closed;
 
             if (isClosedConnection)
             {
-                await connection.OpenAsync(cancellationToken);
+                await dbConnection.OpenAsync(cancellationToken);
             }
 
             try
             {
-                await using (var command = connection.CreateCommand())
+                await using (var command = dbConnection.CreateCommand())
                 {
                     command.CommandText = commandSql.Text;
 
@@ -130,13 +129,13 @@ namespace Inkslab.Linq
             {
                 if (isClosedConnection)
                 {
-                    await connection.CloseAsync();
+                    await dbConnection.CloseAsync();
                 }
             }
         }
 
         /// <inheritdoc/>
-        public List<T> Query<T>(string connectionStrings, CommandSql commandSql)
+        public List<T> Query<T>(IConnection databaseStrings, CommandSql commandSql)
         {
             if (_logger.IsEnabled(LogLevel.Debug))
             {
@@ -146,18 +145,18 @@ namespace Inkslab.Linq
             CommandBehavior behavior =
                 CommandBehavior.SequentialAccess | CommandBehavior.SingleResult;
 
-            using var connection = _connectionPipeline.Get(connectionStrings);
+            using var dbConnection = _connectionPipeline.Get(databaseStrings);
 
-            if (connection.State == ConnectionState.Closed)
+            if (dbConnection.State == ConnectionState.Closed)
             {
                 behavior |= CommandBehavior.CloseConnection;
 
-                connection.Open();
+                dbConnection.Open();
             }
 
             var results = new List<T>();
 
-            using (var command = connection.CreateCommand())
+            using (var command = dbConnection.CreateCommand())
             {
                 command.CommandText = commandSql.Text;
 
@@ -199,7 +198,7 @@ namespace Inkslab.Linq
         }
 
         /// <inheritdoc/>
-        public IDbGridReader QueryMultiple(string connectionStrings, CommandSql commandSql)
+        public IDbGridReader QueryMultiple(IConnection databaseStrings, CommandSql commandSql)
         {
             if (_logger.IsEnabled(LogLevel.Debug))
             {
@@ -208,15 +207,15 @@ namespace Inkslab.Linq
 
             CommandBehavior behavior = CommandBehavior.SequentialAccess;
 
-            var connection = _connectionPipeline.Get(connectionStrings);
+            var dbConnection = _connectionPipeline.Get(databaseStrings);
 
-            bool isClosedConnection = connection.State == ConnectionState.Closed;
+            bool isClosedConnection = dbConnection.State == ConnectionState.Closed;
 
             if (isClosedConnection)
             {
                 behavior |= CommandBehavior.CloseConnection;
 
-                connection.Open();
+                dbConnection.Open();
             }
 
             DbCommand command = null;
@@ -224,7 +223,7 @@ namespace Inkslab.Linq
 
             try
             {
-                command = connection.CreateCommand();
+                command = dbConnection.CreateCommand();
 
                 command.CommandText = commandSql.Text;
 
@@ -245,7 +244,7 @@ namespace Inkslab.Linq
                         type => new MapAdaper(type)
                     );
 
-                return new DbGridReader(connection, command, reader, adaper);
+                return new DbGridReader(dbConnection, command, reader, adaper);
             }
             catch
             {
@@ -267,28 +266,28 @@ namespace Inkslab.Linq
 
                 if (isClosedConnection)
                 {
-                    connection.Close();
+                    dbConnection.Close();
                 }
 
-                connection.Dispose();
+                dbConnection.Dispose();
 
                 throw;
             }
         }
 
         /// <inheritdoc/>
-        public IAsyncEnumerable<T> QueryAsync<T>(string connectionStrings, CommandSql commandSql)
+        public IAsyncEnumerable<T> QueryAsync<T>(IConnection databaseStrings, CommandSql commandSql)
         {
             if (_logger.IsEnabled(LogLevel.Debug))
             {
                 _logger.LogDebug(commandSql.ToString());
             }
 
-            return new AsyncEnumerable<T>(connectionStrings, _connectionPipeline, commandSql);
+            return new AsyncEnumerable<T>(databaseStrings, _connectionPipeline, commandSql);
         }
 
         /// <inheritdoc/>
-        public T Read<T>(string connectionStrings, CommandSql<T> commandSql)
+        public T Read<T>(IConnection databaseStrings, CommandSql<T> commandSql)
         {
             if (_logger.IsEnabled(LogLevel.Debug))
             {
@@ -303,16 +302,16 @@ namespace Inkslab.Linq
                 behavior |= CommandBehavior.SingleRow;
             }
 
-            using var connection = _connectionPipeline.Get(connectionStrings);
+            using var dbConnection = _connectionPipeline.Get(databaseStrings);
 
-            if (connection.State == ConnectionState.Closed)
+            if (dbConnection.State == ConnectionState.Closed)
             {
                 behavior |= CommandBehavior.CloseConnection;
 
-                connection.Open();
+                dbConnection.Open();
             }
 
-            using (var command = connection.CreateCommand())
+            using (var command = dbConnection.CreateCommand())
             {
                 command.CommandText = commandSql.Text;
 
@@ -374,7 +373,7 @@ namespace Inkslab.Linq
 
         /// <inheritdoc/>
         public async Task<T> ReadAsync<T>(
-            string connectionStrings,
+            IConnection databaseStrings,
             CommandSql<T> commandSql,
             CancellationToken cancellationToken = default
         )
@@ -392,16 +391,16 @@ namespace Inkslab.Linq
                 behavior |= CommandBehavior.SingleRow;
             }
 
-            await using var connection = _connectionPipeline.Get(connectionStrings);
+            await using var dbConnection = _connectionPipeline.Get(databaseStrings);
 
-            if (connection.State == ConnectionState.Closed)
+            if (dbConnection.State == ConnectionState.Closed)
             {
                 behavior |= CommandBehavior.CloseConnection;
 
-                await connection.OpenAsync(cancellationToken);
+                await dbConnection.OpenAsync(cancellationToken);
             }
 
-            await using (var command = connection.CreateCommand())
+            await using (var command = dbConnection.CreateCommand())
             {
                 command.CommandText = commandSql.Text;
 
@@ -464,7 +463,7 @@ namespace Inkslab.Linq
         }
 
         /// <inheritdoc/>
-        public async Task<IAsyncDbGridReader> QueryMultipleAsync(string connectionStrings, CommandSql commandSql)
+        public async Task<IAsyncDbGridReader> QueryMultipleAsync(IConnection databaseStrings, CommandSql commandSql)
         {
             if (_logger.IsEnabled(LogLevel.Debug))
             {
@@ -473,15 +472,15 @@ namespace Inkslab.Linq
 
             CommandBehavior behavior = CommandBehavior.SequentialAccess;
 
-            var connection = _connectionPipeline.Get(connectionStrings);
+            var dbConnection = _connectionPipeline.Get(databaseStrings);
 
-            bool isClosedConnection = connection.State == ConnectionState.Closed;
+            bool isClosedConnection = dbConnection.State == ConnectionState.Closed;
 
             if (isClosedConnection)
             {
                 behavior |= CommandBehavior.CloseConnection;
 
-                await connection.OpenAsync();
+                await dbConnection.OpenAsync();
             }
 
             DbCommand command = null;
@@ -489,7 +488,7 @@ namespace Inkslab.Linq
 
             try
             {
-                command = connection.CreateCommand();
+                command = dbConnection.CreateCommand();
 
                 command.CommandText = commandSql.Text;
 
@@ -510,7 +509,7 @@ namespace Inkslab.Linq
                         type => new MapAdaper(type)
                     );
 
-                return new AsyncDbGridReader(connection, command, reader, adaper);
+                return new AsyncDbGridReader(dbConnection, command, reader, adaper);
             }
             catch
             {
@@ -535,33 +534,33 @@ namespace Inkslab.Linq
 
                 if (isClosedConnection)
                 {
-                    await connection.CloseAsync();
+                    await dbConnection.CloseAsync();
                 }
 
-                await connection.DisposeAsync();
+                await dbConnection.DisposeAsync();
 
                 throw;
             }
         }
 
         /// <inheritdoc/>
-        public int ExecuteMultiple(string connectionStrings, Action<IMultipleExecutor> multipleAction, int? commandTimeout)
+        public int ExecuteMultiple(IConnection databaseStrings, Action<IMultipleExecutor> multipleAction, int? commandTimeout)
         {
             if (multipleAction is null)
             {
                 throw new ArgumentNullException(nameof(multipleAction));
             }
 
-            using var connection = _connectionPipeline.Get(connectionStrings);
+            using var dbConnection = _connectionPipeline.Get(databaseStrings);
 
-            bool isClosedConnection = connection.State == ConnectionState.Closed;
+            bool isClosedConnection = dbConnection.State == ConnectionState.Closed;
 
             if (isClosedConnection)
             {
-                connection.Open();
+                dbConnection.Open();
             }
 
-            var multiple = new MultipleExecute(connection, _assistant, _logger);
+            var multiple = new MultipleExecute(dbConnection, _assistant, _logger);
 
             try
             {
@@ -573,29 +572,29 @@ namespace Inkslab.Linq
             {
                 if (isClosedConnection)
                 {
-                    connection.Close();
+                    dbConnection.Close();
                 }
             }
         }
 
         /// <inheritdoc/>
-        public async Task<int> ExecuteMultipleAsync(string connectionStrings, Func<IAsyncMultipleExecutor, Task> multipleAction, int? commandTimeout, CancellationToken cancellationToken = default)
+        public async Task<int> ExecuteMultipleAsync(IConnection databaseStrings, Func<IAsyncMultipleExecutor, Task> multipleAction, int? commandTimeout, CancellationToken cancellationToken = default)
         {
             if (multipleAction is null)
             {
                 throw new ArgumentNullException(nameof(multipleAction));
             }
 
-            using var connection = _connectionPipeline.Get(connectionStrings);
+            using var dbConnection = _connectionPipeline.Get(databaseStrings);
 
-            bool isClosedConnection = connection.State == ConnectionState.Closed;
+            bool isClosedConnection = dbConnection.State == ConnectionState.Closed;
 
             if (isClosedConnection)
             {
-                await connection.OpenAsync(cancellationToken);
+                await dbConnection.OpenAsync(cancellationToken);
             }
 
-            var multiple = new MultipleExecuteAsync(connection, _assistant, _logger, cancellationToken);
+            var multiple = new MultipleExecuteAsync(dbConnection, _assistant, _logger, cancellationToken);
 
             try
             {
@@ -607,48 +606,48 @@ namespace Inkslab.Linq
             {
                 if (isClosedConnection)
                 {
-                    connection.Close();
+                    dbConnection.Close();
                 }
             }
         }
 
         /// <inheritdoc/>
-        public int WriteToServer(string connectionStrings, DataTable dt, int? commandTimeout = null)
+        public int WriteToServer(IConnection databaseStrings, DataTable dataTable, int? commandTimeout = null)
         {
-            if (dt is null)
+            if (dataTable is null)
             {
-                throw new ArgumentNullException(nameof(dt));
+                throw new ArgumentNullException(nameof(dataTable));
             }
 
-            if (string.IsNullOrEmpty(dt.TableName))
+            if (string.IsNullOrEmpty(dataTable.TableName))
             {
                 throw new ArgumentException("请通过“DataTable.TableName”指定目标表名称！");
             }
 
-            using var connection = _connectionPipeline.Get(connectionStrings);
+            using var dbConnection = _connectionPipeline.Get(databaseStrings);
 
-            bool isClosedConnection = connection.State == ConnectionState.Closed;
+            bool isClosedConnection = dbConnection.State == ConnectionState.Closed;
 
             if (isClosedConnection)
             {
-                connection.Open();
+                dbConnection.Open();
             }
 
             try
             {
-                return WriteToServer(_assistant, connection, dt, commandTimeout);
+                return WriteToServer(_assistant, dbConnection, dataTable, commandTimeout);
             }
             finally
             {
                 if (isClosedConnection)
                 {
-                    connection.Close();
+                    dbConnection.Close();
                 }
             }
         }
 
         /// <inheritdoc/>
-        public async Task<int> WriteToServerAsync(string connectionStrings, DataTable dt, int? commandTimeout, CancellationToken cancellationToken = default)
+        public async Task<int> WriteToServerAsync(IConnection databaseStrings, DataTable dt, int? commandTimeout, CancellationToken cancellationToken = default)
         {
             if (dt is null)
             {
@@ -660,7 +659,7 @@ namespace Inkslab.Linq
                 throw new ArgumentException("请通过“DataTable.TableName”指定目标表名称！");
             }
 
-            using var connection = _connectionPipeline.Get(connectionStrings);
+            using var connection = _connectionPipeline.Get(databaseStrings);
 
             bool isClosedConnection = connection.State == ConnectionState.Closed;
 
@@ -718,13 +717,13 @@ namespace Inkslab.Linq
 
         private class AsyncEnumerable<T> : IAsyncEnumerable<T>
         {
-            private readonly string _connectionStrings;
+            private readonly IConnection _connectionStrings;
             private readonly IDbConnectionPipeline _connectionPipeline;
             private readonly CommandSql _commandSql;
 
-            public AsyncEnumerable(string connectionStrings, IDbConnectionPipeline connectionPipeline, CommandSql commandSql)
+            public AsyncEnumerable(IConnection databaseStrings, IDbConnectionPipeline connectionPipeline, CommandSql commandSql)
             {
-                _connectionStrings = connectionStrings;
+                _connectionStrings = databaseStrings;
                 _connectionPipeline = connectionPipeline;
                 _commandSql = commandSql;
             }

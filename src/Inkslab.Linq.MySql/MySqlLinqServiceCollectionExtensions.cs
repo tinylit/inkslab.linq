@@ -19,7 +19,7 @@ namespace Microsoft.Extensions.DependencyInjection
         public static DatabaseLinqBuilder UseMySql(this IServiceCollection services)
         {
             return services.AddSingleton<IBulkAssistant, MySqlBulkAssistant>()
-                 .UseEngine<MySqlAdapter>(connectionString =>
+                 .UseEngine<MySqlAdapter>(DatabaseEngine.MySQL, connectionString =>
                  {
                      return new MySqlConnection(connectionString);
                  });

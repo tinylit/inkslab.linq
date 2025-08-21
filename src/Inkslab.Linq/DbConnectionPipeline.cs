@@ -17,26 +17,23 @@ namespace Inkslab.Linq
     /// </summary>
     public class DbConnectionPipeline : IDbConnectionPipeline
     {
-        private readonly IDbConnectionFactory _factory;
         private readonly IConnections _connections;
 
         /// <summary>
         /// 链接管道。
         /// </summary>
-        /// <param name="factory">链接工厂。</param>
         /// <param name="connections">链接调度器。</param>
-        public DbConnectionPipeline(IDbConnectionFactory factory, IConnections connections)
+        public DbConnectionPipeline(IConnections connections)
         {
-            _factory = factory;
             _connections = connections;
         }
 
         /// <inheritdoc/>
-        public DbConnection Get(string connectionStrings)
+        public DbConnection Get(IConnection databaseStrings)
         {
-            if (string.IsNullOrEmpty(connectionStrings))
+            if (databaseStrings is null)
             {
-                throw new ArgumentException("数据库链接无效!", nameof(connectionStrings));
+                throw new ArgumentException("数据库链接无效!", nameof(databaseStrings));
             }
 
             var current = Transaction.Current;
@@ -46,11 +43,11 @@ namespace Inkslab.Linq
                 var transcation = OwnerTransaction.Current;
 
                 return transcation is null
-                    ? _connections.Get(connectionStrings, _factory)
-                    : OwnerTransactionConnections.Get(transcation, connectionStrings, _connections, _factory);
+                    ? _connections.Get(databaseStrings)
+                    : OwnerTransactionConnections.Get(transcation, databaseStrings, _connections);
             }
 
-            return TransactionConnections.Get(current, connectionStrings, _connections, _factory);
+            return TransactionConnections.Get(current, databaseStrings, _connections);
         }
 
         #region 事务。
@@ -88,7 +85,7 @@ namespace Inkslab.Linq
                 return false;
             }
 
-            public static DbConnection Get(OwnerTransaction transaction, string connectionString, IConnections connections, IDbConnectionFactory factory)
+            public static DbConnection Get(OwnerTransaction transaction, IConnection databaseStrings, IConnections connections)
             {
                 Dictionary<string, TransactionEntry> dictionary = _transactionConnections.GetOrAdd(transaction, transaction =>
                 {
@@ -97,16 +94,16 @@ namespace Inkslab.Linq
                     return new Dictionary<string, TransactionEntry>();
                 });
 
-                if (dictionary.TryGetValue(connectionString, out TransactionEntry info))
+                if (dictionary.TryGetValue(databaseStrings.Strings, out TransactionEntry info))
                 {
                     return info.GetConnection();
                 }
 
                 lock (dictionary)
                 {
-                    if (!dictionary.TryGetValue(connectionString, out info))
+                    if (!dictionary.TryGetValue(databaseStrings.Strings, out info))
                     {
-                        dictionary.Add(connectionString, info = new TransactionEntry(transaction, connections.Get(connectionString, factory)));
+                        dictionary.Add(databaseStrings.Strings, info = new TransactionEntry(transaction, connections.Get(databaseStrings)));
                     }
                 }
 
@@ -440,7 +437,7 @@ namespace Inkslab.Linq
         {
             private static readonly ConcurrentDictionary<Transaction, Dictionary<string, TransactionEntry>> _transactionConnections = new ConcurrentDictionary<Transaction, Dictionary<string, TransactionEntry>>();
 
-            public static DbConnection Get(Transaction transaction, string connectionString, IConnections connections, IDbConnectionFactory factory)
+            public static DbConnection Get(Transaction transaction, IConnection databaseStrings, IConnections connections)
             {
                 Dictionary<string, TransactionEntry> dictionary = _transactionConnections.GetOrAdd(transaction, transaction =>
                 {
@@ -449,16 +446,16 @@ namespace Inkslab.Linq
                     return new Dictionary<string, TransactionEntry>();
                 });
 
-                if (dictionary.TryGetValue(connectionString, out TransactionEntry info))
+                if (dictionary.TryGetValue(databaseStrings.Strings, out TransactionEntry info))
                 {
                     return info.GetConnection();
                 }
 
                 lock (dictionary)
                 {
-                    if (!dictionary.TryGetValue(connectionString, out info))
+                    if (!dictionary.TryGetValue(databaseStrings.Strings, out info))
                     {
-                        dictionary.Add(connectionString, info = new TransactionEntry(connections.Get(connectionString, factory)));
+                        dictionary.Add(databaseStrings.Strings, info = new TransactionEntry(connections.Get(databaseStrings)));
                     }
                 }
 

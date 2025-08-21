@@ -13,7 +13,7 @@ namespace Inkslab.Linq
     {
         private readonly IDbAdapter _adapter;
         private readonly IDatabaseExecutor _executor;
-        private readonly IConnectionStrings _connectionStrings;
+        private readonly IDatabaseStrings _databaseStrings;
         private readonly ILogger<RepositoryExecutor> _logger;
 
         /// <summary>
@@ -21,13 +21,13 @@ namespace Inkslab.Linq
         /// </summary>
         /// <param name="adapter">适配器。</param>
         /// <param name="executor">执行器。</param>
-        /// <param name="connectionStrings">链接字符串。</param>
+        /// <param name="databaseStrings">链接字符串。</param>
         /// <param name="logger">日志。</param>
-        public RepositoryExecutor(IDatabaseExecutor executor, IConnectionStrings connectionStrings, IDbAdapter adapter, ILogger<RepositoryExecutor> logger)
+        public RepositoryExecutor(IDatabaseExecutor executor, IDatabaseStrings databaseStrings, IDbAdapter adapter, ILogger<RepositoryExecutor> logger)
         {
             _adapter = adapter;
             _executor = executor;
-            _connectionStrings = connectionStrings;
+            _databaseStrings = databaseStrings;
             _logger = logger;
         }
 
@@ -40,7 +40,7 @@ namespace Inkslab.Linq
 
                 var commandSql = visitor.ToSQL();
 
-                return _executor.Execute(_connectionStrings.Strings, commandSql);
+                return _executor.Execute(_databaseStrings, commandSql);
             }
         }
 
@@ -62,7 +62,7 @@ namespace Inkslab.Linq
 
                 var commandSql = visitor.ToSQL();
 
-                return _executor.ExecuteAsync(_connectionStrings.Strings, commandSql, cancellationToken);
+                return _executor.ExecuteAsync(_databaseStrings, commandSql, cancellationToken);
             }
         }
 
@@ -84,7 +84,7 @@ namespace Inkslab.Linq
 
                 var commandSql = visitor.ToSQL<T>();
 
-                return _executor.Query<T>(_connectionStrings.Strings, commandSql);
+                return _executor.Query<T>(_databaseStrings, commandSql);
             }
         }
 
@@ -106,7 +106,7 @@ namespace Inkslab.Linq
 
                 var commandSql = visitor.ToSQL<T>();
 
-                return _executor.QueryAsync<T>(_connectionStrings.Strings, commandSql);
+                return _executor.QueryAsync<T>(_databaseStrings, commandSql);
             }
         }
 
@@ -128,7 +128,7 @@ namespace Inkslab.Linq
 
                 var commandSql = visitor.ToSQL<T>();
 
-                return _executor.Read(_connectionStrings.Strings, commandSql);
+                return _executor.Read(_databaseStrings, commandSql);
             }
         }
 
@@ -150,7 +150,7 @@ namespace Inkslab.Linq
 
                 var commandSql = visitor.ToSQL<T>();
 
-                return _executor.ReadAsync(_connectionStrings.Strings, commandSql, cancellationToken);
+                return _executor.ReadAsync(_databaseStrings, commandSql, cancellationToken);
             }
         }
     }

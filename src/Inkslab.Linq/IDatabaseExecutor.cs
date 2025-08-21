@@ -15,106 +15,106 @@ namespace Inkslab.Linq
         /// 读取数据。
         /// </summary>
         /// <typeparam name="T">返回类型。</typeparam>
-        /// <param name="connectionStrings">数据库链接字符串。</param>
+        /// <param name="databaseStrings">数据库链接。</param>
         /// <param name="commandSql">T-SQL 命令。</param>
         /// <returns>查询结果。</returns>
-        T Read<T>(string connectionStrings, CommandSql<T> commandSql);
+        T Read<T>(IConnection databaseStrings, CommandSql<T> commandSql);
 
         /// <summary>
         /// 读取数据。
         /// </summary>
         /// <typeparam name="T">返回类型。</typeparam>
-        /// <param name="connectionStrings">数据库链接字符串。</param>
+        /// <param name="databaseStrings">数据库链接。</param>
         /// <param name="commandSql">T-SQL 命令。</param>
-        /// <returns></returns>
-        List<T> Query<T>(string connectionStrings, CommandSql commandSql);
+        /// <returns>查询结果列表。</returns>
+        List<T> Query<T>(IConnection databaseStrings, CommandSql commandSql);
 
         /// <summary>
         /// 查询多个结果。
         /// </summary>
-        /// <param name="connectionStrings">数据库链接字符串。</param>
-        /// <param name="commandSql">-SQL 命令。</param>
+        /// <param name="databaseStrings">数据库链接。</param>
+        /// <param name="commandSql">T-SQL 命令。</param>
         /// <returns>查询器。</returns>
-        IDbGridReader QueryMultiple(string connectionStrings, CommandSql commandSql);
+        IDbGridReader QueryMultiple(IConnection databaseStrings, CommandSql commandSql);
 
         /// <summary>
         /// 执行命令。
         /// </summary>
-        /// <param name="connectionStrings">数据库链接字符串。</param>
+        /// <param name="databaseStrings">数据库链接。</param>
         /// <param name="commandSql">T-SQL 命令。</param>
-        /// <returns>执行影响行。</returns>
-        int Execute(string connectionStrings, CommandSql commandSql);
+        /// <returns>受影响的行数。</returns>
+        int Execute(IConnection databaseStrings, CommandSql commandSql);
 
         /// <summary>
         /// 批量处理。
         /// </summary>
-        /// <param name="connectionStrings">数据库链接字符串。</param>
-        /// <param name="dt">数据表。</param>
-        /// <param name="commandTimeout">超时时间。</param>
-        int WriteToServer(string connectionStrings, DataTable dt, int? commandTimeout = null);
+        /// <param name="databaseStrings">数据库链接。</param>
+        /// <param name="dataTable">数据表。</param>
+        /// <param name="commandTimeout">超时时间（秒）。</param>
+        int WriteToServer(IConnection databaseStrings, DataTable dataTable, int? commandTimeout = null);
 
         /// <summary>
         /// 多执行异步处理器。
         /// </summary>
-        /// <param name="connectionStrings">数据库链接字符串。</param>
+        /// <param name="databaseStrings">数据库链接。</param>
         /// <param name="multipleAction">执行方法。</param>
-        /// <param name="commandTimeout">超时时间。</param>
-        /// <returns>影响行。</returns>
-        int ExecuteMultiple(string connectionStrings, Action<IMultipleExecutor> multipleAction, int? commandTimeout = null);
+        /// <param name="commandTimeout">超时时间（秒）。</param>
+        /// <returns>受影响的行数。</returns>
+        int ExecuteMultiple(IConnection databaseStrings, Action<IMultipleExecutor> multipleAction, int? commandTimeout = null);
 
         /// <summary>
         /// 读取数据。
         /// </summary>
         /// <typeparam name="T">返回类型。</typeparam>
-        /// <param name="connectionStrings">数据库链接字符串。</param>
+        /// <param name="databaseStrings">数据库链接。</param>
         /// <param name="commandSql">T-SQL 命令。</param>
-        /// <param name="cancellationToken">取消。</param>
-        /// <returns>结果。</returns>
-        Task<T> ReadAsync<T>(string connectionStrings, CommandSql<T> commandSql, CancellationToken cancellationToken = default);
+        /// <param name="cancellationToken">取消操作的标记。</param>
+        /// <returns>查询结果。</returns>
+        Task<T> ReadAsync<T>(IConnection databaseStrings, CommandSql<T> commandSql, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 读取数据。
         /// </summary>
         /// <typeparam name="T">返回类型。</typeparam>
-        /// <param name="connectionStrings">数据库链接字符串。</param>
+        /// <param name="databaseStrings">数据库链接。</param>
         /// <param name="commandSql">T-SQL 命令。</param>
-        /// <returns>异步迭代器。</returns>
-        IAsyncEnumerable<T> QueryAsync<T>(string connectionStrings, CommandSql commandSql);
+        /// <returns>异步查询结果迭代器。</returns>
+        IAsyncEnumerable<T> QueryAsync<T>(IConnection databaseStrings, CommandSql commandSql);
 
         /// <summary>
         /// 查询多个结果。
         /// </summary>
-        /// <param name="connectionStrings">数据库链接字符串。</param>
-        /// <param name="commandSql">-SQL 命令。</param>
-        /// <returns>查询器。</returns>
-        Task<IAsyncDbGridReader> QueryMultipleAsync(string connectionStrings, CommandSql commandSql);
+        /// <param name="databaseStrings">数据库链接。</param>
+        /// <param name="commandSql">T-SQL 命令。</param>
+        /// <returns>异步查询器。</returns>
+        Task<IAsyncDbGridReader> QueryMultipleAsync(IConnection databaseStrings, CommandSql commandSql);
 
         /// <summary>
         /// 执行命令。
         /// </summary>
-        /// <param name="connectionStrings">数据库链接字符串。</param>
+        /// <param name="databaseStrings">数据库链接。</param>
         /// <param name="commandSql">T-SQL 命令。</param>
-        /// <param name="cancellationToken">取消。</param>
-        /// <returns>执行影响行。</returns>
-        Task<int> ExecuteAsync(string connectionStrings, CommandSql commandSql, CancellationToken cancellationToken = default);
+        /// <param name="cancellationToken">取消操作的标记。</param>
+        /// <returns>受影响的行数。</returns>
+        Task<int> ExecuteAsync(IConnection databaseStrings, CommandSql commandSql, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 批量处理。
         /// </summary>
-        /// <param name="connectionStrings">数据库链接字符串。</param>
-        /// <param name="dt">数据表。</param>
-        /// <param name="commandTimeout">超时时间。</param>
-        /// <param name="cancellationToken">取消。</param>
-        Task<int> WriteToServerAsync(string connectionStrings, DataTable dt, int? commandTimeout = null, CancellationToken cancellationToken = default);
+        /// <param name="databaseStrings">数据库链接。</param>
+        /// <param name="dataTable">数据表。</param>
+        /// <param name="commandTimeout">超时时间（秒）。</param>
+        /// <param name="cancellationToken">取消操作的标记。</param>
+        Task<int> WriteToServerAsync(IConnection databaseStrings, DataTable dataTable, int? commandTimeout = null, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 多执行异步处理器。
         /// </summary>
-        /// <param name="connectionStrings">数据库链接字符串。</param>
+        /// <param name="databaseStrings">数据库链接。</param>
         /// <param name="multipleAction">执行方法。</param>
-        /// <param name="commandTimeout">超时时间。</param>
-        /// <param name="cancellationToken">取消。</param>
-        /// <returns>影响行。</returns>
-        Task<int> ExecuteMultipleAsync(string connectionStrings, Func<IAsyncMultipleExecutor, Task> multipleAction, int? commandTimeout = null, CancellationToken cancellationToken = default);
+        /// <param name="commandTimeout">超时时间（秒）。</param>
+        /// <param name="cancellationToken">取消操作的标记。</param>
+        /// <returns>受影响的行数。</returns>
+        Task<int> ExecuteMultipleAsync(IConnection databaseStrings, Func<IAsyncMultipleExecutor, Task> multipleAction, int? commandTimeout = null, CancellationToken cancellationToken = default);
     }
 }

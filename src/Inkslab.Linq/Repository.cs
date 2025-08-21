@@ -7,7 +7,6 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Inkslab.Linq.Abilities;
-using Inkslab.Linq.Enums;
 using static System.Linq.Expressions.Expression;
 
 namespace Inkslab.Linq

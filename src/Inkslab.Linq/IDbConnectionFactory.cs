@@ -7,6 +7,11 @@ namespace Inkslab.Linq
     /// </summary>
     public interface IDbConnectionFactory
     {
+        /// <summary>
+        /// 数据库引擎。
+        /// </summary>
+        DatabaseEngine Engine { get; }
+
         /// <summary> 创建数据库连接。 </summary>
         /// <returns></returns>
         DbConnection Create(string connectionString);

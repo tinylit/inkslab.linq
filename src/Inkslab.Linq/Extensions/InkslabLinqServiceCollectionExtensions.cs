@@ -15,26 +15,19 @@ namespace Microsoft.Extensions.DependencyInjection
     /// </summary>
     public static class InkslabLinqServiceCollectionExtensions
     {
-        private class ConnectionStrings : IConnectionStrings
-        {
-            private readonly string _connectionStrings;
-
-            public ConnectionStrings(string connectionStrings)
-            {
-                _connectionStrings = connectionStrings;
-            }
-
-            public string Strings => _connectionStrings;
-        }
-
         private class DbConnectionFactory : IDbConnectionFactory
         {
             private readonly Func<string, DbConnection> _factory;
 
-            public DbConnectionFactory(Func<string, DbConnection> factory)
+            public DbConnectionFactory(DatabaseEngine engine, Func<string, DbConnection> factory)
             {
+                Engine = engine;
+
                 _factory = factory;
             }
+
+            public DatabaseEngine Engine { get; }
+
             public DbConnection Create(string connectionString)
             {
                 if (string.IsNullOrEmpty(connectionString))
@@ -73,16 +66,17 @@ namespace Microsoft.Extensions.DependencyInjection
         /// 使用引擎。
         /// </summary>
         /// <param name="services">服务池。</param>
+        /// <param name="engine">数据库引擎。</param>
         /// <param name="factory">数据库工厂。</param>
         /// <returns>服务池。</returns>
-        public static DatabaseLinqBuilder UseEngine<TDbAdapter>(this IServiceCollection services, DbProviderFactory factory) where TDbAdapter : class, IDbAdapter
+        public static DatabaseLinqBuilder UseEngine<TDbAdapter>(this IServiceCollection services, DatabaseEngine engine, DbProviderFactory factory) where TDbAdapter : class, IDbAdapter
         {
             if (factory is null)
             {
                 throw new ArgumentNullException(nameof(factory));
             }
 
-            return services.UseEngine<TDbAdapter>(connectionString =>
+            return services.UseEngine<TDbAdapter>(engine, connectionString =>
             {
                 var connection = factory.CreateConnection();
 
@@ -96,9 +90,10 @@ namespace Microsoft.Extensions.DependencyInjection
         /// 使用引擎。
         /// </summary>
         /// <param name="services">服务池。</param>
+        /// <param name="engine">数据库引擎。</param>
         /// <param name="factory">数据库工厂。</param>
         /// <returns>服务池。</returns>
-        public static DatabaseLinqBuilder UseEngine<TDbAdapter>(this IServiceCollection services, Func<string, DbConnection> factory) where TDbAdapter : class, IDbAdapter
+        public static DatabaseLinqBuilder UseEngine<TDbAdapter>(this IServiceCollection services, DatabaseEngine engine, Func<string, DbConnection> factory) where TDbAdapter : class, IDbAdapter
         {
             if (services is null)
             {
@@ -110,9 +105,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 throw new ArgumentNullException(nameof(factory));
             }
 
-            services.AddSingleton<IDbAdapter, TDbAdapter>()
-                .AddSingleton(static services => services.GetRequiredService<IDbAdapter>().Settings)
-                .AddSingleton<IDbConnectionFactory>(new DbConnectionFactory(factory))
+            services.AddSingleton<IDbConnectionFactory>(new DbConnectionFactory(engine, factory))
                 .AddSingleton<IDbConnectionPipeline, DbConnectionPipeline>()
                 .AddSingleton<IDatabaseExecutor, DatabaseExecutor>()
                 .AddSingleton(typeof(IDatabase<>), typeof(Database<>));
@@ -120,7 +113,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.TryAddSingleton<IBulkAssistant, BulkAssistant>();
             services.TryAddSingleton<IConnections, DefaultConnections>();
 
-            return new DatabaseLinqBuilder(services);
+            return new DatabaseLinqBuilder(engine, typeof(TDbAdapter), services);
         }
     }
 }

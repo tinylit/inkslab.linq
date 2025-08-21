@@ -10,14 +10,20 @@ namespace Inkslab.Linq
     /// </summary>
     public sealed class DatabaseLinqBuilder
     {
+        private readonly DatabaseEngine _engine;
+        private readonly Type _dbAdapterType;
         private readonly IServiceCollection _services;
 
         /// <summary>
         /// 数据库构建器。
         /// </summary>
+        /// <param name="engine">数据库引擎。</param>
+        /// <param name="dbAdapterType">数据库适配器类型。</param>
         /// <param name="services">服务集合。</param>
-        public DatabaseLinqBuilder(IServiceCollection services)
+        public DatabaseLinqBuilder(DatabaseEngine engine, Type dbAdapterType, IServiceCollection services)
         {
+            _engine = engine;
+            _dbAdapterType = dbAdapterType;
             _services = services;
         }
 
@@ -27,7 +33,7 @@ namespace Inkslab.Linq
         public IServiceCollection Services => _services;
 
         /// <summary>
-        /// 使用 Linq 语法。
+        /// 使用 Linq 语法（只能注册一次）。
         /// </summary>
         /// <param name="connectionStrings">数据库链接。</param>
         /// <remarks>
@@ -41,7 +47,16 @@ namespace Inkslab.Linq
                 throw new ArgumentException($"“{nameof(connectionStrings)}”不能为 null 或空。", nameof(connectionStrings));
             }
 
-            _services.AddSingleton<IConnectionStrings>(new ConnectionStrings(connectionStrings))
+            var serviceType = typeof(IDbAdapter);
+
+            if (_services.Any(x => x.ServiceType == serviceType))
+            {
+                throw new InvalidOperationException($"当前方法“{nameof(UseLinq)}”已注册，请勿重复注册！");
+            }
+
+            _services.AddSingleton(serviceType, _dbAdapterType)
+                .AddSingleton(static services => services.GetRequiredService<IDbAdapter>().Settings)
+                .AddSingleton<IDatabaseStrings>(new DatabaseStrings(_engine, connectionStrings))
                 .AddSingleton<IDatabase, Database>()
                 .AddSingleton(typeof(IQueryable<>), typeof(Queryable<>))
                 .AddSingleton(typeof(IRepository<>), typeof(Repository<>));
@@ -64,6 +79,8 @@ namespace Inkslab.Linq
         {
             _services.AddSingleton<TConnectionStrings>();
 
+            _services.AddSingleton<IDatabaseStrings<TConnectionStrings>>(sp => new DatabaseStrings<TConnectionStrings>(_engine, sp.GetRequiredService<TConnectionStrings>()));
+
             return this;
         }
 
@@ -83,21 +100,37 @@ namespace Inkslab.Linq
                 throw new ArgumentNullException(nameof(connectionStrings));
             }
 
-            _services.AddSingleton(connectionStrings);
+            _services.AddSingleton<IDatabaseStrings<TConnectionStrings>>(new DatabaseStrings<TConnectionStrings>(_engine, connectionStrings));
 
             return this;
         }
 
-        private class ConnectionStrings : IConnectionStrings
+        private class DatabaseStrings<TConnectionStrings> : IDatabaseStrings<TConnectionStrings> where TConnectionStrings : class, IConnectionStrings
         {
-            private readonly string _connectionStrings;
+            private readonly TConnectionStrings _connectionStrings;
 
-            public ConnectionStrings(string connectionStrings)
+            public DatabaseStrings(DatabaseEngine engine, TConnectionStrings connectionStrings)
             {
+                Engine = engine;
                 _connectionStrings = connectionStrings;
             }
 
-            public string Strings => _connectionStrings;
+            public DatabaseEngine Engine { get; }
+
+            public string Strings => _connectionStrings.Strings;
+        }
+
+        private class DatabaseStrings : IDatabaseStrings
+        {
+            public DatabaseStrings(DatabaseEngine engine, string connectionStrings)
+            {
+                Engine = engine;
+                Strings = connectionStrings;
+            }
+
+            public string Strings { get; }
+
+            public DatabaseEngine Engine { get; }
         }
     }
 }

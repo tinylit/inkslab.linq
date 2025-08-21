@@ -22,7 +22,7 @@ namespace Inkslab.Linq
         private RowStyle rowStyle = RowStyle.FirstOrDefault;
 
         /// <inheritdoc/>
-        public QueryVisitor(IDbAdapter adapter) : base(adapter)
+        public QueryVisitor(DbStrictAdapter adapter) : base(adapter)
         {
         }
 

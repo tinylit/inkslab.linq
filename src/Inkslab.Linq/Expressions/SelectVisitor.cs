@@ -27,7 +27,7 @@ namespace Inkslab.Linq.Expressions
         private readonly OrderBySwitch _orderBySwitch;
 
         /// <inheritdoc/>
-        protected SelectVisitor(IDbAdapter adapter) : base(adapter)
+        protected SelectVisitor(DbStrictAdapter adapter) : base(adapter)
         {
             _showAs = true;
             _orderBySwitch = new OrderBySwitch(Writer);

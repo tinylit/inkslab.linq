@@ -55,7 +55,7 @@ namespace Inkslab.Linq
             }
 
             _services.AddSingleton(serviceType, _dbAdapterType)
-                .AddSingleton(static services => services.GetRequiredService<IDbAdapter>().Settings)
+                .AddSingleton(sp => new DbStrictAdapter(_engine, sp.GetRequiredService<IDbAdapter>()))
                 .AddSingleton<IDatabaseStrings>(new DatabaseStrings(_engine, connectionStrings))
                 .AddSingleton<IDatabase, Database>()
                 .AddSingleton(typeof(IQueryable<>), typeof(Queryable<>))
@@ -77,6 +77,13 @@ namespace Inkslab.Linq
         /// <returns>数据库构建器。</returns>
         public DatabaseLinqBuilder UseDatabase<TConnectionStrings>() where TConnectionStrings : class, IConnectionStrings
         {
+            var serviceType = typeof(TConnectionStrings);
+
+            if (_services.Any(x => x.ServiceType == serviceType))
+            {
+                throw new InvalidOperationException($"一个类型只能用于一个数据库连接，数据库连接（{serviceType.Name}）不能重复注册！");
+            }
+
             _services.AddSingleton<TConnectionStrings>();
 
             _services.AddSingleton<IDatabaseStrings<TConnectionStrings>>(sp => new DatabaseStrings<TConnectionStrings>(_engine, sp.GetRequiredService<TConnectionStrings>()));
@@ -99,6 +106,15 @@ namespace Inkslab.Linq
             {
                 throw new ArgumentNullException(nameof(connectionStrings));
             }
+
+            var serviceType = typeof(TConnectionStrings);
+
+            if (_services.Any(x => x.ServiceType == serviceType))
+            {
+                throw new InvalidOperationException($"一个类型只能用于一个数据库连接，数据库连接（{serviceType.Name}）不能重复注册！");
+            }
+
+            _services.AddSingleton(connectionStrings);
 
             _services.AddSingleton<IDatabaseStrings<TConnectionStrings>>(new DatabaseStrings<TConnectionStrings>(_engine, connectionStrings));
 

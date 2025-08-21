@@ -118,7 +118,7 @@ namespace Inkslab.Linq.Expressions
         private readonly List<JoinVisitor> _joinVisitors = new List<JoinVisitor>(1);
 
         /// <inheritdoc/>
-        protected ScriptVisitor(IDbAdapter adapter) : base(adapter)
+        protected ScriptVisitor(DbStrictAdapter adapter) : base(adapter)
         {
             _rootVisitor = true;
             _whereSwitch = new WhereSwitch(Writer, ConditionType.Where);

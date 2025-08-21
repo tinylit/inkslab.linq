@@ -29,8 +29,8 @@ namespace Inkslab.Linq
         private static readonly Type _elementType;
         private static readonly ITableInfo _instance;
         private readonly IDatabaseExecutor _databaseExecutor;
-        private readonly IConnectionStrings _connectionStrings;
-        private readonly IDbCorrectSettings _settings;
+        private readonly DbStrictAdapter _adapter;
+        private readonly IDatabaseStrings _databaseStrings;
         private readonly ILogger _logger;
 
         static RepositoryRouter()
@@ -44,19 +44,19 @@ namespace Inkslab.Linq
         /// 仓库路由。
         /// </summary>
         /// <param name="databaseExecutor">执行器。</param>
-        /// <param name="connectionStrings">数据库链接。</param>
-        /// <param name="settings">矫正设置。</param>
+        /// <param name="adapter">严格适配器。</param>
+        /// <param name="databaseStrings">数据库链接。</param>
         /// <param name="logger">日志。</param>
         public RepositoryRouter(
             IDatabaseExecutor databaseExecutor,
-            IConnectionStrings connectionStrings,
-            IDbCorrectSettings settings,
+            DbStrictAdapter adapter,
+            IDatabaseStrings databaseStrings,
             ILogger<RepositoryRouter<TEntity>> logger
         )
         {
             _databaseExecutor = databaseExecutor;
-            _connectionStrings = connectionStrings;
-            _settings = settings;
+            _adapter = adapter;
+            _databaseStrings = databaseStrings;
             _logger = logger;
         }
 
@@ -123,8 +123,8 @@ namespace Inkslab.Linq
 
             return new Insertable(
                 _databaseExecutor,
-                _connectionStrings,
-                _settings,
+                _databaseStrings,
+                _adapter,
                 entries,
                 commandTimeout,
                 shardingKey,
@@ -163,8 +163,8 @@ namespace Inkslab.Linq
 
             return new Updateable(
                 _databaseExecutor,
-                _connectionStrings,
-                _settings,
+                _databaseStrings,
+                _adapter,
                 entries,
                 commandTimeout,
                 shardingKey,
@@ -203,8 +203,8 @@ namespace Inkslab.Linq
 
             return new Deleteable(
                 _databaseExecutor,
-                _connectionStrings,
-                _settings,
+                _databaseStrings,
+                _adapter,
                 entries,
                 commandTimeout,
                 shardingKey,
@@ -256,7 +256,7 @@ namespace Inkslab.Linq
 
             public Command(
                 IReadOnlyCollection<TEntity> entities,
-                IDbCorrectSettings settings,
+                DbStrictAdapter adapter,
                 string shardingKey,
                 int? commandTimeout
             )
@@ -264,14 +264,15 @@ namespace Inkslab.Linq
                 Name = shardingKey?.Length > 0 ? _instance.Fragment(shardingKey) : _instance.Name;
 
                 Schema =
-                    settings.Engine == DatabaseEngine.SqlServer
+                    adapter.Engine == DatabaseEngine.SqlServer
                         ? _instance.Schema.IsEmpty()
                             ? "dbo"
                             : _instance.Schema
                         : _instance.Schema;
 
                 Entities = entities;
-                Settings = settings;
+                Engine = adapter.Engine;
+                Settings = adapter.Settings;
 
                 CommandTimeout = commandTimeout;
             }
@@ -281,6 +282,8 @@ namespace Inkslab.Linq
             public bool RequiredBulk => Entities.Count > 100;
 
             protected IReadOnlyCollection<TEntity> Entities { get; }
+
+            public DatabaseEngine Engine { get; }
 
             public IDbCorrectSettings Settings { get; }
 
@@ -514,12 +517,12 @@ namespace Inkslab.Linq
         {
             public InsertCommand(
                 IReadOnlyCollection<TEntity> entities,
-                IDbCorrectSettings settings,
+                DbStrictAdapter adapter,
                 bool ignore,
                 string shardingKey,
                 int? commandTimeout
             )
-                : base(entities, settings, shardingKey, commandTimeout)
+                : base(entities, adapter, shardingKey, commandTimeout)
             {
                 Ignore = ignore;
 
@@ -624,7 +627,7 @@ namespace Inkslab.Linq
 
                 sb.Append("CREATE ");
 
-                if (Settings.Engine == DatabaseEngine.MySQL)
+                if (Engine == DatabaseEngine.MySQL)
                 {
                     sb.Append("TEMPORARY ");
                 }
@@ -646,31 +649,31 @@ namespace Inkslab.Linq
                             Type.GetTypeCode(entry.ColumnType) switch
                             {
                                 TypeCode.Boolean => "bit",
-                                TypeCode.Char => Settings.Engine == DatabaseEngine.MySQL
+                                TypeCode.Char => Engine == DatabaseEngine.MySQL
                                         ? "char(1)"
                                         : "nchar(1)",
                                 TypeCode.Byte => "tinyint",
-                                TypeCode.SByte when Settings.Engine == DatabaseEngine.MySQL
+                                TypeCode.SByte when Engine == DatabaseEngine.MySQL
                                     => "tinyint unsigned",
                                 TypeCode.SByte or TypeCode.Int16 => "smallint",
-                                TypeCode.UInt16 when Settings.Engine == DatabaseEngine.MySQL
+                                TypeCode.UInt16 when Engine == DatabaseEngine.MySQL
                                     => "smallint unsigned",
                                 TypeCode.UInt16 or TypeCode.Int32 => "int",
-                                TypeCode.UInt32 when Settings.Engine == DatabaseEngine.MySQL
+                                TypeCode.UInt32 when Engine == DatabaseEngine.MySQL
                                     => "int unsigned",
                                 TypeCode.UInt32 or TypeCode.Int64 => "bigint",
-                                TypeCode.UInt64 when Settings.Engine == DatabaseEngine.MySQL
+                                TypeCode.UInt64 when Engine == DatabaseEngine.MySQL
                                     => "bigint unsigned",
                                 TypeCode.Single => "float",
                                 TypeCode.Double => "double",
                                 TypeCode.Decimal => "decimal",
                                 TypeCode.DateTime => "datetime",
                                 TypeCode.String when entry.Length == -1
-                                    => Settings.Engine == DatabaseEngine.SqlServer
+                                    => Engine == DatabaseEngine.SqlServer
                                         ? "ntext"
                                         : "text",
                                 TypeCode.String
-                                    => Settings.Engine switch
+                                    => Engine switch
                                     {
                                         DatabaseEngine.SqlServer when entry.Length > 8000 => "nvarchar(max)",
                                         DatabaseEngine.SqlServer => $"nvarchar({entry.Length})",
@@ -707,7 +710,7 @@ namespace Inkslab.Linq
                 #region 删除表。
                 sb.Append("DROP ");
 
-                if (Settings.Engine == DatabaseEngine.MySQL)
+                if (Engine == DatabaseEngine.MySQL)
                 {
                     sb.Append("TEMPORARY ");
                 }
@@ -877,12 +880,12 @@ namespace Inkslab.Linq
 
             public UpdateableCommand(
                 IReadOnlyCollection<TEntity> entities,
-                IDbCorrectSettings settings,
+                DbStrictAdapter adapter,
                 string shardingKey,
                 int? commandTimeout,
                 ILogger logger
             )
-                : base(entities, settings, shardingKey, commandTimeout)
+                : base(entities, adapter, shardingKey, commandTimeout)
             {
                 _logger = logger;
 
@@ -931,7 +934,7 @@ namespace Inkslab.Linq
                 var t1 = Settings.Name("t1");
                 var t2 = Settings.Name("t2");
 
-                switch (Settings.Engine)
+                switch (Engine)
                 {
                     case DatabaseEngine.Access:
                     case DatabaseEngine.MySQL:
@@ -1015,7 +1018,7 @@ namespace Inkslab.Linq
                     case DatabaseEngine.Oracle:
                     case DatabaseEngine.Sybase:
                     default:
-                        throw new NotSupportedException($"数据库引擎“{Settings.Engine}”不支持批量更新！");
+                        throw new NotSupportedException($"数据库引擎“{Engine}”不支持批量更新！");
                 }
 
                 //? 更新条件。
@@ -1087,7 +1090,7 @@ namespace Inkslab.Linq
 
                                 break;
                             case VersionKind.Now:
-                                switch (Settings.Engine)
+                                switch (Engine)
                                 {
                                     case DatabaseEngine.MySQL:
                                     case DatabaseEngine.Access:
@@ -1133,7 +1136,7 @@ namespace Inkslab.Linq
 
                 sb.Append("CREATE ");
 
-                if (Settings.Engine == DatabaseEngine.MySQL)
+                if (Engine == DatabaseEngine.MySQL)
                 {
                     sb.Append("TEMPORARY ");
                 }
@@ -1157,23 +1160,23 @@ namespace Inkslab.Linq
                                 TypeCode.Boolean => "bit",
                                 TypeCode.Char => "char(1)",
                                 TypeCode.Byte => "tinyint",
-                                TypeCode.SByte when Settings.Engine == DatabaseEngine.MySQL
+                                TypeCode.SByte when Engine == DatabaseEngine.MySQL
                                     => "tinyint unsigned",
                                 TypeCode.SByte or TypeCode.Int16 => "smallint",
-                                TypeCode.UInt16 when Settings.Engine == DatabaseEngine.MySQL
+                                TypeCode.UInt16 when Engine == DatabaseEngine.MySQL
                                     => "smallint unsigned",
                                 TypeCode.UInt16 or TypeCode.Int32 => "int",
-                                TypeCode.UInt32 when Settings.Engine == DatabaseEngine.MySQL
+                                TypeCode.UInt32 when Engine == DatabaseEngine.MySQL
                                     => "int unsigned",
                                 TypeCode.UInt32 or TypeCode.Int64 => "bigint",
-                                TypeCode.UInt64 when Settings.Engine == DatabaseEngine.MySQL
+                                TypeCode.UInt64 when Engine == DatabaseEngine.MySQL
                                     => "bigint unsigned",
                                 TypeCode.Single => "float",
                                 TypeCode.Double => "double",
                                 TypeCode.Decimal => "decimal",
                                 TypeCode.DateTime => "datetime",
                                 TypeCode.String
-                                    => Settings.Engine == DatabaseEngine.MySQL
+                                    => Engine == DatabaseEngine.MySQL
                                         ? "varchar(1024)"
                                         : "nvarchar(1024)",
                                 _
@@ -1203,7 +1206,7 @@ namespace Inkslab.Linq
                 #region 删除表。
                 sb.Append("DROP ");
 
-                if (Settings.Engine == DatabaseEngine.MySQL)
+                if (Engine == DatabaseEngine.MySQL)
                 {
                     sb.Append("TEMPORARY ");
                 }
@@ -1334,7 +1337,7 @@ namespace Inkslab.Linq
 
                                     break;
                                 case VersionKind.Now:
-                                    switch (Settings.Engine)
+                                    switch (Engine)
                                     {
                                         case DatabaseEngine.MySQL:
                                         case DatabaseEngine.Access:
@@ -1463,12 +1466,12 @@ namespace Inkslab.Linq
 
             public DeleteableCommand(
                 IReadOnlyCollection<TEntity> entities,
-                IDbCorrectSettings settings,
+                DbStrictAdapter adapter,
                 string shardingKey,
                 int? commandTimeout,
                 ILogger logger
             )
-                : base(entities, settings, shardingKey, commandTimeout)
+                : base(entities, adapter, shardingKey, commandTimeout)
             {
                 _logger = logger;
 
@@ -1687,7 +1690,7 @@ namespace Inkslab.Linq
                 var t1 = Settings.Name("t1");
                 var t2 = Settings.Name("t2");
 
-                switch (Settings.Engine)
+                switch (Engine)
                 {
                     case DatabaseEngine.Access:
                     case DatabaseEngine.SQLite:
@@ -1740,7 +1743,7 @@ namespace Inkslab.Linq
                     case DatabaseEngine.Oracle:
                     case DatabaseEngine.Sybase:
                     default:
-                        throw new NotSupportedException($"数据库引擎“{Settings.Engine}”不支持批量更新！");
+                        throw new NotSupportedException($"数据库引擎“{Engine}”不支持批量更新！");
                 }
 
                 //? 更新条件。
@@ -1783,7 +1786,7 @@ namespace Inkslab.Linq
 
                 sb.Append("CREATE ");
 
-                if (Settings.Engine == DatabaseEngine.MySQL)
+                if (Engine == DatabaseEngine.MySQL)
                 {
                     sb.Append("TEMPORARY ");
                 }
@@ -1807,23 +1810,23 @@ namespace Inkslab.Linq
                                 TypeCode.Boolean => "bit",
                                 TypeCode.Char => "char(1)",
                                 TypeCode.Byte => "tinyint",
-                                TypeCode.SByte when Settings.Engine == DatabaseEngine.MySQL
+                                TypeCode.SByte when Engine == DatabaseEngine.MySQL
                                     => "tinyint unsigned",
                                 TypeCode.SByte or TypeCode.Int16 => "smallint",
-                                TypeCode.UInt16 when Settings.Engine == DatabaseEngine.MySQL
+                                TypeCode.UInt16 when Engine == DatabaseEngine.MySQL
                                     => "smallint unsigned",
                                 TypeCode.UInt16 or TypeCode.Int32 => "int",
-                                TypeCode.UInt32 when Settings.Engine == DatabaseEngine.MySQL
+                                TypeCode.UInt32 when Engine == DatabaseEngine.MySQL
                                     => "int unsigned",
                                 TypeCode.UInt32 or TypeCode.Int64 => "bigint",
-                                TypeCode.UInt64 when Settings.Engine == DatabaseEngine.MySQL
+                                TypeCode.UInt64 when Engine == DatabaseEngine.MySQL
                                     => "bigint unsigned",
                                 TypeCode.Single => "float",
                                 TypeCode.Double => "double",
                                 TypeCode.Decimal => "decimal",
                                 TypeCode.DateTime => "datetime",
                                 TypeCode.String
-                                    => Settings.Engine == DatabaseEngine.MySQL
+                                    => Engine == DatabaseEngine.MySQL
                                         ? "varchar(1024)"
                                         : "nvarchar(1024)",
                                 _
@@ -1853,7 +1856,7 @@ namespace Inkslab.Linq
                 #region 删除表。
                 sb.Append("DROP ");
 
-                if (Settings.Engine == DatabaseEngine.MySQL)
+                if (Engine == DatabaseEngine.MySQL)
                 {
                     sb.Append("TEMPORARY ");
                 }
@@ -1907,14 +1910,14 @@ namespace Inkslab.Linq
         private class Insertable : IInsertable<TEntity>
         {
             private readonly IDatabaseExecutor _executor;
-            private readonly IConnectionStrings _connectionStrings;
+            private readonly IDatabaseStrings _databaseStrings;
 
             private readonly InsertCommand _command;
 
             public Insertable(
                 IDatabaseExecutor executor,
-                IConnectionStrings connectionStrings,
-                IDbCorrectSettings settings,
+                IDatabaseStrings databaseStrings,
+                DbStrictAdapter adapter,
                 IReadOnlyCollection<TEntity> entities,
                 int? commandTimeout,
                 string shardingKey,
@@ -1922,11 +1925,11 @@ namespace Inkslab.Linq
             )
             {
                 _executor = executor;
-                _connectionStrings = connectionStrings;
+                _databaseStrings = databaseStrings;
 
                 _command = new InsertCommand(
                     entities,
-                    settings,
+                    adapter,
                     ignore,
                     shardingKey,
                     commandTimeout
@@ -1963,7 +1966,7 @@ namespace Inkslab.Linq
                 {
                     var commandSql = _command.GetCommandSql();
 
-                    return _executor.Execute(_connectionStrings.Strings, commandSql);
+                    return _executor.Execute(_databaseStrings, commandSql);
                 }
 
                 if (_command.Ignore)
@@ -1974,7 +1977,7 @@ namespace Inkslab.Linq
                         _command.IgnoreCombination();
 
                     return _executor.ExecuteMultiple(
-                            _connectionStrings.Strings,
+                            _databaseStrings,
                             executor =>
                             {
                                 influenceSkipRows += executor.Execute(createSql);
@@ -1998,7 +2001,7 @@ namespace Inkslab.Linq
                     var dt = _command.Combination();
 
                     return _executor.WriteToServer(
-                        _connectionStrings.Strings,
+                        _databaseStrings,
                         dt,
                         _command.CommandTimeout
                     );
@@ -2019,7 +2022,7 @@ namespace Inkslab.Linq
                     var commandSql = _command.GetCommandSql();
 
                     return await _executor.ExecuteAsync(
-                        _connectionStrings.Strings,
+                        _databaseStrings,
                         commandSql,
                         cancellationToken
                     );
@@ -2033,7 +2036,7 @@ namespace Inkslab.Linq
                         _command.IgnoreCombination();
 
                     return await _executor.ExecuteMultipleAsync(
-                            _connectionStrings.Strings,
+                            _databaseStrings,
                             async executor =>
                             {
                                 influenceSkipRows += await executor.ExecuteAsync(createSql);
@@ -2060,7 +2063,7 @@ namespace Inkslab.Linq
                     var dt = _command.Combination();
 
                     return await _executor.WriteToServerAsync(
-                        _connectionStrings.Strings,
+                        _databaseStrings,
                         dt,
                         _command.CommandTimeout,
                         cancellationToken
@@ -2091,14 +2094,14 @@ namespace Inkslab.Linq
         private class Updateable : IUpdateable<TEntity>
         {
             private readonly IDatabaseExecutor _executor;
-            private readonly IConnectionStrings _connectionStrings;
+            private readonly IDatabaseStrings _databaseStrings;
 
             private readonly UpdateableCommand _command;
 
             public Updateable(
                 IDatabaseExecutor executor,
-                IConnectionStrings connectionStrings,
-                IDbCorrectSettings settings,
+                IDatabaseStrings databaseStrings,
+                DbStrictAdapter adapter,
                 IReadOnlyCollection<TEntity> entities,
                 int? commandTimeout,
                 string shardingKey,
@@ -2106,11 +2109,11 @@ namespace Inkslab.Linq
             )
             {
                 _executor = executor;
-                _connectionStrings = connectionStrings;
+                _databaseStrings = databaseStrings;
 
                 _command = new UpdateableCommand(
                     entities,
-                    settings,
+                    adapter,
                     shardingKey,
                     commandTimeout,
                     logger
@@ -2130,7 +2133,7 @@ namespace Inkslab.Linq
                 {
                     var commandSql = _command.GetCommandSql();
 
-                    return _executor.Execute(_connectionStrings.Strings, commandSql);
+                    return _executor.Execute(_databaseStrings, commandSql);
                 }
 
                 int influenceSkipRows = 0;
@@ -2138,7 +2141,7 @@ namespace Inkslab.Linq
                 var (createSql, dt, updateSql, updateArgs, dropSql) = _command.Combination();
 
                 return _executor.ExecuteMultiple(
-                        _connectionStrings.Strings,
+                        _databaseStrings,
                         executor =>
                         {
                             influenceSkipRows += executor.Execute(createSql);
@@ -2172,7 +2175,7 @@ namespace Inkslab.Linq
                     var commandSql = _command.GetCommandSql();
 
                     return await _executor.ExecuteAsync(
-                        _connectionStrings.Strings,
+                        _databaseStrings,
                         commandSql,
                         cancellationToken
                     );
@@ -2183,7 +2186,7 @@ namespace Inkslab.Linq
                 var (createSql, dt, updateSql, updateArgs, dropSql) = _command.Combination();
 
                 return await _executor.ExecuteMultipleAsync(
-                        _connectionStrings.Strings,
+                        _databaseStrings,
                         async executor =>
                         {
                             influenceSkipRows += await executor.ExecuteAsync(createSql);
@@ -2259,14 +2262,14 @@ namespace Inkslab.Linq
         private class Deleteable : IDeleteable<TEntity>
         {
             private readonly IDatabaseExecutor _executor;
-            private readonly IConnectionStrings _connectionStrings;
+            private readonly IDatabaseStrings _databaseStrings;
 
             private readonly DeleteableCommand _command;
 
             public Deleteable(
                 IDatabaseExecutor executor,
-                IConnectionStrings connectionStrings,
-                IDbCorrectSettings settings,
+                IDatabaseStrings databaseStrings,
+                DbStrictAdapter adapter,
                 IReadOnlyCollection<TEntity> entities,
                 int? commandTimeout,
                 string shardingKey,
@@ -2274,11 +2277,11 @@ namespace Inkslab.Linq
             )
             {
                 _executor = executor;
-                _connectionStrings = connectionStrings;
+                _databaseStrings = databaseStrings;
 
                 _command = new DeleteableCommand(
                     entities,
-                    settings,
+                    adapter,
                     shardingKey,
                     commandTimeout,
                     logger
@@ -2298,7 +2301,7 @@ namespace Inkslab.Linq
                 {
                     var commandSql = _command.GetCommandSql();
 
-                    return _executor.Execute(_connectionStrings.Strings, commandSql);
+                    return _executor.Execute(_databaseStrings, commandSql);
                 }
 
                 int influenceSkipRows = 0;
@@ -2306,7 +2309,7 @@ namespace Inkslab.Linq
                 var (createSql, dt, updateSql, updateArgs, dropSql) = _command.Combination();
 
                 return _executor.ExecuteMultiple(
-                        _connectionStrings.Strings,
+                        _databaseStrings,
                         executor =>
                         {
                             influenceSkipRows += executor.Execute(createSql);
@@ -2340,7 +2343,7 @@ namespace Inkslab.Linq
                     var commandSql = _command.GetCommandSql();
 
                     return await _executor.ExecuteAsync(
-                        _connectionStrings.Strings,
+                        _databaseStrings,
                         commandSql,
                         cancellationToken
                     );
@@ -2351,7 +2354,7 @@ namespace Inkslab.Linq
                 var (createSql, dt, updateSql, updateArgs, dropSql) = _command.Combination();
 
                 return await _executor.ExecuteMultipleAsync(
-                        _connectionStrings.Strings,
+                        _databaseStrings,
                         async executor =>
                         {
                             influenceSkipRows += await executor.ExecuteAsync(createSql);

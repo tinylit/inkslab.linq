@@ -28,9 +28,6 @@ namespace Inkslab.Linq.SqlServer
         }
 
         /// <inheritdoc/>
-        public DatabaseEngine Engine => DatabaseEngine.SqlServer;
-
-        /// <inheritdoc/>
         public IReadOnlyCollection<IFormatter> Formatters => _formatters;
 
         /// <inheritdoc/>

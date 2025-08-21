@@ -21,7 +21,7 @@ namespace Inkslab.Linq.Expressions
 
         private readonly BaseVisitor _visitor;
         private readonly bool _isNewWriter;
-        private readonly IDbAdapter _adapter;
+        private readonly DbStrictAdapter _adapter;
         private readonly int _cursorPosition = -1;
 
         /// <summary>
@@ -59,7 +59,7 @@ namespace Inkslab.Linq.Expressions
         /// </summary>
         /// <param name="adapter">数据库适配器。</param>
         /// <exception cref="ArgumentNullException">参数 <paramref name="adapter"/> 不能为空。</exception>
-        protected BaseVisitor(IDbAdapter adapter)
+        protected BaseVisitor(DbStrictAdapter adapter)
         {
             _adapter = adapter ?? throw new ArgumentNullException(nameof(adapter));
 

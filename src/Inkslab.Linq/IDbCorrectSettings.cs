@@ -8,11 +8,6 @@ namespace Inkslab.Linq
     public interface IDbCorrectSettings
     {
         /// <summary>
-        /// 数据库引擎。
-        /// </summary>
-        DatabaseEngine Engine { get; }
-
-        /// <summary>
         /// 格式化器。
         /// </summary>
         IReadOnlyCollection<IFormatter> Formatters { get; }

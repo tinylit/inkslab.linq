@@ -314,7 +314,6 @@ namespace Inkslab.Linq
             }
         }
 
-        private readonly IDbCorrectSettings _settings;
         private readonly SqlWriter _writer;
 
         private int takeSize = 0;
@@ -336,7 +335,7 @@ namespace Inkslab.Linq
         public SqlWriter(IDbCorrectSettings settings)
             : this()
         {
-            _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            Settings = settings ?? throw new ArgumentNullException(nameof(settings));
 
             Parameters = new Dictionary<string, object>();
         }
@@ -350,7 +349,7 @@ namespace Inkslab.Linq
         {
             _writer = writer;
 
-            _settings = writer._settings;
+            Settings = writer.Settings;
 
             Parameters = writer.Parameters;
         }
@@ -361,6 +360,11 @@ namespace Inkslab.Linq
         /// 参数索引。
         /// </summary>
         protected int ParameterIndex => _writer is null ? ++parameterIndex : _writer.ParameterIndex;
+
+        /// <summary>
+        /// 矫正配置。
+        /// </summary>
+        public IDbCorrectSettings Settings { get; }
 
         /// <summary>
         /// 内容长度。
@@ -668,7 +672,7 @@ namespace Inkslab.Linq
         /// 名称。
         /// </summary>
         /// <param name="name">名称。</param>
-        public void Name(string name) => Write(_settings.Name(name));
+        public void Name(string name) => Write(Settings.Name(name));
 
         /// <summary>
         /// 别名。
@@ -791,7 +795,7 @@ namespace Inkslab.Linq
                 argName = string.Concat(varName, "_", ParameterIndex.ToString());
             }
 
-            Write(_settings.ParamterName(argName));
+            Write(Settings.ParamterName(argName));
 
             if (flag)
             {
@@ -804,24 +808,7 @@ namespace Inkslab.Linq
         /// </summary>
         public virtual void True()
         {
-            switch (_settings.Engine)
-            {
-                case DatabaseEngine.MySQL:
-                case DatabaseEngine.PostgreSQL:
-                    Write("TRUE");
-                    break;
-                case DatabaseEngine.SqlServer:
-                    Write("CAST(1 AS BIT)");
-                    break;
-                case DatabaseEngine.Oracle:
-                case DatabaseEngine.Sybase:
-                case DatabaseEngine.Access:
-                case DatabaseEngine.SQLite:
-                case DatabaseEngine.DB2:
-                default:
-                    Variable("__var_true_val", true);
-                    break;
-            }
+            Variable("__const_true", true);
         }
 
         /// <summary>
@@ -829,24 +816,8 @@ namespace Inkslab.Linq
         /// </summary>
         public virtual void False()
         {
-            switch (_settings.Engine)
-            {
-                case DatabaseEngine.MySQL:
-                case DatabaseEngine.PostgreSQL:
-                    Write("FALSE");
-                    break;
-                case DatabaseEngine.SqlServer:
-                    Write("CAST(0 AS BIT)");
-                    break;
-                case DatabaseEngine.Oracle:
-                case DatabaseEngine.Sybase:
-                case DatabaseEngine.Access:
-                case DatabaseEngine.SQLite:
-                case DatabaseEngine.DB2:
-                default:
-                    Variable("__var_false_val", false);
-                    break;
-            }
+
+            Variable("__const_false", false);
         }
 
         /// <summary>
@@ -974,7 +945,7 @@ namespace Inkslab.Linq
         {
             if (takeSize > 0)
             {
-                return _settings.ToSQL(_main.ToString(), takeSize, skipSize, _rank.ToString());
+                return Settings.ToSQL(_main.ToString(), takeSize, skipSize, _rank.ToString());
             }
 
             return string.Concat(_main.ToString(), _rank.ToString());

@@ -11,7 +11,7 @@ namespace Inkslab.Linq
     /// </summary>
     public class RepositoryExecutor : IRepositoryExecutor
     {
-        private readonly IDbAdapter _adapter;
+        private readonly DbStrictAdapter _adapter;
         private readonly IDatabaseExecutor _executor;
         private readonly IDatabaseStrings _databaseStrings;
         private readonly ILogger<RepositoryExecutor> _logger;
@@ -23,7 +23,7 @@ namespace Inkslab.Linq
         /// <param name="executor">执行器。</param>
         /// <param name="databaseStrings">链接字符串。</param>
         /// <param name="logger">日志。</param>
-        public RepositoryExecutor(IDatabaseExecutor executor, IDatabaseStrings databaseStrings, IDbAdapter adapter, ILogger<RepositoryExecutor> logger)
+        public RepositoryExecutor(IDatabaseExecutor executor, IDatabaseStrings databaseStrings, DbStrictAdapter adapter, ILogger<RepositoryExecutor> logger)
         {
             _adapter = adapter;
             _executor = executor;

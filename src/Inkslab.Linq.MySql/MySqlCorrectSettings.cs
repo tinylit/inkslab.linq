@@ -28,9 +28,6 @@ namespace Inkslab.Linq.MySql
         }
 
         /// <inheritdoc/>
-        public DatabaseEngine Engine => DatabaseEngine.MySQL;
-
-        /// <inheritdoc/>
         public IReadOnlyCollection<IFormatter> Formatters => _formatters;
 
         /// <inheritdoc/>

@@ -19,7 +19,7 @@ namespace Inkslab.Linq.Expressions
         private readonly BaseVisitor _visitor;
 
         /// <inheritdoc/>
-        protected CoreVisitor(IDbAdapter adapter) : base(adapter)
+        protected CoreVisitor(DbStrictAdapter adapter) : base(adapter)
         {
         }
 

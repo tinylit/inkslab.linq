@@ -17,7 +17,7 @@ namespace Inkslab.Linq
         private int? commandTimeout;
 
         /// <inheritdoc/>
-        public ExecutorVisitor(IDbAdapter adapter)
+        public ExecutorVisitor(DbStrictAdapter adapter)
             : base(adapter) { }
 
         /// <inheritdoc/>

@@ -1,6 +1,6 @@
 ﻿using Microsoft.Data.SqlClient;
+using System;
 using System.Data;
-using System.Data.Common;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -9,110 +9,58 @@ namespace Inkslab.Linq.SqlServer
     /// <summary>
     /// MySql 批处理助手。
     /// </summary>
-    public class SqlServerBulkAssistant : IBulkAssistant
+    public class SqlServerBulkAssistant : IDatabaseBulkCopy
     {
-        /// <inheritdoc/>
-        public int WriteToServer(DbConnection connection, DataTable dt, int? commandTimeout = null)
+        private readonly SqlBulkCopy _bulkCopy;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SqlServerBulkAssistant"/> class.
+        /// </summary>
+        /// <param name="bulkCopy">The SQL Server bulk copy.</param>
+        public SqlServerBulkAssistant(SqlBulkCopy bulkCopy)
         {
-            using var bulkCopy = new SqlBulkCopy((SqlConnection)connection)
-            {
-                DestinationTableName = dt.TableName,
-                BatchSize = dt.Rows.Count
-            };
-
-            if (commandTimeout.HasValue)
-            {
-                bulkCopy.BulkCopyTimeout = commandTimeout.Value;
-            }
-
-            for (int i = 0; i < dt.Columns.Count; i++)
-            {
-                var column = dt.Columns[i];
-
-                bulkCopy.ColumnMappings.Add(new SqlBulkCopyColumnMapping(i, column.ColumnName));
-            }
-
-            bulkCopy.WriteToServer(dt);
-
-            return bulkCopy.RowsCopied;
+            _bulkCopy = bulkCopy;
         }
 
         /// <inheritdoc/>
-        public int WriteToServer(DbConnection connection, DbTransaction transaction, DataTable dt, int? commandTimeout = null)
+        public int BulkCopyTimeout { get => _bulkCopy.BulkCopyTimeout; set => _bulkCopy.BulkCopyTimeout = value; }
+
+        /// <inheritdoc/>
+        public void Dispose()
         {
-            using var bulkCopy = new SqlBulkCopy((SqlConnection)connection, SqlBulkCopyOptions.Default, (SqlTransaction)transaction)
-            {
-                DestinationTableName = dt.TableName,
-                BatchSize = dt.Rows.Count
-            };
+            ((IDisposable)_bulkCopy).Dispose();
 
-            if (commandTimeout.HasValue)
-            {
-                bulkCopy.BulkCopyTimeout = commandTimeout.Value;
-            }
-
-            for (int i = 0; i < dt.Columns.Count; i++)
-            {
-                var column = dt.Columns[i];
-
-                bulkCopy.ColumnMappings.Add(new SqlBulkCopyColumnMapping(i, column.ColumnName));
-            }
-
-            bulkCopy.WriteToServer(dt);
-
-            return bulkCopy.RowsCopied;
+            GC.SuppressFinalize(this);
         }
 
         /// <inheritdoc/>
-        public async Task<int> WriteToServerAsync(DbConnection connection, DataTable dt, int? commandTimeout = null, CancellationToken cancellationToken = default)
+        public int WriteToServer(DataTable dt)
         {
-            using var bulkCopy = new SqlBulkCopy((SqlConnection)connection)
-            {
-                DestinationTableName = dt.TableName,
-                BatchSize = dt.Rows.Count
-            };
-
-            if (commandTimeout.HasValue)
-            {
-                bulkCopy.BulkCopyTimeout = commandTimeout.Value;
-            }
-
             for (int i = 0; i < dt.Columns.Count; i++)
             {
                 var column = dt.Columns[i];
 
-                bulkCopy.ColumnMappings.Add(new SqlBulkCopyColumnMapping(i, column.ColumnName));
+                _bulkCopy.ColumnMappings.Add(new SqlBulkCopyColumnMapping(i, column.ColumnName));
             }
 
-            await bulkCopy.WriteToServerAsync(dt, cancellationToken);
+            _bulkCopy.WriteToServer(dt);
 
-            return bulkCopy.RowsCopied;
+            return _bulkCopy.RowsCopied;
         }
 
         /// <inheritdoc/>
-        public async Task<int> WriteToServerAsync(DbConnection connection, DbTransaction transaction, DataTable dt, int? commandTimeout = null, CancellationToken cancellationToken = default)
+        public async Task<int> WriteToServerAsync(DataTable dt, CancellationToken cancellationToken = default)
         {
-            using var bulkCopy = new SqlBulkCopy((SqlConnection)connection, SqlBulkCopyOptions.Default, (SqlTransaction)transaction)
-            {
-                DestinationTableName = dt.TableName,
-                BatchSize = dt.Rows.Count
-            };
-
-            if (commandTimeout.HasValue)
-            {
-                bulkCopy.BulkCopyTimeout = commandTimeout.Value;
-            }
-
             for (int i = 0; i < dt.Columns.Count; i++)
             {
                 var column = dt.Columns[i];
 
-                bulkCopy.ColumnMappings.Add(new SqlBulkCopyColumnMapping(i, column.ColumnName));
+                _bulkCopy.ColumnMappings.Add(new SqlBulkCopyColumnMapping(i, column.ColumnName));
             }
 
-            await bulkCopy.WriteToServerAsync(dt, cancellationToken);
+            await _bulkCopy.WriteToServerAsync(dt, cancellationToken);
 
-            return bulkCopy.RowsCopied;
+            return _bulkCopy.RowsCopied;
         }
     }
 }

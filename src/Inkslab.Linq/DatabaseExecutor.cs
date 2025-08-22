@@ -22,7 +22,6 @@ namespace Inkslab.Linq
     {
         private static readonly ConcurrentDictionary<Type, MapAdaper> _adapters = new ConcurrentDictionary<Type, MapAdaper>();
         private readonly IDbConnectionPipeline _connectionPipeline;
-        private readonly IBulkAssistant _assistant;
         private readonly ILogger<DatabaseExecutor> _logger;
 
         private const string LinqBinary = "System.Data.Linq.Binary";
@@ -31,12 +30,10 @@ namespace Inkslab.Linq
         /// 数据库链接。
         /// </summary>
         /// <param name="connectionPipeline">链接管道。</param>
-        /// <param name="assistant">批处理助手。</param>
         /// <param name="logger">日志。</param>
-        public DatabaseExecutor(IDbConnectionPipeline connectionPipeline, IBulkAssistant assistant, ILogger<DatabaseExecutor> logger)
+        public DatabaseExecutor(IDbConnectionPipeline connectionPipeline, ILogger<DatabaseExecutor> logger)
         {
             _connectionPipeline = connectionPipeline;
-            _assistant = assistant;
             _logger = logger;
         }
 
@@ -551,30 +548,11 @@ namespace Inkslab.Linq
                 throw new ArgumentNullException(nameof(multipleAction));
             }
 
-            using var dbConnection = _connectionPipeline.Get(databaseStrings);
+            var multiple = new MultipleExecute(_connectionPipeline, databaseStrings, _logger);
 
-            bool isClosedConnection = dbConnection.State == ConnectionState.Closed;
+            multipleAction.Invoke(multiple);
 
-            if (isClosedConnection)
-            {
-                dbConnection.Open();
-            }
-
-            var multiple = new MultipleExecute(dbConnection, _assistant, _logger);
-
-            try
-            {
-                multipleAction.Invoke(multiple);
-
-                return multiple.InfluenceRows;
-            }
-            finally
-            {
-                if (isClosedConnection)
-                {
-                    dbConnection.Close();
-                }
-            }
+            return multiple.InfluenceRows;
         }
 
         /// <inheritdoc/>
@@ -585,30 +563,11 @@ namespace Inkslab.Linq
                 throw new ArgumentNullException(nameof(multipleAction));
             }
 
-            using var dbConnection = _connectionPipeline.Get(databaseStrings);
+            var multiple = new MultipleExecuteAsync(_connectionPipeline, databaseStrings, _logger, cancellationToken);
 
-            bool isClosedConnection = dbConnection.State == ConnectionState.Closed;
+            await multipleAction.Invoke(multiple);
 
-            if (isClosedConnection)
-            {
-                await dbConnection.OpenAsync(cancellationToken);
-            }
-
-            var multiple = new MultipleExecuteAsync(dbConnection, _assistant, _logger, cancellationToken);
-
-            try
-            {
-                await multipleAction.Invoke(multiple);
-
-                return multiple.InfluenceRows;
-            }
-            finally
-            {
-                if (isClosedConnection)
-                {
-                    dbConnection.Close();
-                }
-            }
+            return multiple.InfluenceRows;
         }
 
         /// <inheritdoc/>
@@ -624,25 +583,14 @@ namespace Inkslab.Linq
                 throw new ArgumentException("请通过“DataTable.TableName”指定目标表名称！");
             }
 
-            using var dbConnection = _connectionPipeline.Get(databaseStrings);
-
-            bool isClosedConnection = dbConnection.State == ConnectionState.Closed;
-
-            if (isClosedConnection)
+            using (var bulkCopy = _connectionPipeline.Create(databaseStrings))
             {
-                dbConnection.Open();
-            }
-
-            try
-            {
-                return WriteToServer(_assistant, dbConnection, dataTable, commandTimeout);
-            }
-            finally
-            {
-                if (isClosedConnection)
+                if (commandTimeout.HasValue)
                 {
-                    dbConnection.Close();
+                    bulkCopy.BulkCopyTimeout = commandTimeout.Value;
                 }
+
+                return bulkCopy.WriteToServer(dataTable);
             }
         }
 
@@ -659,60 +607,15 @@ namespace Inkslab.Linq
                 throw new ArgumentException("请通过“DataTable.TableName”指定目标表名称！");
             }
 
-            using var connection = _connectionPipeline.Get(databaseStrings);
-
-            bool isClosedConnection = connection.State == ConnectionState.Closed;
-
-            if (isClosedConnection)
+            using (var bulkCopy = await _connectionPipeline.CreateAsync(databaseStrings, cancellationToken))
             {
-                await connection.OpenAsync(cancellationToken);
-            }
-
-            try
-            {
-                return await WriteToServerAsync(_assistant, connection, dt, commandTimeout, cancellationToken);
-            }
-            finally
-            {
-                if (isClosedConnection)
+                if (commandTimeout.HasValue)
                 {
-                    connection.Close();
-                }
-            }
-        }
-
-        private static int WriteToServer(IBulkAssistant assistant, DbConnection connection, DataTable dt, int? commandTimeout = null)
-        {
-            if (connection is ITransactionLink transactionLink)
-            {
-                var transaction = transactionLink.Transaction;
-
-                if (transaction is null)
-                {
-                    return assistant.WriteToServer(transactionLink.Connection, dt, commandTimeout);
+                    bulkCopy.BulkCopyTimeout = commandTimeout.Value;
                 }
 
-                return assistant.WriteToServer(transactionLink.Connection, transaction, dt, commandTimeout);
+                return await bulkCopy.WriteToServerAsync(dt, cancellationToken);
             }
-
-            return assistant.WriteToServer(connection, dt, commandTimeout);
-        }
-
-        private static Task<int> WriteToServerAsync(IBulkAssistant assistant, DbConnection connection, DataTable dt, int? commandTimeout = null, CancellationToken cancellationToken = default)
-        {
-            if (connection is ITransactionLink transactionLink)
-            {
-                var transaction = transactionLink.Transaction;
-
-                if (transaction is null)
-                {
-                    return assistant.WriteToServerAsync(transactionLink.Connection, dt, commandTimeout, cancellationToken);
-                }
-
-                return assistant.WriteToServerAsync(transactionLink.Connection, transaction, dt, commandTimeout, cancellationToken);
-            }
-
-            return assistant.WriteToServerAsync(connection, dt, commandTimeout, cancellationToken);
         }
 
         private class AsyncEnumerable<T> : IAsyncEnumerable<T>
@@ -784,14 +687,14 @@ namespace Inkslab.Linq
         #region 执行器
         private class MultipleExecute : IMultipleExecutor
         {
-            private readonly DbConnection _connection;
-            private readonly IBulkAssistant _assistant;
+            private readonly IDbConnectionPipeline _pipeline;
+            private readonly IConnection _connection;
             private readonly ILogger<DatabaseExecutor> _logger;
 
-            public MultipleExecute(DbConnection connection, IBulkAssistant assistant, ILogger<DatabaseExecutor> logger)
+            public MultipleExecute(IDbConnectionPipeline pipeline, IConnection connection, ILogger<DatabaseExecutor> logger)
             {
+                _pipeline = pipeline;
                 _connection = connection;
-                _assistant = assistant;
                 _logger = logger;
             }
 
@@ -804,26 +707,47 @@ namespace Inkslab.Linq
                     _logger.LogDebug(commandSql.ToString());
                 }
 
-                using (var command = _connection.CreateCommand())
+                using (var connection = _pipeline.Get(_connection))
                 {
-                    command.CommandText = commandSql.Text;
+                    var isClosedConnection = connection.State == ConnectionState.Closed;
 
-                    if (commandSql.Timeout.HasValue)
+                    if (isClosedConnection)
                     {
-                        command.CommandTimeout = commandSql.Timeout.Value;
+                        connection.Open();
                     }
 
-                    foreach (var (name, value) in commandSql.Parameters)
+                    try
                     {
-                        LookupDb.AddParameterAuto(command, name, value);
+                        using (var command = connection.CreateCommand())
+                        {
+                            command.CommandText = commandSql.Text;
+
+                            if (commandSql.Timeout.HasValue)
+                            {
+                                command.CommandTimeout = commandSql.Timeout.Value;
+                            }
+
+                            foreach (var (name, value) in commandSql.Parameters)
+                            {
+                                LookupDb.AddParameterAuto(command, name, value);
+                            }
+
+                            int influenceRows = command.ExecuteNonQuery();
+
+                            InfluenceRows += influenceRows;
+
+                            return influenceRows;
+                        }
                     }
-
-                    int influenceRows = command.ExecuteNonQuery();
-
-                    InfluenceRows += influenceRows;
-
-                    return influenceRows;
+                    finally
+                    {
+                        if (isClosedConnection)
+                        {
+                            connection.Close();
+                        }
+                    }
                 }
+
             }
 
             public int WriteToServer(DataTable dt, int? commandTimeout = null)
@@ -838,7 +762,17 @@ namespace Inkslab.Linq
                     throw new ArgumentException("请通过“DataTable.TableName”指定目标表名称！");
                 }
 
-                int influenceRows = DatabaseExecutor.WriteToServer(_assistant, _connection, dt, commandTimeout);
+                int influenceRows = 0;
+
+                using (var bulkCopy = _pipeline.Create(_connection))
+                {
+                    if (commandTimeout.HasValue)
+                    {
+                        bulkCopy.BulkCopyTimeout = commandTimeout.Value;
+                    }
+
+                    influenceRows = bulkCopy.WriteToServer(dt);
+                }
 
                 InfluenceRows += influenceRows;
 
@@ -849,15 +783,15 @@ namespace Inkslab.Linq
         private class MultipleExecuteTimeout : IMultipleExecutor
         {
             private readonly DbConnection _connection;
-            private readonly IBulkAssistant _assistant;
+            private readonly IDbConnectionBulkCopyFactory _bulkCopyFactory;
             private readonly int _commandTimeout;
             private readonly ILogger<DatabaseExecutor> _logger;
             private readonly Stopwatch _stopwatch;
 
-            public MultipleExecuteTimeout(DbConnection connection, IBulkAssistant assistant, int commandTimeout, ILogger<DatabaseExecutor> logger)
+            public MultipleExecuteTimeout(DbConnection connection, IDbConnectionBulkCopyFactory bulkCopyFactory, int commandTimeout, ILogger<DatabaseExecutor> logger)
             {
                 _connection = connection;
-                _assistant = assistant;
+                _bulkCopyFactory = bulkCopyFactory;
                 _commandTimeout = commandTimeout;
 
                 _logger = logger;
@@ -922,7 +856,17 @@ namespace Inkslab.Linq
 
                 _stopwatch.Start();
 
-                int influenceRows = DatabaseExecutor.WriteToServer(_assistant, _connection, dt, commandTimeout);
+                int influenceRows = 0;
+
+                using (var bulkCopy = _bulkCopyFactory.Create(_connection))
+                {
+                    if (commandTimeout.HasValue)
+                    {
+                        bulkCopy.BulkCopyTimeout = commandTimeout.Value;
+                    }
+
+                    influenceRows = bulkCopy.WriteToServer(dt);
+                }
 
                 _stopwatch.Stop();
 
@@ -934,15 +878,15 @@ namespace Inkslab.Linq
 
         private class MultipleExecuteAsync : IAsyncMultipleExecutor
         {
-            private readonly DbConnection _connection;
-            private readonly IBulkAssistant _assistant;
+            private readonly IDbConnectionPipeline _pipeline;
+            private readonly IConnection _connection;
             private readonly ILogger<DatabaseExecutor> _logger;
             private readonly CancellationToken _cancellationToken;
 
-            public MultipleExecuteAsync(DbConnection connection, IBulkAssistant assistant, ILogger<DatabaseExecutor> logger, CancellationToken cancellationToken)
+            public MultipleExecuteAsync(IDbConnectionPipeline pipeline, IConnection connection, ILogger<DatabaseExecutor> logger, CancellationToken cancellationToken)
             {
+                _pipeline = pipeline;
                 _connection = connection;
-                _assistant = assistant;
                 _logger = logger;
                 _cancellationToken = cancellationToken;
             }
@@ -956,25 +900,45 @@ namespace Inkslab.Linq
                     _logger.LogDebug(commandSql.ToString());
                 }
 
-                using (var command = _connection.CreateCommand())
+                using (var connection = _pipeline.Get(_connection))
                 {
-                    command.CommandText = commandSql.Text;
+                    var isClosedConnection = connection.State == ConnectionState.Closed;
 
-                    if (commandSql.Timeout.HasValue)
+                    if (isClosedConnection)
                     {
-                        command.CommandTimeout = commandSql.Timeout.Value;
+                        await connection.OpenAsync(_cancellationToken);
                     }
 
-                    foreach (var (name, value) in commandSql.Parameters)
+                    try
                     {
-                        LookupDb.AddParameterAuto(command, name, value);
+                        using (var command = connection.CreateCommand())
+                        {
+                            command.CommandText = commandSql.Text;
+
+                            if (commandSql.Timeout.HasValue)
+                            {
+                                command.CommandTimeout = commandSql.Timeout.Value;
+                            }
+
+                            foreach (var (name, value) in commandSql.Parameters)
+                            {
+                                LookupDb.AddParameterAuto(command, name, value);
+                            }
+
+                            int influenceRows = await command.ExecuteNonQueryAsync(_cancellationToken);
+
+                            InfluenceRows += influenceRows;
+
+                            return influenceRows;
+                        }
                     }
-
-                    int influenceRows = await command.ExecuteNonQueryAsync(_cancellationToken);
-
-                    InfluenceRows += influenceRows;
-
-                    return influenceRows;
+                    finally
+                    {
+                        if (isClosedConnection)
+                        {
+                            await connection.CloseAsync();
+                        }
+                    }
                 }
             }
 
@@ -990,27 +954,35 @@ namespace Inkslab.Linq
                     throw new ArgumentException("请通过“DataTable.TableName”指定目标表名称！");
                 }
 
-                int influenceRows = await DatabaseExecutor.WriteToServerAsync(_assistant, _connection, dt, commandTimeout, _cancellationToken);
+                using (var bulkCopy = await _pipeline.CreateAsync(_connection, _cancellationToken))
+                {
+                    if (commandTimeout.HasValue)
+                    {
+                        bulkCopy.BulkCopyTimeout = commandTimeout.Value;
+                    }
 
-                InfluenceRows += influenceRows;
+                    int influenceRows = await bulkCopy.WriteToServerAsync(dt, _cancellationToken);
 
-                return influenceRows;
+                    InfluenceRows += influenceRows;
+
+                    return influenceRows;
+                }
             }
         }
 
         private class MultipleExecuteTimeoutAsync : IAsyncMultipleExecutor
         {
-            private readonly DbConnection _connection;
-            private readonly IBulkAssistant _assistant;
+            private readonly IDbConnectionPipeline _pipeline;
+            private readonly IConnection _connection;
             private readonly ILogger<DatabaseExecutor> _logger;
             private readonly int _commandTimeout;
             private readonly CancellationToken _cancellationToken;
             private readonly Stopwatch _stopwatch;
 
-            public MultipleExecuteTimeoutAsync(DbConnection connection, IBulkAssistant assistant, ILogger<DatabaseExecutor> logger, int commandTimeout, CancellationToken cancellationToken)
+            public MultipleExecuteTimeoutAsync(IDbConnectionPipeline pipeline, IConnection connection, ILogger<DatabaseExecutor> logger, int commandTimeout, CancellationToken cancellationToken)
             {
+                _pipeline = pipeline;
                 _connection = connection;
-                _assistant = assistant;
                 _logger = logger;
                 _commandTimeout = commandTimeout;
                 _cancellationToken = cancellationToken;
@@ -1031,25 +1003,46 @@ namespace Inkslab.Linq
                     _logger.LogDebug(commandSql.ToString());
                 }
 
-                using (var command = _connection.CreateCommand())
+                using (var connection = _pipeline.Get(_connection))
                 {
-                    command.CommandText = commandSql.Text;
+                    var isClosedConnection = connection.State == ConnectionState.Closed;
 
-                    if (commandSql.Timeout.HasValue)
+                    if (isClosedConnection)
                     {
-                        command.CommandTimeout = commandSql.Timeout.Value;
+                        await connection.OpenAsync(_cancellationToken);
                     }
 
-                    foreach (var (name, value) in commandSql.Parameters)
+                    try
                     {
-                        LookupDb.AddParameterAuto(command, name, value);
+
+                        using (var command = connection.CreateCommand())
+                        {
+                            command.CommandText = commandSql.Text;
+
+                            if (commandSql.Timeout.HasValue)
+                            {
+                                command.CommandTimeout = commandSql.Timeout.Value;
+                            }
+
+                            foreach (var (name, value) in commandSql.Parameters)
+                            {
+                                LookupDb.AddParameterAuto(command, name, value);
+                            }
+
+                            int influenceRows = await command.ExecuteNonQueryAsync(_cancellationToken);
+
+                            InfluenceRows += influenceRows;
+
+                            return influenceRows;
+                        }
                     }
-
-                    int influenceRows = await command.ExecuteNonQueryAsync(_cancellationToken);
-
-                    InfluenceRows += influenceRows;
-
-                    return influenceRows;
+                    finally
+                    {
+                        if (isClosedConnection)
+                        {
+                            await connection.CloseAsync();
+                        }
+                    }
                 }
             }
 
@@ -1065,15 +1058,18 @@ namespace Inkslab.Linq
                     throw new ArgumentException("请通过“DataTable.TableName”指定目标表名称！");
                 }
 
-                commandTimeout = commandTimeout.HasValue
-                    ? Math.Min(_commandTimeout - (int)(_stopwatch.ElapsedMilliseconds / 1000), commandTimeout.Value)
-                    : _commandTimeout - (int)(_stopwatch.ElapsedMilliseconds / 1000);
+                using (var bulkCopy = await _pipeline.CreateAsync(_connection, _cancellationToken))
+                {
+                    bulkCopy.BulkCopyTimeout = commandTimeout.HasValue
+                        ? Math.Min(_commandTimeout - (int)(_stopwatch.ElapsedMilliseconds / 1000), commandTimeout.Value)
+                        : _commandTimeout - (int)(_stopwatch.ElapsedMilliseconds / 1000);
 
-                int influenceRows = await DatabaseExecutor.WriteToServerAsync(_assistant, _connection, dt, commandTimeout, _cancellationToken);
+                    int influenceRows = await bulkCopy.WriteToServerAsync(dt, _cancellationToken);
 
-                InfluenceRows += influenceRows;
+                    InfluenceRows += influenceRows;
 
-                return influenceRows;
+                    return influenceRows;
+                }
             }
         }
         #endregion

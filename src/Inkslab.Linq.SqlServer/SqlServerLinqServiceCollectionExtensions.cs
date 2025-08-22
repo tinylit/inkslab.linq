@@ -18,7 +18,7 @@ namespace Microsoft.Extensions.DependencyInjection
         /// <returns>服务池。</returns>
         public static DatabaseLinqBuilder UseSqlServer(this IServiceCollection services)
         {
-            return services.AddSingleton<IBulkAssistant, SqlServerBulkAssistant>()
+            return services.AddSingleton<IDbConnectionBulkCopyFactory, SqlServerBulkCopyFactory>()
                  .UseEngine<SqlServerAdapter>(DatabaseEngine.SqlServer, connectionString =>
                  {
                      return new SqlConnection(connectionString);

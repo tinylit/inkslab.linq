@@ -39,7 +39,7 @@ namespace Microsoft.Extensions.DependencyInjection
             }
         }
 
-        private class BulkAssistant : IBulkAssistant
+        private class BulkAssistant : IDatabaseBulkCopy
         {
             public int WriteToServer(DbConnection connection, DataTable dt, int? commandTimeout = null)
             {
@@ -110,7 +110,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AddSingleton<IDatabaseExecutor, DatabaseExecutor>()
                 .AddSingleton(typeof(IDatabase<>), typeof(Database<>));
 
-            services.TryAddSingleton<IBulkAssistant, BulkAssistant>();
+            services.TryAddSingleton<IDatabaseBulkCopy, BulkAssistant>();
             services.TryAddSingleton<IConnections, DefaultConnections>();
 
             return new DatabaseLinqBuilder(engine, typeof(TDbAdapter), services);

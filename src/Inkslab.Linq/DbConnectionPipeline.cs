@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Transaction = System.Transactions.Transaction;
 using OwnerTransaction = Inkslab.Transactions.Transaction;
+using System.Linq;
 
 namespace Inkslab.Linq
 {
@@ -18,14 +19,17 @@ namespace Inkslab.Linq
     public class DbConnectionPipeline : IDbConnectionPipeline
     {
         private readonly IConnections _connections;
+        private readonly IEnumerable<IDbConnectionBulkCopyFactory> _bulkCopyFactories;
 
         /// <summary>
         /// 链接管道。
         /// </summary>
         /// <param name="connections">链接调度器。</param>
-        public DbConnectionPipeline(IConnections connections)
+        /// <param name="bulkCopyFactories">批量复制工厂集合。</param>
+        public DbConnectionPipeline(IConnections connections, IEnumerable<IDbConnectionBulkCopyFactory> bulkCopyFactories)
         {
             _connections = connections;
+            _bulkCopyFactories = bulkCopyFactories;
         }
 
         /// <inheritdoc/>
@@ -40,11 +44,7 @@ namespace Inkslab.Linq
 
             if (current is null) //? 不在事务范围中。
             {
-                var transcation = OwnerTransaction.Current;
-
-                return transcation is null
-                    ? _connections.Get(databaseStrings)
-                    : OwnerTransactionConnections.Get(transcation, databaseStrings, _connections);
+                return OwnerTransactionConnections.Get(OwnerTransaction.Current, databaseStrings, _connections);
             }
 
             return TransactionConnections.Get(current, databaseStrings, _connections);
@@ -64,6 +64,40 @@ namespace Inkslab.Linq
             _ => System.Data.IsolationLevel.Unspecified,
         };
 
+        /// <inheritdoc/>
+        public IDatabaseBulkCopy Create(IConnection databaseStrings)
+        {
+            if (databaseStrings is null)
+            {
+                throw new ArgumentNullException(nameof(databaseStrings));
+            }
+
+            var bulkCopyFactory = _bulkCopyFactories.FirstOrDefault(x => x.Engine == databaseStrings.Engine) ?? throw new InvalidOperationException("未找到合适的批量复制工厂。");
+
+            var current = Transaction.Current;
+
+            return current is null
+                ? OwnerTransactionConnections.Get(OwnerTransaction.Current, databaseStrings, _connections, bulkCopyFactory)
+                : TransactionConnections.Get(current, databaseStrings, _connections, bulkCopyFactory);
+        }
+
+        /// <inheritdoc/>
+        public Task<IDatabaseBulkCopy> CreateAsync(IConnection databaseStrings, CancellationToken cancellationToken)
+        {
+            if (databaseStrings is null)
+            {
+                throw new ArgumentNullException(nameof(databaseStrings));
+            }
+
+            var bulkCopyFactory = _bulkCopyFactories.FirstOrDefault(x => x.Engine == databaseStrings.Engine) ?? throw new InvalidOperationException("未找到合适的批量复制工厂。");
+
+            var current = Transaction.Current;
+
+            return current is null
+                ? OwnerTransactionConnections.GetAsync(OwnerTransaction.Current, databaseStrings, _connections, bulkCopyFactory, cancellationToken)
+                : TransactionConnections.GetAsync(current, databaseStrings, _connections, bulkCopyFactory, cancellationToken);
+        }
+
         /// <summary>
         /// 事务连接池。
         /// </summary>
@@ -71,21 +105,32 @@ namespace Inkslab.Linq
         {
             private static readonly ConcurrentDictionary<OwnerTransaction, Dictionary<string, TransactionEntry>> _transactionConnections = new ConcurrentDictionary<OwnerTransaction, Dictionary<string, TransactionEntry>>();
 
-            public static bool TryGet(OwnerTransaction transaction, string connectionString, out DbConnection connection)
+            public static IDatabaseBulkCopy Get(OwnerTransaction transaction, IConnection databaseStrings, IConnections connections, IDbConnectionBulkCopyFactory bulkCopyFactory)
             {
-                if (_transactionConnections.TryGetValue(transaction, out var dictionary) && dictionary.TryGetValue(connectionString, out TransactionEntry info))
+                if (transaction is null)
                 {
-                    connection = info.GetConnection();
-
-                    return true;
+                    return bulkCopyFactory.Create(connections.Get(databaseStrings));
                 }
 
-                connection = null;
+                var transactionEntry = PrivateGet(transaction, databaseStrings, connections);
 
-                return false;
+                return transactionEntry.CreateBulkAssistant(bulkCopyFactory);
             }
 
-            public static DbConnection Get(OwnerTransaction transaction, IConnection databaseStrings, IConnections connections)
+            public static Task<IDatabaseBulkCopy> GetAsync(OwnerTransaction transaction, IConnection databaseStrings, IConnections connections, IDbConnectionBulkCopyFactory bulkCopyFactory, CancellationToken cancellationToken)
+            {
+                if (transaction is null)
+                {
+                    return Task.FromResult(bulkCopyFactory.Create(connections.Get(databaseStrings)));
+                }
+
+                var transactionEntry = PrivateGet(transaction, databaseStrings, connections);
+
+                return transactionEntry.CreateBulkAssistantAsync(bulkCopyFactory, cancellationToken);
+            }
+
+
+            private static TransactionEntry PrivateGet(OwnerTransaction transaction, IConnection databaseStrings, IConnections connections)
             {
                 Dictionary<string, TransactionEntry> dictionary = _transactionConnections.GetOrAdd(transaction, transaction =>
                 {
@@ -94,20 +139,32 @@ namespace Inkslab.Linq
                     return new Dictionary<string, TransactionEntry>();
                 });
 
-                if (dictionary.TryGetValue(databaseStrings.Strings, out TransactionEntry info))
+                if (dictionary.TryGetValue(databaseStrings.Strings, out TransactionEntry transactionEntry))
                 {
-                    return info.GetConnection();
+                    return transactionEntry;
                 }
 
                 lock (dictionary)
                 {
-                    if (!dictionary.TryGetValue(databaseStrings.Strings, out info))
+                    if (!dictionary.TryGetValue(databaseStrings.Strings, out transactionEntry))
                     {
-                        dictionary.Add(databaseStrings.Strings, info = new TransactionEntry(transaction, connections.Get(databaseStrings)));
+                        dictionary.Add(databaseStrings.Strings, transactionEntry = new TransactionEntry(transaction, connections.Get(databaseStrings)));
                     }
                 }
 
-                return info.GetConnection();
+                return transactionEntry;
+            }
+
+            public static DbConnection Get(OwnerTransaction transaction, IConnection databaseStrings, IConnections connections)
+            {
+                if (transaction is null)
+                {
+                    return connections.Get(databaseStrings);
+                }
+
+                var transactionEntry = PrivateGet(transaction, databaseStrings, connections);
+
+                return transactionEntry.GetConnection();
             }
 
             private static void OnTransactionCompleted(object sender, TransactionEventArgs e)
@@ -142,17 +199,22 @@ namespace Inkslab.Linq
 
                 public async ValueTask<DbTransaction> BeginTransactionAsync(CancellationToken cancellationToken)
                 {
-                    if (Transaction is null)
+                    if (Transaction != null)
                     {
-                        using (await _asynchronousLock.AcquireAsync(cancellationToken))
-                        {
-                            if (Transaction is null)
-                            {
-                                Transaction = await _connection.BeginTransactionAsync(ToIsolationLevel(_transaction.IsolationLevel), cancellationToken);
+                        return Transaction;
+                    }
 
-                                _transaction.EnlistTransaction(new LinqTransaction(Transaction));
-                            }
+                    using (await _asynchronousLock.AcquireAsync(cancellationToken))
+                    {
+                        if (Transaction != null)
+                        {
+                            return Transaction;
                         }
+
+                        Transaction = await _connection.BeginTransactionAsync(ToIsolationLevel(_transaction.IsolationLevel), cancellationToken);
+
+                        _transaction.EnlistTransaction(new LinqTransaction(Transaction));
+
                     }
 
                     return Transaction;
@@ -160,20 +222,48 @@ namespace Inkslab.Linq
 
                 public DbTransaction BeginTransaction()
                 {
-                    if (Transaction is null)
+                    if (Transaction != null)
                     {
-                        using (_asynchronousLock.Acquire())
-                        {
-                            if (Transaction is null)
-                            {
-                                Transaction = _connection.BeginTransaction(ToIsolationLevel(_transaction.IsolationLevel));
+                        return Transaction;
+                    }
 
-                                _transaction.EnlistTransaction(new LinqTransaction(Transaction));
-                            }
+                    using (_asynchronousLock.Acquire())
+                    {
+                        if (Transaction != null)
+                        {
+                            return Transaction;
                         }
+
+                        Transaction = _connection.BeginTransaction(ToIsolationLevel(_transaction.IsolationLevel));
+
+                        _transaction.EnlistTransaction(new LinqTransaction(Transaction));
                     }
 
                     return Transaction;
+                }
+
+                public IDatabaseBulkCopy CreateBulkAssistant(IDbConnectionBulkCopyFactory bulkCopyFactory)
+                {
+                    if (_connection.State == ConnectionState.Closed)
+                    {
+                        _connection.Open();
+                    }
+
+                    var transaction = BeginTransaction();
+
+                    return bulkCopyFactory.Create(_connection, transaction);
+                }
+
+                public async Task<IDatabaseBulkCopy> CreateBulkAssistantAsync(IDbConnectionBulkCopyFactory bulkCopyFactory, CancellationToken cancellationToken)
+                {
+                    if (_connection.State == ConnectionState.Closed)
+                    {
+                        await _connection.OpenAsync(cancellationToken);
+                    }
+
+                    var transaction = await BeginTransactionAsync(cancellationToken);
+
+                    return bulkCopyFactory.Create(_connection, transaction);
                 }
 
                 public void Dispose()
@@ -206,7 +296,22 @@ namespace Inkslab.Linq
                     public Task RollbackAsync(CancellationToken cancellationToken = default) => _transaction.RollbackAsync(cancellationToken);
                 }
             }
-            private class TransactionLink : DbConnection, ITransactionLink
+
+            private class DbConnectionLink<TConnection> : TransactionLink where TConnection : DbConnection
+            {
+                public TConnection Connection { get; }
+
+                public DbConnectionLink(TransactionEntry transaction, TConnection connection) : base(transaction, connection)
+                {
+                    Connection = connection;
+                }
+
+                public static implicit operator TConnection(DbConnectionLink<TConnection> link)
+                {
+                    return link.Connection;
+                }
+            }
+            private class TransactionLink : DbConnection
             {
                 private readonly TransactionEntry _transaction;
                 private readonly DbConnection _connection;
@@ -228,10 +333,6 @@ namespace Inkslab.Linq
                 public override string ServerVersion => _connection.ServerVersion;
 
                 public override int ConnectionTimeout => _connection.ConnectionTimeout;
-
-                public DbTransaction Transaction => _transaction.BeginTransaction();
-
-                public DbConnection Connection => _connection;
 
 #if NET6_0_OR_GREATER
                 [Obsolete]
@@ -437,7 +538,21 @@ namespace Inkslab.Linq
         {
             private static readonly ConcurrentDictionary<Transaction, Dictionary<string, TransactionEntry>> _transactionConnections = new ConcurrentDictionary<Transaction, Dictionary<string, TransactionEntry>>();
 
-            public static DbConnection Get(Transaction transaction, IConnection databaseStrings, IConnections connections)
+            public static IDatabaseBulkCopy Get(Transaction transaction, IConnection databaseStrings, IConnections connections, IDbConnectionBulkCopyFactory bulkCopyFactory)
+            {
+                var transactionEntry = PrivateGet(transaction, databaseStrings, connections);
+
+                return transactionEntry.CreateBulkAssistant(bulkCopyFactory);
+            }
+
+            public static Task<IDatabaseBulkCopy> GetAsync(Transaction transaction, IConnection databaseStrings, IConnections connections, IDbConnectionBulkCopyFactory bulkCopyFactory, CancellationToken cancellationToken)
+            {
+                var transactionEntry = PrivateGet(transaction, databaseStrings, connections);
+
+                return transactionEntry.CreateBulkAssistantAsync(bulkCopyFactory, cancellationToken);
+            }
+
+            private static TransactionEntry PrivateGet(Transaction transaction, IConnection databaseStrings, IConnections connections)
             {
                 Dictionary<string, TransactionEntry> dictionary = _transactionConnections.GetOrAdd(transaction, transaction =>
                 {
@@ -446,20 +561,27 @@ namespace Inkslab.Linq
                     return new Dictionary<string, TransactionEntry>();
                 });
 
-                if (dictionary.TryGetValue(databaseStrings.Strings, out TransactionEntry info))
+                if (dictionary.TryGetValue(databaseStrings.Strings, out TransactionEntry transactionEntry))
                 {
-                    return info.GetConnection();
+                    return transactionEntry;
                 }
 
                 lock (dictionary)
                 {
-                    if (!dictionary.TryGetValue(databaseStrings.Strings, out info))
+                    if (!dictionary.TryGetValue(databaseStrings.Strings, out transactionEntry))
                     {
-                        dictionary.Add(databaseStrings.Strings, info = new TransactionEntry(connections.Get(databaseStrings)));
+                        dictionary.Add(databaseStrings.Strings, transactionEntry = new TransactionEntry(connections.Get(databaseStrings)));
                     }
                 }
 
-                return info.GetConnection();
+                return transactionEntry;
+            }
+
+            public static DbConnection Get(Transaction transaction, IConnection databaseStrings, IConnections connections)
+            {
+                var transactionEntry = PrivateGet(transaction, databaseStrings, connections);
+
+                return transactionEntry.GetConnection();
             }
 
             private static void OnTransactionCompleted(object sender, System.Transactions.TransactionEventArgs e)
@@ -487,6 +609,27 @@ namespace Inkslab.Linq
 
                 public DbConnection GetConnection() => new TransactionLink(_connection);
 
+
+                public IDatabaseBulkCopy CreateBulkAssistant(IDbConnectionBulkCopyFactory bulkCopyFactory)
+                {
+                    if (_connection.State == ConnectionState.Closed)
+                    {
+                        _connection.Open();
+                    }
+
+                    return bulkCopyFactory.Create(_connection);
+                }
+
+                public async Task<IDatabaseBulkCopy> CreateBulkAssistantAsync(IDbConnectionBulkCopyFactory bulkCopyFactory, CancellationToken cancellationToken)
+                {
+                    if (_connection.State == ConnectionState.Closed)
+                    {
+                        await _connection.OpenAsync(cancellationToken);
+                    }
+
+                    return bulkCopyFactory.Create(_connection);
+                }
+
                 public void Dispose()
                 {
                     if (_connection.State == ConnectionState.Open)
@@ -497,7 +640,21 @@ namespace Inkslab.Linq
                     _connection.Dispose();
                 }
             }
-            private class TransactionLink : DbConnection, ITransactionLink
+            private class DbConnectionLink<TConnection> : TransactionLink where TConnection : DbConnection
+            {
+                public TConnection Connection { get; }
+
+                public DbConnectionLink(TConnection connection) : base(connection)
+                {
+                    Connection = connection;
+                }
+
+                public static implicit operator TConnection(DbConnectionLink<TConnection> link)
+                {
+                    return link.Connection;
+                }
+            }
+            private class TransactionLink : DbConnection
             {
                 private readonly DbConnection _connection;
                 private ConnectionState connectionState = ConnectionState.Closed;
@@ -516,10 +673,6 @@ namespace Inkslab.Linq
                 public override string ServerVersion => _connection.ServerVersion;
 
                 public override int ConnectionTimeout => _connection.ConnectionTimeout;
-
-                public DbTransaction Transaction => null;
-
-                public DbConnection Connection => _connection;
 #if NET6_0_OR_GREATER
                 [Obsolete]
 #endif

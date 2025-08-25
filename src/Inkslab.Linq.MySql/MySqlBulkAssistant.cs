@@ -44,6 +44,8 @@ namespace Inkslab.Linq.MySql
                 _bulkCopy.ColumnMappings.Add(new MySqlBulkCopyColumnMapping(i, column.ColumnName));
             }
 
+            _bulkCopy.DestinationTableName = dt.TableName;
+
             var result = _bulkCopy.WriteToServer(dt);
 
             return result.RowsInserted;
@@ -63,6 +65,8 @@ namespace Inkslab.Linq.MySql
 
                 _bulkCopy.ColumnMappings.Add(new MySqlBulkCopyColumnMapping(i, column.ColumnName));
             }
+            
+            _bulkCopy.DestinationTableName = dt.TableName;
 
             var result = await _bulkCopy.WriteToServerAsync(dt, cancellationToken);
 

@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Text;
+﻿using System.Text;
 
 namespace Inkslab.Linq.MySql
 {
@@ -8,28 +7,6 @@ namespace Inkslab.Linq.MySql
     /// </summary>
     public class MySqlCorrectSettings : IDbCorrectSettings
     {
-        private readonly IReadOnlyCollection<IFormatter> _formatters;
-
-        /// <summary>
-        /// 适配器。
-        /// </summary>
-        public MySqlCorrectSettings()
-        {
-            _formatters = new List<IFormatter>(0);
-        }
-
-        /// <summary>
-        /// 适配器。
-        /// </summary>
-        /// <param name="formatters">格式化器。</param>
-        public MySqlCorrectSettings(IEnumerable<IFormatter> formatters)
-        {
-            _formatters = new List<IFormatter>(formatters);
-        }
-
-        /// <inheritdoc/>
-        public IReadOnlyCollection<IFormatter> Formatters => _formatters;
-
         /// <inheritdoc/>
         public string Name(string name) => string.Concat("`", name, "`");
         /// <inheritdoc/>

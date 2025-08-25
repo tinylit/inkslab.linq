@@ -13,10 +13,9 @@ namespace Inkslab.Linq.MySql
         /// <summary>
         /// 适配器。
         /// </summary>
-        /// <param name="formatters">格式化器。</param>
-        public MySqlAdapter(IEnumerable<IFormatter> formatters)
+        public MySqlAdapter()
         {
-            _settings = new MySqlCorrectSettings(formatters);
+            _settings = new MySqlCorrectSettings();
         }
 
         /// <inheritdoc/>

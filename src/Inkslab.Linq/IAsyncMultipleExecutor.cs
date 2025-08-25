@@ -9,6 +9,11 @@ namespace Inkslab.Linq
     public interface IAsyncMultipleExecutor
     {
         /// <summary>
+        /// 执行影响行数。
+        /// </summary>
+        int RowsExecuted{ get; }
+
+        /// <summary>
         /// 执行命令。
         /// </summary>
         /// <param name="commandSql">T-SQL 命令。</param>

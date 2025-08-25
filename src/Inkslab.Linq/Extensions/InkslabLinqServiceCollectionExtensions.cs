@@ -1,10 +1,7 @@
 ﻿using Inkslab.Linq;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using System;
-using System.Data;
 using System.Data.Common;
-using System.Threading;
-using System.Threading.Tasks;
 
 #pragma warning disable IDE0130 // 命名空间与文件夹结构不匹配
 namespace Microsoft.Extensions.DependencyInjection
@@ -36,29 +33,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 }
 
                 return _factory(connectionString);
-            }
-        }
-
-        private class BulkAssistant : IDatabaseBulkCopy
-        {
-            public int WriteToServer(DbConnection connection, DataTable dt, int? commandTimeout = null)
-            {
-                throw new NotImplementedException();
-            }
-
-            public int WriteToServer(DbConnection connection, DbTransaction transaction, DataTable dt, int? commandTimeout = null)
-            {
-                throw new NotImplementedException();
-            }
-
-            public Task<int> WriteToServerAsync(DbConnection connection, DataTable dt, int? commandTimeout = null, CancellationToken cancellationToken = default)
-            {
-                throw new NotImplementedException();
-            }
-
-            public Task<int> WriteToServerAsync(DbConnection connection, DbTransaction transaction, DataTable dt, int? commandTimeout = null, CancellationToken cancellationToken = default)
-            {
-                throw new NotImplementedException();
             }
         }
 
@@ -105,12 +79,12 @@ namespace Microsoft.Extensions.DependencyInjection
                 throw new ArgumentNullException(nameof(factory));
             }
 
-            services.AddSingleton<IDbConnectionFactory>(new DbConnectionFactory(engine, factory))
-                .AddSingleton<IDbConnectionPipeline, DbConnectionPipeline>()
-                .AddSingleton<IDatabaseExecutor, DatabaseExecutor>()
-                .AddSingleton(typeof(IDatabase<>), typeof(Database<>));
-
-            services.TryAddSingleton<IDatabaseBulkCopy, BulkAssistant>();
+            services.AddSingleton<IDbConnectionFactory>(new DbConnectionFactory(engine, factory));
+            
+            services.TryAddSingleton<TDbAdapter>();
+            services.TryAddSingleton<IDbConnectionPipeline, DbConnectionPipeline>();
+            services.TryAddSingleton(typeof(IDatabase<>), typeof(Database<>));
+            services.TryAddSingleton<IDatabaseExecutor, DatabaseExecutor>();
             services.TryAddSingleton<IConnections, DefaultConnections>();
 
             return new DatabaseLinqBuilder(engine, typeof(TDbAdapter), services);

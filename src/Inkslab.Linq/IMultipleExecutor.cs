@@ -6,7 +6,12 @@ namespace Inkslab.Linq
     /// 多执行处理器。
     /// </summary>
     public interface IMultipleExecutor
-    {
+    {        
+        /// <summary>
+        /// 执行影响行数。
+        /// </summary>
+        int RowsExecuted{ get; }
+
         /// <summary>
         /// 执行命令。
         /// </summary>

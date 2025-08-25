@@ -1,15 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<ItemGroup>
 	  <PackageReference Include="MySqlConnector" Version="2.4.0" />
-	  <PackageReference Include="Npgsql" Version="8.0.5" />
-	  <PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.6.0" />
 	</ItemGroup>
 	<ItemGroup>
 	  <ProjectReference Include="..\..\src\Inkslab.Linq.MySql\Inkslab.Linq.MySql.csproj" />
-	</ItemGroup>
-	<ItemGroup>
-	  <PackageReference Update="Inkslab.Map" Version="1.2.14" />
-	  <PackageReference Update="Microsoft.NET.Test.Sdk" Version="17.12.0" />
 	</ItemGroup>
 
 </Project>

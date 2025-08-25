@@ -43,6 +43,8 @@ namespace Inkslab.Linq.SqlServer
                 _bulkCopy.ColumnMappings.Add(new SqlBulkCopyColumnMapping(i, column.ColumnName));
             }
 
+            _bulkCopy.DestinationTableName = dt.TableName;
+
             _bulkCopy.WriteToServer(dt);
 
             return _bulkCopy.RowsCopied;
@@ -57,6 +59,8 @@ namespace Inkslab.Linq.SqlServer
 
                 _bulkCopy.ColumnMappings.Add(new SqlBulkCopyColumnMapping(i, column.ColumnName));
             }
+
+            _bulkCopy.DestinationTableName = dt.TableName;
 
             await _bulkCopy.WriteToServerAsync(dt, cancellationToken);
 

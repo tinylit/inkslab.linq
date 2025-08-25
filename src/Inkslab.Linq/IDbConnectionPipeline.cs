@@ -19,14 +19,16 @@ namespace Inkslab.Linq
         /// <summary>
         /// 获取数据库批量操作助手。
         /// </summary>
-        /// <param name="databaseStrings">数据库链接字符串。</param>
-        IDatabaseBulkCopy Create(IConnection databaseStrings);
+        /// <param name="connection">数据库链接。</param>
+        /// <param name="engine">数据库引擎。</param>
+        IDatabaseBulkCopy Create(DbConnection connection, DatabaseEngine engine);
 
         /// <summary>
         /// 获取数据库批量操作助手。
         /// </summary>
-        /// <param name="databaseStrings">数据库链接字符串。</param>
+        /// <param name="connection">数据库链接。</param>
+        /// <param name="engine">数据库引擎。</param>
         /// <param name="cancellationToken">取消令牌。</param>
-        Task<IDatabaseBulkCopy> CreateAsync(IConnection databaseStrings, CancellationToken cancellationToken);
+        Task<IDatabaseBulkCopy> CreateAsync(DbConnection connection, DatabaseEngine engine, CancellationToken cancellationToken);
     }
 }

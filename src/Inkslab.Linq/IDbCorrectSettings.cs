@@ -8,11 +8,6 @@ namespace Inkslab.Linq
     public interface IDbCorrectSettings
     {
         /// <summary>
-        /// 格式化器。
-        /// </summary>
-        IReadOnlyCollection<IFormatter> Formatters { get; }
-
-        /// <summary>
         /// 架构/表/字段名称。
         /// </summary>
         /// <param name="name">名称。</param>

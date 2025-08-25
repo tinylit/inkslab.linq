@@ -65,37 +65,45 @@ namespace Inkslab.Linq
         };
 
         /// <inheritdoc/>
-        public IDatabaseBulkCopy Create(IConnection databaseStrings)
+        public IDatabaseBulkCopy Create(DbConnection connection, DatabaseEngine engine)
         {
-            if (databaseStrings is null)
+            if (connection is null)
             {
-                throw new ArgumentNullException(nameof(databaseStrings));
+                throw new ArgumentNullException(nameof(connection));
             }
 
-            var bulkCopyFactory = _bulkCopyFactories.FirstOrDefault(x => x.Engine == databaseStrings.Engine) ?? throw new InvalidOperationException("未找到合适的批量复制工厂。");
+            var bulkCopyFactory = _bulkCopyFactories.FirstOrDefault(x => x.Engine == engine) ?? throw new InvalidOperationException("未找到合适的批量复制工厂。");
 
-            var current = Transaction.Current;
+            if (connection is IDatabase database)
+            {
+                return database.CreateBulkCopy(bulkCopyFactory);
+            }
 
-            return current is null
-                ? OwnerTransactionConnections.Get(OwnerTransaction.Current, databaseStrings, _connections, bulkCopyFactory)
-                : TransactionConnections.Get(current, databaseStrings, _connections, bulkCopyFactory);
+            return bulkCopyFactory.Create(connection);
         }
 
         /// <inheritdoc/>
-        public Task<IDatabaseBulkCopy> CreateAsync(IConnection databaseStrings, CancellationToken cancellationToken)
+        public async Task<IDatabaseBulkCopy> CreateAsync(DbConnection connection, DatabaseEngine engine, CancellationToken cancellationToken)
         {
-            if (databaseStrings is null)
+            if (connection is null)
             {
-                throw new ArgumentNullException(nameof(databaseStrings));
+                throw new ArgumentNullException(nameof(connection));
             }
 
-            var bulkCopyFactory = _bulkCopyFactories.FirstOrDefault(x => x.Engine == databaseStrings.Engine) ?? throw new InvalidOperationException("未找到合适的批量复制工厂。");
+            var bulkCopyFactory = _bulkCopyFactories.FirstOrDefault(x => x.Engine == engine) ?? throw new InvalidOperationException("未找到合适的批量复制工厂。");
 
-            var current = Transaction.Current;
+            if (connection is IDatabase database)
+            {
+                return await database.CreateBulkCopyAsync(bulkCopyFactory, cancellationToken);
+            }
 
-            return current is null
-                ? OwnerTransactionConnections.GetAsync(OwnerTransaction.Current, databaseStrings, _connections, bulkCopyFactory, cancellationToken)
-                : TransactionConnections.GetAsync(current, databaseStrings, _connections, bulkCopyFactory, cancellationToken);
+            return bulkCopyFactory.Create(connection);
+        }
+
+        private interface IDatabase
+        {
+            IDatabaseBulkCopy CreateBulkCopy(IDbConnectionBulkCopyFactory bulkCopyFactory);
+            Task<IDatabaseBulkCopy> CreateBulkCopyAsync(IDbConnectionBulkCopyFactory bulkCopyFactory, CancellationToken cancellationToken);
         }
 
         /// <summary>
@@ -104,31 +112,6 @@ namespace Inkslab.Linq
         private static class OwnerTransactionConnections
         {
             private static readonly ConcurrentDictionary<OwnerTransaction, Dictionary<string, TransactionEntry>> _transactionConnections = new ConcurrentDictionary<OwnerTransaction, Dictionary<string, TransactionEntry>>();
-
-            public static IDatabaseBulkCopy Get(OwnerTransaction transaction, IConnection databaseStrings, IConnections connections, IDbConnectionBulkCopyFactory bulkCopyFactory)
-            {
-                if (transaction is null)
-                {
-                    return bulkCopyFactory.Create(connections.Get(databaseStrings));
-                }
-
-                var transactionEntry = PrivateGet(transaction, databaseStrings, connections);
-
-                return transactionEntry.CreateBulkAssistant(bulkCopyFactory);
-            }
-
-            public static Task<IDatabaseBulkCopy> GetAsync(OwnerTransaction transaction, IConnection databaseStrings, IConnections connections, IDbConnectionBulkCopyFactory bulkCopyFactory, CancellationToken cancellationToken)
-            {
-                if (transaction is null)
-                {
-                    return Task.FromResult(bulkCopyFactory.Create(connections.Get(databaseStrings)));
-                }
-
-                var transactionEntry = PrivateGet(transaction, databaseStrings, connections);
-
-                return transactionEntry.CreateBulkAssistantAsync(bulkCopyFactory, cancellationToken);
-            }
-
 
             private static TransactionEntry PrivateGet(OwnerTransaction transaction, IConnection databaseStrings, IConnections connections)
             {
@@ -242,30 +225,6 @@ namespace Inkslab.Linq
                     return Transaction;
                 }
 
-                public IDatabaseBulkCopy CreateBulkAssistant(IDbConnectionBulkCopyFactory bulkCopyFactory)
-                {
-                    if (_connection.State == ConnectionState.Closed)
-                    {
-                        _connection.Open();
-                    }
-
-                    var transaction = BeginTransaction();
-
-                    return bulkCopyFactory.Create(_connection, transaction);
-                }
-
-                public async Task<IDatabaseBulkCopy> CreateBulkAssistantAsync(IDbConnectionBulkCopyFactory bulkCopyFactory, CancellationToken cancellationToken)
-                {
-                    if (_connection.State == ConnectionState.Closed)
-                    {
-                        await _connection.OpenAsync(cancellationToken);
-                    }
-
-                    var transaction = await BeginTransactionAsync(cancellationToken);
-
-                    return bulkCopyFactory.Create(_connection, transaction);
-                }
-
                 public void Dispose()
                 {
                     if (_connection.State == ConnectionState.Open)
@@ -297,20 +256,6 @@ namespace Inkslab.Linq
                 }
             }
 
-            private class DbConnectionLink<TConnection> : TransactionLink where TConnection : DbConnection
-            {
-                public TConnection Connection { get; }
-
-                public DbConnectionLink(TransactionEntry transaction, TConnection connection) : base(transaction, connection)
-                {
-                    Connection = connection;
-                }
-
-                public static implicit operator TConnection(DbConnectionLink<TConnection> link)
-                {
-                    return link.Connection;
-                }
-            }
             private class TransactionLink : DbConnection
             {
                 private readonly TransactionEntry _transaction;
@@ -356,6 +301,30 @@ namespace Inkslab.Linq
                 public override void EnlistTransaction(Transaction transaction) => _connection.EnlistTransaction(transaction);
 
                 public override void Close() => connectionState = ConnectionState.Closed;
+
+                public IDatabaseBulkCopy Get(IDbConnectionBulkCopyFactory bulkCopyFactory)
+                {
+                    if (_connection.State == ConnectionState.Closed)
+                    {
+                        _connection.Open();
+                    }
+
+                    var transaction = _transaction.BeginTransaction();
+
+                    return bulkCopyFactory.Create(_connection, transaction);
+                }
+
+                public async Task<IDatabaseBulkCopy> GetAsync(IDbConnectionBulkCopyFactory bulkCopyFactory, CancellationToken cancellationToken)
+                {
+                    if (_connection.State == ConnectionState.Closed)
+                    {
+                        await _connection.OpenAsync(cancellationToken);
+                    }
+
+                    var transaction = await _transaction.BeginTransactionAsync(cancellationToken);
+
+                    return bulkCopyFactory.Create(_connection, transaction);
+                }
 
                 public override void Open()
                 {
@@ -538,20 +507,6 @@ namespace Inkslab.Linq
         {
             private static readonly ConcurrentDictionary<Transaction, Dictionary<string, TransactionEntry>> _transactionConnections = new ConcurrentDictionary<Transaction, Dictionary<string, TransactionEntry>>();
 
-            public static IDatabaseBulkCopy Get(Transaction transaction, IConnection databaseStrings, IConnections connections, IDbConnectionBulkCopyFactory bulkCopyFactory)
-            {
-                var transactionEntry = PrivateGet(transaction, databaseStrings, connections);
-
-                return transactionEntry.CreateBulkAssistant(bulkCopyFactory);
-            }
-
-            public static Task<IDatabaseBulkCopy> GetAsync(Transaction transaction, IConnection databaseStrings, IConnections connections, IDbConnectionBulkCopyFactory bulkCopyFactory, CancellationToken cancellationToken)
-            {
-                var transactionEntry = PrivateGet(transaction, databaseStrings, connections);
-
-                return transactionEntry.CreateBulkAssistantAsync(bulkCopyFactory, cancellationToken);
-            }
-
             private static TransactionEntry PrivateGet(Transaction transaction, IConnection databaseStrings, IConnections connections)
             {
                 Dictionary<string, TransactionEntry> dictionary = _transactionConnections.GetOrAdd(transaction, transaction =>
@@ -609,27 +564,6 @@ namespace Inkslab.Linq
 
                 public DbConnection GetConnection() => new TransactionLink(_connection);
 
-
-                public IDatabaseBulkCopy CreateBulkAssistant(IDbConnectionBulkCopyFactory bulkCopyFactory)
-                {
-                    if (_connection.State == ConnectionState.Closed)
-                    {
-                        _connection.Open();
-                    }
-
-                    return bulkCopyFactory.Create(_connection);
-                }
-
-                public async Task<IDatabaseBulkCopy> CreateBulkAssistantAsync(IDbConnectionBulkCopyFactory bulkCopyFactory, CancellationToken cancellationToken)
-                {
-                    if (_connection.State == ConnectionState.Closed)
-                    {
-                        await _connection.OpenAsync(cancellationToken);
-                    }
-
-                    return bulkCopyFactory.Create(_connection);
-                }
-
                 public void Dispose()
                 {
                     if (_connection.State == ConnectionState.Open)
@@ -640,21 +574,7 @@ namespace Inkslab.Linq
                     _connection.Dispose();
                 }
             }
-            private class DbConnectionLink<TConnection> : TransactionLink where TConnection : DbConnection
-            {
-                public TConnection Connection { get; }
-
-                public DbConnectionLink(TConnection connection) : base(connection)
-                {
-                    Connection = connection;
-                }
-
-                public static implicit operator TConnection(DbConnectionLink<TConnection> link)
-                {
-                    return link.Connection;
-                }
-            }
-            private class TransactionLink : DbConnection
+            private class TransactionLink : DbConnection, IDatabase
             {
                 private readonly DbConnection _connection;
                 private ConnectionState connectionState = ConnectionState.Closed;
@@ -793,6 +713,26 @@ namespace Inkslab.Linq
                     Close();
 
                     base.Dispose(disposing);
+                }
+
+                public IDatabaseBulkCopy CreateBulkCopy(IDbConnectionBulkCopyFactory bulkCopyFactory)
+                {
+                    if (_connection.State == ConnectionState.Closed)
+                    {
+                        _connection.Open();
+                    }
+
+                    return bulkCopyFactory.Create(_connection);
+                }
+
+                public async Task<IDatabaseBulkCopy> CreateBulkCopyAsync(IDbConnectionBulkCopyFactory bulkCopyFactory, CancellationToken cancellationToken)
+                {
+                    if (_connection.State == ConnectionState.Closed)
+                    {
+                        await _connection.OpenAsync(cancellationToken);
+                    }
+
+                    return bulkCopyFactory.Create(_connection);
                 }
 
                 private class DbCommand : System.Data.Common.DbCommand, IDbCommand

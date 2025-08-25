@@ -23,7 +23,7 @@ namespace Inkslab.Linq
         /// <summary>
         /// 数据库。
         /// </summary>
-        public Database(IDatabaseExecutor executor, IDatabaseStrings databaseStrings, IDbCorrectSettings settings) : base(executor, databaseStrings, settings)
+        public Database(IDatabaseExecutor executor, IDatabaseStrings databaseStrings) : base(executor, databaseStrings)
         {
         }
     }
@@ -35,20 +35,17 @@ namespace Inkslab.Linq
     {
         private readonly IDatabaseExecutor _executor;
         private readonly IDatabaseStrings<TConnectionStrings> _databaseStrings;
-        private readonly IDbCorrectSettings _settings;
         private static readonly Regex _literalTokens = new Regex(@"(?<![\p{L}\p{N}@_])\{=([\p{L}\p{N}_][\p{L}\p{N}@_]*)\}", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.CultureInvariant | RegexOptions.Compiled);
         private static readonly Regex _smellsLikeOleDb = new Regex(@"(?<![\p{L}\p{N}@_])[?@:]([\p{L}\p{N}_][\p{L}\p{N}@_]*)", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.CultureInvariant | RegexOptions.Compiled);
         private static readonly Regex _inlistTokens = new Regex(@"[\x20\r\n\t\f]+IN[\x20\r\n\t\f]+(?<![\p{L}\p{N}@_])(\{=(?<name>[\p{L}\p{N}_][\p{L}\p{N}@_]*)\}|[?@:](?<name>[\p{L}\p{N}_][\p{L}\p{N}@_]*))", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.CultureInvariant | RegexOptions.Compiled);
-        private static readonly Regex _libraryTokens = new Regex("(`(?<name>[^`]+?)`)|(\\[(?<name>[^\\]]+?)\\])|(\\\"(?<name>[^\"]+?)\\\")", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         /// <summary>
         /// 数据库。
         /// </summary>
-        public Database(IDatabaseExecutor executor, IDatabaseStrings<TConnectionStrings> databaseStrings, IDbCorrectSettings settings)
+        public Database(IDatabaseExecutor executor, IDatabaseStrings<TConnectionStrings> databaseStrings)
         {
             _executor = executor;
             _databaseStrings = databaseStrings;
-            _settings = settings;
         }
 
         /// <inheritdoc/>
@@ -209,7 +206,7 @@ namespace Inkslab.Linq
         /// <inheritdoc/>
         public Task<int> WriteToServerAsync(DataTable dt, int? commandTimeout = null, CancellationToken cancellationToken = default) => _executor.WriteToServerAsync(_databaseStrings, dt, commandTimeout, cancellationToken);
 
-        private CommandSql MakeCommandSql(string sql, Dictionary<string, object> dictionaries, int? commandTimeout = null)
+        private static CommandSql MakeCommandSql(string sql, Dictionary<string, object> dictionaries, int? commandTimeout = null)
         {
             var inlist = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -234,13 +231,7 @@ namespace Inkslab.Linq
 
             var parameters = new Dictionary<string, object>(dictionaries.Count);
 
-            //? 字段名称或表名称处理。
-            var librarySql = _libraryTokens.Replace(sql, mt =>
-            {
-                return _settings.Name(mt.Groups["name"].Value);
-            });
-
-            var nonnullSql = _smellsLikeOleDb.Replace(librarySql, mt => //? 提取参数并把参数值为“null”的参数替换为“null”。
+            var nonnullSql = _smellsLikeOleDb.Replace(sql, mt => //? 提取参数并把参数值为“null”的参数替换为“null”。
             {
                 var name = mt.Groups[1].Value;
 
@@ -391,11 +382,6 @@ namespace Inkslab.Linq
                         }
                     });
                 }
-            }
-
-            foreach (var formatter in _settings.Formatters)
-            {
-                commandSql = formatter.Format(commandSql);
             }
 
             return new CommandSql(commandSql, parameters, commandTimeout);

@@ -33,7 +33,7 @@ namespace Inkslab.Linq
         public IServiceCollection Services => _services;
 
         /// <summary>
-        /// 使用 Linq 语法（只能注册一次）。
+        /// 使用 Linq 语法（全局只能注册一次）。
         /// </summary>
         /// <param name="connectionStrings">数据库链接。</param>
         /// <remarks>
@@ -47,15 +47,14 @@ namespace Inkslab.Linq
                 throw new ArgumentException($"“{nameof(connectionStrings)}”不能为 null 或空。", nameof(connectionStrings));
             }
 
-            var serviceType = typeof(IDbAdapter);
+            var serviceType = typeof(DbStrictAdapter);
 
             if (_services.Any(x => x.ServiceType == serviceType))
             {
                 throw new InvalidOperationException($"当前方法“{nameof(UseLinq)}”已注册，请勿重复注册！");
             }
 
-            _services.AddSingleton(serviceType, _dbAdapterType)
-                .AddSingleton(sp => new DbStrictAdapter(_engine, sp.GetRequiredService<IDbAdapter>()))
+            _services.AddSingleton(sp => new DbStrictAdapter(_engine, (IDbAdapter)sp.GetRequiredService(_dbAdapterType)))
                 .AddSingleton<IDatabaseStrings>(new DatabaseStrings(_engine, connectionStrings))
                 .AddSingleton<IDatabase, Database>()
                 .AddSingleton(typeof(IQueryable<>), typeof(Queryable<>))

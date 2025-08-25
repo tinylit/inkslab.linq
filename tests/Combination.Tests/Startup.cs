@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Combination.Tests
 {
-    public class SqlServerConnectionStrings : IConnectionStrings
+    public class SqlServerPromotionConnectionStrings : IConnectionStrings
     {
         public string Strings { get; } = "Server=sqlserver.local.com,1435;database=HysEMall_Promotion;uid=sa;pwd=yyy@123*;MultipleActiveResultSets=True;TrustServerCertificate=true";
     }
@@ -23,7 +23,7 @@ namespace Combination.Tests
                 .UseLinq("server=mysql.local.com;uid=root;pwd=yyy@123*;database=framework;AllowLoadLocalInfile=true");
 
             services.UseSqlServer()
-                .UseDatabase<SqlServerConnectionStrings>();
+                .UseDatabase<SqlServerPromotionConnectionStrings>();
 
             services.AddLogging(builder => builder.AddDebug().SetMinimumLevel(LogLevel.Debug));
 

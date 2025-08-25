@@ -7,9 +7,9 @@ namespace Combination.Tests
     public class UnitTest1
     {
         private readonly IQueryable<User> _users;
-        private readonly IDatabase<SqlServerConnectionStrings> _database;
+        private readonly IDatabase<SqlServerPromotionConnectionStrings> _database;
 
-        public UnitTest1(IQueryable<User> users, IDatabase<SqlServerConnectionStrings> database)
+        public UnitTest1(IQueryable<User> users, IDatabase<SqlServerPromotionConnectionStrings> database)
         {
             _users = users;
             _database = database;

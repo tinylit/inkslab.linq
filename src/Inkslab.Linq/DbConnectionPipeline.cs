@@ -256,7 +256,7 @@ namespace Inkslab.Linq
                 }
             }
 
-            private class TransactionLink : DbConnection
+            private class TransactionLink : DbConnection, IDatabase
             {
                 private readonly TransactionEntry _transaction;
                 private readonly DbConnection _connection;
@@ -302,7 +302,7 @@ namespace Inkslab.Linq
 
                 public override void Close() => connectionState = ConnectionState.Closed;
 
-                public IDatabaseBulkCopy Get(IDbConnectionBulkCopyFactory bulkCopyFactory)
+                public IDatabaseBulkCopy CreateBulkCopy(IDbConnectionBulkCopyFactory bulkCopyFactory)
                 {
                     if (_connection.State == ConnectionState.Closed)
                     {
@@ -314,7 +314,7 @@ namespace Inkslab.Linq
                     return bulkCopyFactory.Create(_connection, transaction);
                 }
 
-                public async Task<IDatabaseBulkCopy> GetAsync(IDbConnectionBulkCopyFactory bulkCopyFactory, CancellationToken cancellationToken)
+                public async Task<IDatabaseBulkCopy> CreateBulkCopyAsync(IDbConnectionBulkCopyFactory bulkCopyFactory, CancellationToken cancellationToken)
                 {
                     if (_connection.State == ConnectionState.Closed)
                     {

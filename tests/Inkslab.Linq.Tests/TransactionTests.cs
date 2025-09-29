@@ -1,5 +1,6 @@
 ﻿using Inkslab.Transactions;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
@@ -65,6 +66,26 @@ namespace Inkslab.Linq.Tests
                 string sql = "SELECT * FROM `user` WHERE id = @id";
 
                 await _database.FirstOrDefaultAsync<User>(sql, new { id = 1 });
+
+                await transaction.CompleteAsync();
+            }
+        }
+
+        [Fact]
+        public async Task WriteServerCommitAsync()
+        {
+            await using (var transaction = new TransactionUnit())
+            {
+                int length = 200;
+
+                var users = new List<User>(length);
+
+                for (int i = 0; i < length; i++)
+                {
+                    users.Add(new User { Name = $"测试：{i:000}", DateAt = DateTime.Now });
+                }
+
+                int rows = _userRpts.Timeout(100).Ignore().Into(users).Execute();
 
                 await transaction.CompleteAsync();
             }

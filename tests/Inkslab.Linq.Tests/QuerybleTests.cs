@@ -508,6 +508,7 @@ namespace Inkslab.Linq.Tests
             var linq =
                 from x in _users
                 from y in _users
+                where x.Id < 150 && y.Id < 150
                 orderby x.Id descending
                 select new
                 {
@@ -979,6 +980,22 @@ namespace Inkslab.Linq.Tests
         /// 内置包含测试。
         /// </summary>
         [Fact]
+        public void TestNestedNotContains()
+        {
+            var linq =
+                from x in _users
+                where
+                    x.Id == 100 && !_userExes.Where(y => y.Age > 12).Select(y => y.Id).Contains(x.Id)
+                orderby x.DateAt, x.Name
+                select x.Id;
+
+            var results = linq.ToList();
+        }
+
+        /// <summary>
+        /// 内置包含测试。
+        /// </summary>
+        [Fact]
         public void TestNestedMemoryContains()
         {
             var ids = new List<long> { 1, 2, 5 };
@@ -1099,6 +1116,24 @@ namespace Inkslab.Linq.Tests
             var linq =
                 from x in _users
                 where x.Id == 100 && ids.Contains(x.Id)
+                orderby x.DateAt, x.Name
+                select x.Id;
+
+            var results = await linq.ToListAsync();
+            var results2 = await linq.ToListAsync();
+        }
+
+        /// <summary>
+        /// 内置不包含测试。
+        /// </summary>
+        [Fact]
+        public async Task TestNestedMemoryNotContainsMultiSelectAsync()
+        {
+            var ids = new List<long> { 1, 2, 5 };
+
+            var linq =
+                from x in _users
+                where x.Id == 100 && !ids.Contains(x.Id)
                 orderby x.DateAt, x.Name
                 select x.Id;
 

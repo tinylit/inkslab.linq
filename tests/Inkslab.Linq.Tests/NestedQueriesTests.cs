@@ -1269,8 +1269,8 @@ namespace Inkslab.Linq.Tests
                         join ou in _orderUserInfos on o.Id equals ou.Id
                         join s in _sessions on o.Id equals s.Id
                         where Conditions.If(patientId > 0, _inquiries.Any(i => i.OrderId == o.Id && i.PatientId == patientId))
-                        && Conditions.If(!string.IsNullOrWhiteSpace(dto.PatientName), _inquiries.Any(inquiry => inquiry.OrderId == o.Id && inquiry.Name.Contains(dto.PatientName)))
-                        && Conditions.If(!string.IsNullOrWhiteSpace(dto.PatientPhone), _inquiries.Any(inquiry => inquiry.OrderId == o.Id && inquiry.Phone.Contains(dto.PatientPhone)))
+                        && Conditions.If(!string.IsNullOrWhiteSpace(dto.PatientName), !_inquiries.Any(inquiry => inquiry.OrderId == o.Id && inquiry.Name.Contains(dto.PatientName)))
+                        && Conditions.If(!string.IsNullOrWhiteSpace(dto.PatientPhone), !_inquiries.Any(inquiry => inquiry.OrderId == o.Id && !inquiry.Phone.Contains(dto.PatientPhone)))
                         orderby o.CreateTime descending
                         select new
                         {

@@ -55,6 +55,11 @@ namespace Inkslab.Linq.Expressions
         protected SqlWriter Writer { get; }
 
         /// <summary>
+        /// 条件取反。
+        /// </summary>
+        public bool IsConditionReversal => Writer.IsConditionReversal;
+
+        /// <summary>
         /// 访问器。
         /// </summary>
         /// <param name="adapter">数据库适配器。</param>

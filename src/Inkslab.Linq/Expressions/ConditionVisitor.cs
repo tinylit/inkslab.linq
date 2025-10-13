@@ -741,15 +741,6 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override void LinqCall(MethodCallExpression node)
-        {
-            using (var visitor = new SelectVisitor(this))
-            {
-                visitor.Startup(node);
-            }
-        }
-
-        /// <inheritdoc/>
         protected override void ByEnumerable(MethodCallExpression node)
         {
             if (_isGroupHaving && node.IsGrouping())

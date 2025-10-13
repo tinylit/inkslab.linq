@@ -26,6 +26,11 @@ namespace Inkslab.Linq.Expressions
         /// </summary>
         private readonly OrderBySwitch _orderBySwitch;
 
+        /// <summary>
+        /// 父级是否条件反转。
+        /// </summary>
+        private readonly bool _parentIsConditionReversal = false;
+
         /// <inheritdoc/>
         protected SelectVisitor(DbStrictAdapter adapter) : base(adapter)
         {
@@ -43,6 +48,7 @@ namespace Inkslab.Linq.Expressions
         {
             _showAs = showAs;
             _orderBySwitch = new OrderBySwitch(Writer);
+            _parentIsConditionReversal = visitor.IsConditionReversal;
         }
 
         /// <inheritdoc/>
@@ -172,6 +178,11 @@ namespace Inkslab.Linq.Expressions
 
                     Visit(node.Arguments[1]);
 
+                    if (_parentIsConditionReversal)
+                    {
+                        Writer.Keyword(SqlKeyword.NOT);
+                    }
+
                     Writer.Keyword(SqlKeyword.IN);
 
                     Writer.OpenBrace();
@@ -190,6 +201,11 @@ namespace Inkslab.Linq.Expressions
 
                     goto case nameof(Queryable.Any);
                 case nameof(Queryable.Any):
+
+                    if (_parentIsConditionReversal)
+                    {
+                        Writer.Keyword(SqlKeyword.NOT);
+                    }
 
                     Writer.Keyword(SqlKeyword.EXISTS);
 

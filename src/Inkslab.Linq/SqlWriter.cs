@@ -119,6 +119,11 @@ namespace Inkslab.Linq
 
                         break;
                     case SqlKeyword.IS:
+
+                        WhiteSpace();
+                        Write(keyword.ToString());
+
+                        break;
                     case SqlKeyword.AS:
                     case SqlKeyword.SET:
                     case SqlKeyword.JOIN:
@@ -150,24 +155,14 @@ namespace Inkslab.Linq
 
                             if (!ignoreNOT)
                             {
-                                Write(keyword.ToString());
-
                                 WhiteSpace();
+
+                                Write(keyword.ToString());
                             }
                         }
 
                         break;
                     case SqlKeyword.EXISTS:
-
-                        if (ignoreNOT)
-                        {
-                            writtenNOT = true;
-
-                            _writer.Keyword(SqlKeyword.NOT);
-                        }
-
-                        Write(keyword.ToString());
-                        break;
                     case SqlKeyword.CROSS:
                     case SqlKeyword.INNER:
                     case SqlKeyword.LEFT:
@@ -186,7 +181,9 @@ namespace Inkslab.Linq
                         break;
                     case SqlKeyword.NULL:
 
+                        WhiteSpace();
                         Write(keyword.ToString());
+
                         break;
                     default:
                         throw new NotImplementedException();
@@ -243,13 +240,27 @@ namespace Inkslab.Linq
 
             public void Insert(int index, string value)
             {
-                justWrittenWhiteCase = false;
+                justWrittenWhiteCase &= false;
+                justWrittenWhiteDelete &= false;
 
-                _sb.Insert(index, value);
+                int offset = 0;
+
+                if (ignoreNOT)
+                {
+                    writtenNOT = true;
+
+                    int length = _sb.Length;
+
+                    _writer.Keyword(SqlKeyword.NOT);
+
+                    offset = _sb.Length - length;
+                }
+
+                _sb.Insert(index + offset, value);
 
                 if (index <= cursorPosition)
                 {
-                    cursorPosition += value.Length;
+                    cursorPosition += value.Length; //? 插入位置在光标前面，光标后移，NOT 已在 Write 方法中添加，不能重复添加。
                 }
             }
 

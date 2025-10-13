@@ -165,7 +165,7 @@ namespace Inkslab.Linq.Tests
             writer.Keyword(Enums.SqlKeyword.NOT);
             writer.OpenBrace();
 
-            Assert.Equal("NOT (", writer.ToString());
+            Assert.Equal(" NOT(", writer.ToString());
         }
 
         [Fact]

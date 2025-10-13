@@ -187,14 +187,5 @@ namespace Inkslab.Linq.Expressions
                     break;
             }
         }
-
-        /// <inheritdoc/>
-        protected override void LinqCall(MethodCallExpression node)
-        {
-            using (var visitor = new SelectVisitor(this))
-            {
-                visitor.Startup(node);
-            }
-        }
     }
 }

@@ -683,6 +683,11 @@ namespace Inkslab.Linq.Expressions
 
                         break;
                     }
+                case nameof(QueryableExtentions.DataSharding):
+
+                    VisitMethodCall(node);
+                    
+                    break;
                 default:
 
                     Backflow(this, node);

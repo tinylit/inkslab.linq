@@ -277,11 +277,11 @@ namespace Inkslab.Linq.Expressions
             {
                 case ExpressionType.Equal
                     when right.NodeType == ExpressionType.Constant
-                        && left.NodeType == ExpressionType.MemberAccess
+                        && (left.NodeType == ExpressionType.MemberAccess || left.NodeType == ExpressionType.Parameter)
                         && !left.Type.IsCell():
                 case ExpressionType.NotEqual
                     when right.NodeType == ExpressionType.Constant
-                        && left.NodeType == ExpressionType.MemberAccess
+                        && (left.NodeType == ExpressionType.MemberAccess || left.NodeType == ExpressionType.Parameter)
                         && !left.Type.IsCell():
                     {
                         var constant = (ConstantExpression)right;
@@ -302,11 +302,11 @@ namespace Inkslab.Linq.Expressions
                     }
                 case ExpressionType.Equal
                     when left.NodeType == ExpressionType.Constant
-                        && right.NodeType == ExpressionType.MemberAccess
+                        && (right.NodeType == ExpressionType.MemberAccess || right.NodeType == ExpressionType.Parameter)
                         && !right.Type.IsCell():
                 case ExpressionType.NotEqual
                     when left.NodeType == ExpressionType.Constant
-                        && right.NodeType == ExpressionType.MemberAccess
+                        && (right.NodeType == ExpressionType.MemberAccess || right.NodeType == ExpressionType.Parameter)
                         && !right.Type.IsCell():
                     {
                         var constant = (ConstantExpression)left;

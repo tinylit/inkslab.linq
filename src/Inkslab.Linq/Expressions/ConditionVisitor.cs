@@ -457,6 +457,51 @@ namespace Inkslab.Linq.Expressions
                 case ExpressionType.And:
                 case ExpressionType.Or:
                 case ExpressionType.ExclusiveOr:
+
+
+                    //? 外存。
+                    var conditionBalanceFlag = isConditionBalance;
+
+                    isConditionBalance &= false;
+
+                    using (var domain = Writer.Domain())
+                    {
+                        Visit(left);
+
+                        if (domain.IsEmpty)
+                        {
+                            break;
+                        }
+
+                        using (var domainSub = Writer.Domain())
+                        {
+                            Visit(right);
+
+                            if (domainSub.IsEmpty)
+                            {
+                                domain.Discard();
+
+                                break;
+                            }
+
+                            Writer.CloseBrace();
+
+                            domainSub.Flyback();
+
+                            Writer.Operator(expressionType.GetOperator());
+                        }
+
+                        if (conditionBalanceFlag)
+                        {
+                            Writer.Operator(SqlOperator.IsTrue);
+                        }
+
+                        domain.Flyback();
+
+                        Writer.OpenBrace();
+                    }
+
+                    break;
                 case ExpressionType.Add:
                 case ExpressionType.AddChecked:
                 case ExpressionType.Subtract:
@@ -467,9 +512,6 @@ namespace Inkslab.Linq.Expressions
                 case ExpressionType.Divide:
                 case ExpressionType.LeftShift:
                 case ExpressionType.RightShift:
-
-                    //? 外存。
-                    var conditionBalanceFlag = isConditionBalance;
 
                     isConditionBalance &= false;
 
@@ -517,11 +559,6 @@ namespace Inkslab.Linq.Expressions
                             {
                                 Writer.Operator(expressionType.GetOperator());
                             }
-                        }
-
-                        if (conditionBalanceFlag)
-                        {
-                            Writer.Operator(SqlOperator.IsTrue);
                         }
 
                         domain.Flyback();

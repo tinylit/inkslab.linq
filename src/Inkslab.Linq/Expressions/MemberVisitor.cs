@@ -10,13 +10,24 @@ namespace Inkslab.Linq.Expressions
     [DebuggerDisplay("MemberVisitor")]
     public class MemberVisitor : CoreVisitor
     {
-        /// <inheritdoc/>
-        public MemberVisitor(BaseVisitor visitor) : base(visitor)
-        {
+        private readonly bool _isGroupHaving;
 
+        /// <inheritdoc/>
+        public MemberVisitor(BaseVisitor visitor, bool isGroupHaving = false) : base(visitor)
+        {
+            _isGroupHaving = isGroupHaving;
         }
 
         /// <inheritdoc/>
         protected override void Member(MemberInfo memberInfo, Expression node) => base.Visit(node);
+
+        /// <inheritdoc/>
+        protected override void Condition(Expression node)
+        {
+            using (var visitor = new ConditionVisitor(this, _isGroupHaving))
+            {
+                visitor.Startup(node);
+            }
+        }
     }
 }

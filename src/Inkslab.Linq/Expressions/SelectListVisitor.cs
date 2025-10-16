@@ -12,14 +12,28 @@ namespace Inkslab.Linq.Expressions
     public class SelectListVisitor : BaseVisitor
     {
         private readonly bool _showAs;
+        private readonly bool _isGroupHaving;
 
         /// <inheritdoc/>
-        public SelectListVisitor(CoreVisitor visitor, bool showAs = false) : base(visitor) => _showAs = showAs;
+        public SelectListVisitor(CoreVisitor visitor, bool showAs = false, bool isGroupHaving = false) : base(visitor)
+        {
+            _showAs = showAs;
+            _isGroupHaving = isGroupHaving;
+        }
 
         /// <inheritdoc/>
         protected override void PreparingParameter(LambdaExpression node)
         {
             //? 查询字段不准备参数。
+        }
+
+        /// <inheritdoc/>
+        protected override void Condition(Expression node)
+        {
+            using (var visitor = new ConditionVisitor(this, _isGroupHaving))
+            {
+                visitor.Startup(node);
+            }
         }
 
         /// <inheritdoc/>

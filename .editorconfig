@@ -85,6 +85,18 @@ dotnet_naming_rule.const.severity = error
 dotnet_naming_rule.const.symbols = const
 dotnet_naming_rule.const.style = pascal_case
 
+[*.cs]
+# 私有字段命名规则
+dotnet_naming_rule.private_fields.symbols = private_fields
+dotnet_naming_rule.private_fields.style = private_fields_style
+dotnet_naming_rule.private_fields.severity = suggestion
+
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.accessibilities = private
+
+dotnet_naming_style.private_fields_style.required_prefix = _
+dotnet_naming_style.private_fields_style.capitalization = camel_case
+
 # 符号规范
 
 dotnet_naming_symbols.interface.applicable_kinds = interface
@@ -370,10 +382,3 @@ csharp_style_prefer_primary_constructors = true:suggestion
 csharp_prefer_static_local_function = true:suggestion
 csharp_style_prefer_readonly_struct = true:suggestion
 csharp_style_prefer_readonly_struct_member = true:suggestion
-csharp_prefer_static_anonymous_function = true:suggestion
-
-# CA2254: 模板应为静态表达式
-dotnet_diagnostic.CA2254.severity = none
-
-# CA1806: 不要忽略方法结果
-dotnet_diagnostic.CA1806.severity = none

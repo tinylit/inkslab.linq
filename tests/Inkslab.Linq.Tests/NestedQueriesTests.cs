@@ -922,6 +922,105 @@ namespace Inkslab.Linq.Tests
         [Field("version")]
         public int Version { get; set; } = 0;
     }
+
+    /// <summary>
+    /// 手机-极光关系表
+    /// </summary>
+    [Table("jpush_phone_rel")]
+    public class JPushPhoneRel
+    {
+        /// <summary>
+        /// 主键编号
+        /// </summary>
+        [Key]
+        [Field("id")]
+        [DatabaseGenerated]
+        public long Id { get; set; }
+
+        /// <summary>
+        /// 手机号
+        /// </summary>
+        [Field("phone")]
+        [StringLength(11)]
+        public string Phone { get; set; }
+
+        /// <summary>
+        /// 极光主键id
+        /// </summary>
+        [Field("jpush_id")]
+        public long JPushId { get; set; }
+
+        /// <summary>
+        /// 业务线code
+        /// </summary>
+        [Field("business_line_code")]
+        [StringLength(20)]
+        public string BusinessLineCode { get; set; }
+
+        /// <summary>
+        /// 创建时间
+        /// </summary>
+        [Field("create_time")]
+        public DateTime CreateTime { get; set; }
+    }
+
+    /// <summary>
+    /// 极光表
+    /// </summary>
+    [Table("jpush")]
+    public class JPush
+    {
+        /// <summary>
+        /// 主键编号
+        /// </summary>
+        [Key]
+        [Field("id")]
+        public long Id { get; set; }
+
+        /// <summary>
+        /// 极光id
+        /// </summary>
+        [Field("registration_id")]
+        [StringLength(36)]
+        public string RegistrationId { get; set; }
+
+
+        /// <summary>
+        /// 手机号
+        /// </summary>
+        [Field("phone")]
+        [StringLength(11)]
+        public string Phone { get; set; }
+
+
+        /// <summary>
+        /// 应用id
+        /// </summary>
+        [Field("appid")]
+        [StringLength(36)]
+        public string Appid { get; set; }
+
+
+        /// <summary>
+        /// 设备id
+        /// </summary>
+        [Field("device_id")]
+        [StringLength(36)]
+        public string DeviceId { get; set; }
+
+        /// <summary>
+        /// 平台id
+        /// </summary>
+        [Field("platform_id")]
+
+        public long PlatformId { get; set; }
+
+        /// <summary>
+        /// 创建时间
+        /// </summary>
+        [Field("create_time")]
+        public DateTime CreateTime { get; set; }
+    }
     #endregion
 
     public class NestedQueriesTests
@@ -939,6 +1038,8 @@ namespace Inkslab.Linq.Tests
         private readonly IQueryable<OrderUserInfo> _orderUserInfos;
         private readonly IQueryable<Inquiry> _inquiries;
         private readonly IQueryable<Session> _sessions;
+        private readonly IQueryable<JPushPhoneRel> _jPushPhoneRels;
+        private readonly IQueryable<JPush> _jPushes;
 
         public NestedQueriesTests(IQueryable<BusinessConsultationRep> businessConsultationReps,
         IQueryable<BusinessDepartmentConsultationRel> businessDepartmentConsultationRels,
@@ -952,7 +1053,9 @@ namespace Inkslab.Linq.Tests
         IQueryable<SystemUser> systemUsers,
         IQueryable<OrderUserInfo> orderUserInfos,
         IQueryable<Inquiry> inquiries,
-        IQueryable<Session> sessions)
+        IQueryable<Session> sessions,
+        IQueryable<JPushPhoneRel> jPushPhoneRels,
+        IQueryable<JPush> jPushes)
         {
             _specialistCostReps = specialistCostReps;
             _businessDepartmentRels = businessDepartmentRels;
@@ -963,6 +1066,8 @@ namespace Inkslab.Linq.Tests
             _orderUserInfos = orderUserInfos;
             _inquiries = inquiries;
             _sessions = sessions;
+            _jPushPhoneRels = jPushPhoneRels;
+            _jPushes = jPushes;
             _users = users;
             _specialists = specialists;
             _businessDepartmentConsultationRels = businessDepartmentConsultationRels;
@@ -1296,6 +1401,34 @@ namespace Inkslab.Linq.Tests
 
 
             var entities = await query.ToListAsync();
+        }
+
+        [Fact]
+        public async Task Test13Async()
+        {
+            var results = await (from rel in _jPushPhoneRels
+                                 join aurora in _jPushes on rel.JPushId equals aurora.Id
+                                 where rel.Phone == "18980861011"
+                                 group aurora by aurora.DeviceId into g
+                                 orderby g.Max(rel => rel.CreateTime)
+                                 select new
+                                 {
+                                     DeviceId = g.Key
+                                 }).ToListAsync(1, 10);
+        }
+
+        [Fact]
+        public async Task Test14Async()
+        {
+            var results = await (from rel in _jPushPhoneRels
+                                 join aurora in _jPushes on rel.JPushId equals aurora.Id
+                                 where rel.Phone == "18980861011"
+                                 group aurora by aurora.DeviceId into g
+                                 orderby g.Max(rel => rel.CreateTime) - g.Min(rel => rel.CreateTime)
+                                 select new
+                                 {
+                                     DeviceId = g.Key
+                                 }).ToListAsync(1, 10);
         }
     }
 }

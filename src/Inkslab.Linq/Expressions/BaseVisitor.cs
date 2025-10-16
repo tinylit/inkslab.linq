@@ -15,9 +15,9 @@ namespace Inkslab.Linq.Expressions
     [DebuggerDisplay("Base")]
     public abstract class BaseVisitor : ExpressionVisitor, IDisposable
     {
-        private bool disposedValue;
+        private bool _disposedValue;
 
-        private volatile bool hasBaseStartup = false;
+        private volatile bool _hasBaseStartup = false;
 
         private readonly BaseVisitor _visitor;
         private readonly bool _isNewWriter;
@@ -27,22 +27,22 @@ namespace Inkslab.Linq.Expressions
         /// <summary>
         /// 数据分片。
         /// </summary>
-        private bool dataSharding = false;
+        private bool _dataSharding = false;
 
         /// <summary>
         /// 数据分片。
         /// </summary>
-        private bool dataShardingInvalid = false;
+        private bool _dataShardingInvalid = false;
 
         /// <summary>
         /// 分区键。
         /// </summary>
-        private string shardingKey = string.Empty;
+        private string _shardingKey = string.Empty;
 
         /// <summary>
         /// 表信息。
         /// </summary>
-        private ITableInfo tableInformation;
+        private ITableInfo _tableInformation;
 
         /// <summary>
         /// 数据库引擎。
@@ -126,13 +126,13 @@ namespace Inkslab.Linq.Expressions
         {
             if (node.NodeType == ExpressionType.Call)
             {
-                if (hasBaseStartup)
+                if (_hasBaseStartup)
                 {
                     StartupCore((MethodCallExpression)node);
                 }
                 else
                 {
-                    hasBaseStartup = true;
+                    _hasBaseStartup = true;
 
                     Startup((MethodCallExpression)node);
                 }
@@ -168,18 +168,18 @@ namespace Inkslab.Linq.Expressions
                         && constant.Value is IQueryable queryable
                     )
                     {
-                        tableInformation ??= TableAnalyzer.Table(queryable.ElementType);
+                        _tableInformation ??= TableAnalyzer.Table(queryable.ElementType);
                     }
                     break;
             }
 
-            if (hasBaseStartup)
+            if (_hasBaseStartup)
             {
                 StartupCore(node);
             }
             else
             {
-                hasBaseStartup = true;
+                _hasBaseStartup = true;
 
                 Startup((Expression)node);
             }
@@ -428,17 +428,17 @@ namespace Inkslab.Linq.Expressions
                     break;
                 case nameof(QueryableExtentions.DataSharding):
 
-                    if (dataSharding)
+                    if (_dataSharding)
                     {
                         throw new DSyntaxErrorException("每个数据源的数据分区只能指定一次！");
                     }
 
-                    dataSharding = dataShardingInvalid = true;
-                    shardingKey = node.Arguments[1].GetValueFromExpression<string>();
+                    _dataSharding = _dataShardingInvalid = true;
+                    _shardingKey = node.Arguments[1].GetValueFromExpression<string>();
 
                     Visit(node.Arguments[0]);
 
-                    if (dataShardingInvalid)
+                    if (_dataShardingInvalid)
                     {
                         throw new DSyntaxErrorException("仅根数据源支持数据分区！");
                     }
@@ -457,7 +457,7 @@ namespace Inkslab.Linq.Expressions
                         && constant.Value is IQueryable queryable
                     )
                     {
-                        tableInformation ??= TableAnalyzer.Table(queryable.ElementType);
+                        _tableInformation ??= TableAnalyzer.Table(queryable.ElementType);
                     }
 
                     if (
@@ -513,10 +513,10 @@ namespace Inkslab.Linq.Expressions
         {
             if (node.Value is IQueryable queryable)
             {
-                tableInformation ??= TableAnalyzer.Table(queryable.ElementType); //? 兼容 LEFT JOIN 导致的函数分析问题。
+                _tableInformation ??= TableAnalyzer.Table(queryable.ElementType); //? 兼容 LEFT JOIN 导致的函数分析问题。
             }
 
-            dataShardingInvalid &= false;
+            _dataShardingInvalid &= false;
 
             Constant(node);
 
@@ -1724,13 +1724,13 @@ namespace Inkslab.Linq.Expressions
         /// </summary>
         protected virtual void Name()
         {
-            if (tableInformation is null)
+            if (_tableInformation is null)
             {
                 throw new DSyntaxErrorException("未能分析到表名称！");
             }
 
-            string name = tableInformation.Name;
-            string schema = tableInformation.Schema;
+            string name = _tableInformation.Name;
+            string schema = _tableInformation.Schema;
 
             if (schema.IsEmpty())
             {
@@ -1742,21 +1742,21 @@ namespace Inkslab.Linq.Expressions
 
             Writer.Schema(schema);
 
-            if (tableInformation.DataSharding ^ dataSharding)
+            if (_tableInformation.DataSharding ^ _dataSharding)
             {
-                if (tableInformation.DataSharding)
+                if (_tableInformation.DataSharding)
                 {
-                    throw new InvalidOperationException($"分区表“{tableInformation.Name}”的操作，必须指定分区键！");
+                    throw new InvalidOperationException($"分区表“{_tableInformation.Name}”的操作，必须指定分区键！");
                 }
                 else
                 {
-                    throw new InvalidOperationException($"普通表“{tableInformation.Name}”不支持分区操作！");
+                    throw new InvalidOperationException($"普通表“{_tableInformation.Name}”不支持分区操作！");
                 }
             }
 
-            if (dataSharding)
+            if (_dataSharding)
             {
-                name = tableInformation.Fragment(shardingKey);
+                name = _tableInformation.Fragment(_shardingKey);
             }
 
             Writer.Name(name);
@@ -1771,10 +1771,10 @@ namespace Inkslab.Linq.Expressions
         {
             if (onlyMyself)
             {
-                return tableInformation;
+                return _tableInformation;
             }
 
-            return tableInformation
+            return _tableInformation
                 ?? _visitor?.Table(onlyMyself)
                 ?? throw new DSyntaxErrorException("未能分析到表名称！");
             ;
@@ -1791,7 +1791,7 @@ namespace Inkslab.Linq.Expressions
         /// <param name="disposing"></param>
         protected virtual void Dispose(bool disposing)
         {
-            if (!disposedValue)
+            if (!_disposedValue)
             {
                 if (disposing)
                 {
@@ -1805,7 +1805,7 @@ namespace Inkslab.Linq.Expressions
 
                 // TODO: 释放未托管的资源(未托管的对象)并重写终结器
                 // TODO: 将大型字段设置为 null
-                disposedValue = true;
+                _disposedValue = true;
             }
         }
 

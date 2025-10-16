@@ -16,12 +16,12 @@ namespace Inkslab.Linq.Expressions
         /// <summary>
         /// 去重。
         /// </summary>
-        private bool isDistinct = false;
+        private bool _isDistinct = false;
 
         /// <summary>
         /// 生成 SELECT。
         /// </summary>
-        private bool buildSelect = true;
+        private bool _buildSelect = true;
 
         /// <inheritdoc/>
         public AggregateTermVisitor(BaseVisitor visitor) : base(visitor)
@@ -33,6 +33,15 @@ namespace Inkslab.Linq.Expressions
 
         /// <inheritdoc/>
         protected override void ByEnumerable(MethodCallExpression node) => LinqCall(node);//? 按照 Linq 语法检查方法。
+
+        /// <inheritdoc/>
+        protected override void Condition(Expression node)
+        {
+            using (var visitor = new ConditionVisitor(this, true))
+            {
+                visitor.Startup(node);
+            }
+        }
 
         /// <inheritdoc/>
         protected override void LinqCall(MethodCallExpression node)
@@ -59,7 +68,7 @@ namespace Inkslab.Linq.Expressions
 
                         domain.Flyback();
 
-                        if (isDistinct)
+                        if (_isDistinct)
                         {
                             Writer.Keyword(SqlKeyword.DISTINCT);
                         }
@@ -94,7 +103,7 @@ namespace Inkslab.Linq.Expressions
                         {
                             Writer.Write('*');
                         }
-                        else if (buildSelect)
+                        else if (_buildSelect)
                         {
                             Writer.Keyword(SqlKeyword.THEN);
 
@@ -128,7 +137,7 @@ namespace Inkslab.Linq.Expressions
 
                         if (domain.IsEmpty)
                         {
-                            if (isDistinct)
+                            if (_isDistinct)
                             {
                                 Writer.Keyword(SqlKeyword.DISTINCT);
                             }
@@ -145,7 +154,7 @@ namespace Inkslab.Linq.Expressions
 
                             domain.Flyback();
 
-                            if (isDistinct)
+                            if (_isDistinct)
                             {
                                 Writer.Keyword(SqlKeyword.DISTINCT);
                             }
@@ -174,9 +183,9 @@ namespace Inkslab.Linq.Expressions
                     break;
                 case nameof(Queryable.Select):
 
-                    buildSelect = false;
+                    _buildSelect = false;
 
-                    if (isDistinct)
+                    if (_isDistinct)
                     {
                         Writer.Keyword(SqlKeyword.DISTINCT);
                     }
@@ -228,7 +237,7 @@ namespace Inkslab.Linq.Expressions
                     break;
                 case nameof(Queryable.Distinct):
 
-                    isDistinct = true;
+                    _isDistinct = true;
 
                     Visit(node.Arguments[0]);
 
@@ -241,7 +250,7 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override void Constant(IQueryable value)
         {
-            if (buildSelect)
+            if (_buildSelect)
             {
                 var node = value.Expression;
 
@@ -249,7 +258,7 @@ namespace Inkslab.Linq.Expressions
                 {
                     Writer.Keyword(SqlKeyword.SELECT);
 
-                    if (isDistinct)
+                    if (_isDistinct)
                     {
                         Writer.Keyword(SqlKeyword.DISTINCT);
                     }
@@ -268,7 +277,7 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected virtual void Select(Expression node)
         {
-            using (var visitor = new SelectListVisitor(this))
+            using (var visitor = new SelectListVisitor(this, true))
             {
                 visitor.Startup(node);
             }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 
@@ -17,6 +18,8 @@ namespace Inkslab.Linq.Expressions
         private readonly Action _declaration;
         private readonly bool _isGroupHaving;
 
+        private volatile bool _haveWritten = false;
+
         /// <inheritdoc/>
         public OrderByVisitor(SelectVisitor visitor, Action declaration, bool isDescending, bool isGroupHaving = false) : base(visitor, false)
         {
@@ -29,6 +32,13 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override void Member(MemberExpression node)
         {
+            if (_haveWritten)
+            {
+                base.Member(node);
+
+                return;
+            }
+
             _declaration.Invoke();
 
             base.Member(node);
@@ -42,6 +52,8 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override void Member(MemberInfo memberInfo, Expression node)
         {
+            _haveWritten = true;
+
             _declaration.Invoke();
 
             base.Member(memberInfo, node);
@@ -50,11 +62,15 @@ namespace Inkslab.Linq.Expressions
             {
                 Writer.Keyword(Enums.SqlKeyword.DESC);
             }
+
+            _haveWritten = false;
         }
 
         /// <inheritdoc/>
         protected override void Conditional(ConditionalExpression node)
         {
+            _haveWritten = true;
+            
             _declaration.Invoke();
 
             base.Conditional(node);
@@ -63,14 +79,18 @@ namespace Inkslab.Linq.Expressions
             {
                 Writer.Keyword(Enums.SqlKeyword.DESC);
             }
+
+            _haveWritten = false;
         }
 
         /// <inheritdoc/>
         protected override void Unary(UnaryExpression node)
         {
+            _haveWritten = true;
+
             _declaration.Invoke();
 
-            using (var visitor = new MemberVisitor(this))
+            using (var visitor = new MemberVisitor(this, _isGroupHaving))
             {
                 visitor.Startup(node);
             }
@@ -79,14 +99,18 @@ namespace Inkslab.Linq.Expressions
             {
                 Writer.Keyword(Enums.SqlKeyword.DESC);
             }
+
+            _haveWritten = false;
         }
 
         /// <inheritdoc/>
         protected override void Binary(BinaryExpression node)
         {
+            _haveWritten = true;
+
             _declaration.Invoke();
 
-            using (var visitor = new MemberVisitor(this))
+            using (var visitor = new MemberVisitor(this, _isGroupHaving))
             {
                 visitor.Startup(node);
             }
@@ -95,14 +119,18 @@ namespace Inkslab.Linq.Expressions
             {
                 Writer.Keyword(Enums.SqlKeyword.DESC);
             }
+
+            _haveWritten = false;
         }
 
         /// <inheritdoc/>
         protected override void ByString(MethodCallExpression node)
         {
+            _haveWritten = true;
+
             _declaration.Invoke();
 
-            using (var visitor = new MemberVisitor(this))
+            using (var visitor = new MemberVisitor(this, _isGroupHaving))
             {
                 visitor.Startup(node);
             }
@@ -111,11 +139,20 @@ namespace Inkslab.Linq.Expressions
             {
                 Writer.Keyword(Enums.SqlKeyword.DESC);
             }
+
+            _haveWritten = false;
         }
 
         /// <inheritdoc/>
         protected override void Member(string schema, string field, string name)
         {
+            if(_haveWritten)
+            {
+                base.Member(schema, field, name);
+
+                return;
+            }
+
             _declaration.Invoke();
 
             base.Member(schema, field, name);
@@ -131,7 +168,7 @@ namespace Inkslab.Linq.Expressions
         {
             if (_isGroupHaving && node.IsGrouping())
             {
-                using (var visitor = new AggregateTermVisitor(this))
+                using (var visitor = new GroupByAggregateTermVisitor(_visitor, _declaration, _isDescending))
                 {
                     visitor.Startup(node);
                 }
@@ -356,7 +393,7 @@ namespace Inkslab.Linq.Expressions
                 {
                     throw new ArgumentNullException(nameof(rank));
                 }
-                
+
                 if (initialDefault)
                 {
                     Ranks.Add(new RankExpression(rank, true));
@@ -427,7 +464,7 @@ namespace Inkslab.Linq.Expressions
         /// <summary>
         /// 排名项。
         /// </summary>
-        public class RankExpression : Expression
+        private class RankExpression : Expression
         {
             internal RankExpression(Expression body, bool isDescending)
             {
@@ -464,6 +501,47 @@ namespace Inkslab.Linq.Expressions
             public bool IsDescending { get; }
         }
 
+        private class GroupByAggregateTermVisitor : AggregateTermVisitor
+        {
+            private readonly Action _declaration;
+            private readonly bool _isDescending;
+
+            public GroupByAggregateTermVisitor(SelectVisitor visitor, Action declaration, bool isDescending) : base(visitor)
+            {
+                _declaration = declaration;
+                _isDescending = isDescending;
+            }
+
+            protected override void LinqCall(MethodCallExpression node)
+            {
+                var name = node.Method.Name;
+
+                switch (name)
+                {
+                    case nameof(Enumerable.Count):
+                    case nameof(Enumerable.LongCount):
+                    case nameof(Enumerable.Max):
+                    case nameof(Enumerable.Min):
+                    case nameof(Enumerable.Sum):
+                    case nameof(Enumerable.Average):
+
+                        _declaration.Invoke();
+
+                        base.LinqCall(node);
+
+                        if (_isDescending)
+                        {
+                            Writer.Keyword(Enums.SqlKeyword.DESC);
+                        }
+
+                        break;
+                    default:
+                        base.LinqCall(node);
+
+                        break;
+                }
+            }
+        }
         #endregion
     }
 }

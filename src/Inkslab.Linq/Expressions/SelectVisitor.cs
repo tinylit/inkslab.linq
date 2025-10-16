@@ -17,7 +17,7 @@ namespace Inkslab.Linq.Expressions
         /// <summary>
         /// 逆序。
         /// </summary>
-        private bool reversed = false;
+        private bool _reversed = false;
 
         private readonly bool _showAs;
 
@@ -294,7 +294,7 @@ namespace Inkslab.Linq.Expressions
                 case nameof(Queryable.OrderByDescending):
                 case nameof(Queryable.ThenByDescending):
 
-                    bool isDescending = reversed ^ name.EndsWith("Descending"); //? 是否降序，前置分析是否倒序，否则实际顺序会乱序。
+                    bool isDescending = _reversed ^ name.EndsWith("Descending"); //? 是否降序，前置分析是否倒序，否则实际顺序会乱序。
 
                     Visit(node.Arguments[0]);
 
@@ -318,7 +318,7 @@ namespace Inkslab.Linq.Expressions
         /// <param name="node">节点。</param>
         protected virtual void Reverse(MethodCallExpression node)
         {
-            reversed ^= true;
+            _reversed ^= true;
 
             switch (node.Method.Name)
             {

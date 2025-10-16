@@ -28,9 +28,6 @@ namespace Inkslab.Linq.Expressions
             _visitor = visitor;
         }
 
-        /*        /// <inheritdoc/>
-                protected override void StartupCore(MethodCallExpression node) => LinqCall(node);*/
-
         /// <inheritdoc/>
         protected override bool Preheat(MethodCallExpression node)
         {
@@ -232,7 +229,7 @@ namespace Inkslab.Linq.Expressions
         {
             private readonly Dictionary<MemberInfo, Expression> _keyExpressions;
 
-            public GroupSelectListVisitor(CoreVisitor visitor, Dictionary<MemberInfo, Expression> keyExpressions, bool showAs) : base(visitor, showAs)
+            public GroupSelectListVisitor(CoreVisitor visitor, Dictionary<MemberInfo, Expression> keyExpressions, bool showAs) : base(visitor, showAs, true)
             {
                 _keyExpressions = keyExpressions;
             }

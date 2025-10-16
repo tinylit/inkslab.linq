@@ -1264,8 +1264,8 @@ namespace Inkslab.Linq.Tests
         {
             var linq = from x in _users group x by x.Name into g where g.Count() > 1 select g.Key;
 
-/*             var allUsers = _users.ToList();
-            var memoryMax = (from x in allUsers group x by x.Name into g where g.Count() > 1 select g.Key).Max(); */
+            /*             var allUsers = _users.ToList();
+                        var memoryMax = (from x in allUsers group x by x.Name into g where g.Count() > 1 select g.Key).Max(); */
 
             var max = linq.Max();
 
@@ -1277,8 +1277,8 @@ namespace Inkslab.Linq.Tests
         {
             var linq = from x in _users group x by x.Name into g where g.Count() > 1 select g.Key;
 
-/*             var allUsers = _users.ToList();
-            var memoryMax = (from x in allUsers group x by x.Name into g where g.Count() > 1 select g.Key).Distinct().Max(); */
+            /*             var allUsers = _users.ToList();
+                        var memoryMax = (from x in allUsers group x by x.Name into g where g.Count() > 1 select g.Key).Distinct().Max(); */
 
             var max = linq.Distinct().Max();
 

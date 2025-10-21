@@ -1,29 +1,99 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
+using Inkslab.Linq.Annotations;
 using Xunit;
 
 namespace Inkslab.Linq.Tests
 {
     public class RepositoryTests
     {
+
+        /// <summary>
+        /// 渠道配置表。
+        /// </summary>
+        [Table("channel_config")]
+        public class ChannelConfig
+        {
+            /// <summary>
+            /// 主键ID。
+            /// </summary>
+            [Key]
+            [Field("id")]
+            public long Id { get; set; }
+
+            /// <summary>
+            /// 渠道类型(短信、极光推送、站内信)。
+            /// </summary>
+            [Field("types")]
+            public int Types { get; set; }
+
+            /// <summary>
+            /// 对外请求地址。
+            /// </summary>
+            [Field("request_address")]
+            [MaxLength(200)]
+            public string RequestAddress { get; set; }
+
+            /// <summary>
+            /// 备注。
+            /// </summary>
+            [Field("remark")]
+            [MaxLength(16171)]
+            public string Remark { get; set; }
+
+            /// <summary>
+            /// 是否启用。
+            /// </summary>
+            [Field("is_valid")]
+            public bool IsValid { get; set; }
+
+            /// <summary>
+            /// 创建人。
+            /// </summary>
+            [Field("create_by")]
+            public long CreateBy { get; set; }
+
+            /// <summary>
+            /// 创建时间。
+            /// </summary>
+            [Field("create_time")]
+            public DateTime CreateTime { get; set; }
+
+            /// <summary>
+            /// 修改人。
+            /// </summary>
+            [Field("update_by")]
+            public long? UpdateBy { get; set; }
+
+            /// <summary>
+            /// 修改时间。
+            /// </summary>
+            [Field("update_time")]
+            public DateTime? UpdateTime { get; set; }
+        }
+
         private readonly IRepository<User> _userRpo;
         private readonly IRepository<UserSharding> _userShardingRpo;
         private readonly IQueryable<User> _users;
         private readonly IQueryable<UserEx> _userExes;
+        private readonly IRepository<ChannelConfig> _channelConfigRpo;
 
         public RepositoryTests(
             IRepository<User> userRpo,
             IRepository<UserSharding> userShardingRpo,
             IQueryable<User> users,
-            IQueryable<UserEx> userExes
+            IQueryable<UserEx> userExes,
+            IRepository<ChannelConfig> channelConfigRpo
         )
         {
             _userRpo = userRpo;
             _userShardingRpo = userShardingRpo;
             _users = users;
             _userExes = userExes;
+            _channelConfigRpo = channelConfigRpo;
         }
 
         /// <summary>
@@ -72,7 +142,7 @@ namespace Inkslab.Linq.Tests
         public void UpdateLinq()
         {
             bool? nullable = true;
-            
+
             _userRpo
                 .Timeout(500)
                 .Where(x => _userExes.Where(y => y.RoleType == 2).Any(y => x.Id == y.Id))
@@ -239,6 +309,29 @@ namespace Inkslab.Linq.Tests
             }
 
             int rows = _userRpo.DeleteWith(users).Execute();
+        }
+
+        [Fact]
+        public void UpdateTrim()
+        {
+            var inDto = new
+            {
+                Id = 1L,
+                Types = 2,
+                RequestAddress = "  http://example.com/api  ",
+                Remark = "Updated via LINQ"
+            };
+
+            _channelConfigRpo
+               .Where(x => x.Id == inDto.Id)
+               .Update(x => new ChannelConfig
+               {
+                   Types = inDto.Types,
+                   RequestAddress = inDto.RequestAddress.Trim(),
+                   Remark = inDto.Remark,
+                   UpdateBy = 1000000000000000000L,
+                   UpdateTime = DateTime.Now
+               });
         }
     }
 }

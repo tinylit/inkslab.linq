@@ -149,7 +149,9 @@ namespace Inkslab.Linq.Expressions
         /// <param name="node">节点。</param>
         protected virtual void Startup(MethodCallExpression node)
         {
-            var instanceArg = node.Arguments[0];
+            var instanceArg = node.Method.IsStatic 
+                ? node.Arguments[0] 
+                : node.Object;
 
             switch (node.Method.Name)
             {
@@ -198,7 +200,7 @@ namespace Inkslab.Linq.Expressions
         /// <returns>是否是常规变量。</returns>
         protected virtual bool IsPlainVariable(Expression node) => IsPlainVariable(node, false);
 
-        private static readonly Lfu<Expression, bool> _lfu = new Lfu<Expression, bool>(10000, ExpressionEqualityComparer.Instance, IsPlainVariableNS);
+        private static readonly Lfu<Expression, bool> _lfu = new Lfu<Expression, bool>(1000, ExpressionEqualityComparer.Instance, IsPlainVariableNS);
 
         private static bool IsPlainVariableNS(Expression node)
         {

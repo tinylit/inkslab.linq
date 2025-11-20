@@ -12,7 +12,8 @@ $projectsToBuild =
     'Inkslab.Transactions',
     'Inkslab.Linq',
     'Inkslab.Linq.MySql',
-    'Inkslab.Linq.SqlServer'
+    'Inkslab.Linq.SqlServer',
+    'Inkslab.Linq.PostgreSQL'
 
 mkdir -Force $packageOutputFolder | Out-Null
 Write-Host "Clearing existing $packageOutputFolder..." -NoNewline

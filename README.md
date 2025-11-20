@@ -24,6 +24,9 @@ dotnet add package Inkslab.Linq.SqlServer
 # MySQL 支持  
 dotnet add package Inkslab.Linq.MySql
 
+# PostgreSQL 支持
+dotnet add package Inkslab.Linq.PostgreSQL
+
 # 事务管理
 dotnet add package Inkslab.Transactions
 ```

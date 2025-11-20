@@ -88,130 +88,141 @@ namespace Inkslab.Linq
         {
             var dbParameter = command.CreateParameter();
 
-            dbParameter.Value = value is null ? DBNull.Value : value;
-            dbParameter.ParameterName = Clean(name);
-            dbParameter.Direction = ParameterDirection.Input;
+            switch (value)
+            {
+                case null or DBNull:
+                    dbParameter.ParameterName = Clean(name);
+                    dbParameter.Value = DBNull.Value;
 
-            if (value is null)
-            {
-            }
-            else if (value is Version version)
-            {
-                dbParameter.Value = version.ToString();
-                dbParameter.DbType = DbType.String;
-                dbParameter.Size = 4000;
-            }
-            else if (value is string text)
-            {
-                dbParameter.DbType = DbType.String;
+                    if (dbParameter is DbParameter myParameter)
+                    {
+                        myParameter.IsNullable = true;
+                    }
+                    break;
+                case DynamicParameter dynamicParameter:
 
-                if (text.Length < 4000)
-                {
-                    dbParameter.Size = 4000;
-                }
-            }
-            else
-            {
-                dbParameter.DbType = For(value.GetType());
+                    dbParameter.Value = dynamicParameter.Value is null ? DBNull.Value : ChangeValue(command, dynamicParameter.Value);
+
+                    dbParameter.ParameterName = Clean(name);
+
+                    dbParameter.Direction = dynamicParameter.Direction;
+
+                    if (dynamicParameter.DbType.HasValue)
+                    {
+                        dbParameter.DbType = dynamicParameter.DbType.Value;
+                    }
+                    if (dynamicParameter.Size.HasValue)
+                    {
+                        dbParameter.Size = dynamicParameter.Size.Value;
+                    }
+                    if (dynamicParameter.Precision.HasValue || dynamicParameter.Scale.HasValue)
+                    {
+                        if (dbParameter is DbParameter dbParameter1)
+                        {
+                            if (dynamicParameter.Precision.HasValue)
+                            {
+                                dbParameter1.Precision = dynamicParameter.Precision.Value;
+                            }
+                            if (dynamicParameter.Scale.HasValue)
+                            {
+                                dbParameter1.Scale = dynamicParameter.Scale.Value;
+                            }
+                        }
+                    }
+                    break;
+                default:
+                    dbParameter.Value = ChangeValue(command, value);
+                    dbParameter.ParameterName = Clean(name);
+                    dbParameter.Direction = ParameterDirection.Input;
+
+                    if (value is string text)
+                    {
+                        dbParameter.DbType = DbType.String;
+
+                        if (text.Length < 4000)
+                        {
+                            dbParameter.Size = 4000;
+                        }
+                    }
+                    else
+                    {
+                        dbParameter.DbType = For(dbParameter.Value.GetType());
+                    }
+
+                    break;
             }
 
             command.Parameters.Add(dbParameter);
         }
 
-        /// <summary>
-        /// 参数适配。
-        /// </summary>
-        /// <param name="command">命令。</param>
-        /// <param name="name">参数名称。</param>
-        /// <param name="value">参数值。</param>
-        /// <param name="dbType">指定类型。</param>
-        /// <param name="direction">参数方向。</param>
-        /// <param name="size">大小。</param>
-        /// <param name="precision">精度。</param>
-        /// <param name="scale">规模。</param>
-        public static void AddParameterAuto(IDbCommand command, string name, object value, DbType? dbType = null, ParameterDirection? direction = null, int? size = null, byte? precision = null, byte? scale = null)
+        private static object ChangeValue(IDbCommand command, object value)
         {
-            var dbParameter = command.CreateParameter();
+            var commandType = command.GetType();
+            var commandTypeName = commandType.FullName ?? string.Empty;
+            var assemblyName = commandType.Assembly.FullName ?? string.Empty;
 
-            switch (value)
+            // PostgreSQL: DateTime 需要指定 UTC Kind
+            if (value is DateTime dateTime && dateTime.Kind != DateTimeKind.Utc)
             {
-                case IDbDataParameter dbDataParameter when dbParameter is IDbDataParameter parameter:
-
-                    parameter.Value = dbDataParameter.Value;
-                    parameter.ParameterName = Clean(name);
-                    parameter.Direction = dbDataParameter.Direction;
-                    parameter.DbType = dbType ?? dbDataParameter.DbType;
-                    parameter.SourceColumn = dbDataParameter.SourceColumn;
-                    parameter.SourceVersion = dbDataParameter.SourceVersion;
-
-                    if (dbParameter is DbParameter myParameter)
-                    {
-                        myParameter.IsNullable = dbDataParameter.IsNullable;
-                    }
-
-                    parameter.Scale = dbDataParameter.Scale;
-                    parameter.Size = dbDataParameter.Size;
-                    parameter.Precision = dbDataParameter.Precision;
-                    break;
-                case IDataParameter dataParameter:
-                    dbParameter.Value = dataParameter.Value;
-                    dbParameter.ParameterName = Clean(name);
-                    dbParameter.Direction = dataParameter.Direction;
-                    dbParameter.DbType = dbType ?? dataParameter.DbType;
-                    dbParameter.SourceColumn = dataParameter.SourceColumn;
-                    dbParameter.SourceVersion = dataParameter.SourceVersion;
-                    break;
-                default:
-                    dbParameter.Value = value ?? DBNull.Value;
-                    dbParameter.ParameterName = Clean(name);
-                    dbParameter.Direction = direction ?? ParameterDirection.Input;
-
-                    if (dbType.HasValue)
-                    {
-                        dbParameter.DbType = dbType.Value;
-                    }
-                    else if (value is null)
-                    {
-                    }
-                    else
-                    {
-                        dbParameter.DbType = For(value.GetType());
-                    }
-
-                    break;
+                if (commandTypeName.StartsWith("Npgsql.") && assemblyName.StartsWith("Npgsql,"))
+                {
+                    return DateTime.SpecifyKind(dateTime, DateTimeKind.Utc);
+                }
             }
 
-            if (size.HasValue)
+            // MySQL: GUID 需要转换为字符串或字节数组
+            if (value is Guid guid)
             {
-                dbParameter.Size = size.Value;
+                if (commandTypeName.StartsWith("MySql.") && (assemblyName.StartsWith("MySql.Data,") || assemblyName.StartsWith("MySqlConnector,")))
+                {
+                    // MySQL 通常使用 CHAR(36) 或 BINARY(16) 存储 GUID
+                    // 这里转换为字符串格式,如需二进制格式可改为 guid.ToByteArray()
+                    return guid.ToString();
+                }
             }
 
-            if (precision.HasValue)
+            // Oracle: GUID 需要转换为字节数组
+            if (value is Guid oracleGuid)
             {
-                dbParameter.Precision = precision.Value;
+                if (commandTypeName.StartsWith("Oracle.") && (assemblyName.StartsWith("Oracle.DataAccess,") || assemblyName.StartsWith("Oracle.ManagedDataAccess,")))
+                {
+                    return oracleGuid.ToByteArray();
+                }
             }
 
-            if (scale.HasValue)
+            // SQLite: Boolean 需要转换为整数
+            if (value is bool boolValue)
             {
-                dbParameter.Scale = scale.Value;
+                if (commandTypeName.StartsWith("System.Data.SQLite.") || commandTypeName.StartsWith("Microsoft.Data.Sqlite."))
+                {
+                    return boolValue ? 1 : 0;
+                }
             }
 
-            if (dbParameter.Value is Version version)
+            // SQLite: TimeSpan 需要转换为字符串或 Ticks
+            if (value is TimeSpan timeSpan)
             {
-                dbParameter.Value = version.ToString();
-                dbParameter.DbType = DbType.String;
+                if (commandTypeName.StartsWith("System.Data.SQLite.") || commandTypeName.StartsWith("Microsoft.Data.Sqlite."))
+                {
+                    return timeSpan.Ticks; // 或使用 timeSpan.ToString()
+                }
             }
 
-            if (!size.HasValue
-                && (dbParameter.Size <= 0 || dbParameter.Size > 4000)
-                && dbParameter.DbType == DbType.String
-                && dbParameter.Value is string text
-                && text.Length < 4000)
+            // Oracle: Boolean 需要转换为数字
+            if (value is bool oracleBool)
             {
-                dbParameter.Size = 4000;
+                if (commandTypeName.StartsWith("Oracle.") && (assemblyName.StartsWith("Oracle.DataAccess,") || assemblyName.StartsWith("Oracle.ManagedDataAccess,")))
+                {
+                    return oracleBool ? 1 : 0;
+                }
             }
 
-            command.Parameters.Add(dbParameter);
+            if (value is Version version)
+            {
+                return version.ToString();
+            }
+
+            return value;
         }
     }
 }

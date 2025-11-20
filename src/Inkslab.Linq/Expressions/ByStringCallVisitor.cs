@@ -442,7 +442,7 @@ namespace Inkslab.Linq.Expressions
                             break;
                         case DatabaseEngine.PostgreSQL when node.Arguments.Count == 1:
 
-                            Writer.Write("position");
+                            Writer.Write("POSITION");
 
                             Writer.OpenBrace();
 

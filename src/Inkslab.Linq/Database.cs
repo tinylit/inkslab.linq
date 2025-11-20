@@ -39,6 +39,42 @@ namespace Inkslab.Linq
         private static readonly Regex _smellsLikeOleDb = new Regex(@"(?<![\p{L}\p{N}@_])[?@:]([\p{L}\p{N}_][\p{L}\p{N}@_]*)", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.CultureInvariant | RegexOptions.Compiled);
         private static readonly Regex _inlistTokens = new Regex(@"[\x20\r\n\t\f]+IN[\x20\r\n\t\f]+(?<![\p{L}\p{N}@_])(\{=(?<name>[\p{L}\p{N}_][\p{L}\p{N}@_]*)\}|[?@:](?<name>[\p{L}\p{N}_][\p{L}\p{N}@_]*))", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
+        // 完整版本 - 支持Schema和转义标识符
+        private static readonly Regex _validProcedureNameTokens = new Regex(
+            @"^
+    (?:
+        # 数据库名(可选)
+        (?:
+            \[[^\]]+\]|                          # [Database Name]
+            `[^`]+`|                             # `Database Name`
+            ""[^""]+""|                          # ""Database Name""
+            [a-zA-Z_@#][a-zA-Z0-9_@$#]*          # DatabaseName
+        )
+        \.
+    )?
+    (?:
+        # Schema名(可选)
+        (?:
+            \[[^\]]+\]|                          # [Schema Name]
+            `[^`]+`|                             # `Schema Name`
+            ""[^""]+""|                          # ""Schema Name""
+            [a-zA-Z_@#][a-zA-Z0-9_@$#]*          # SchemaName
+        )
+        \.
+    )?
+    # 存储过程名(必须)
+    (?:
+        \[[^\]]+\]|                              # [Procedure Name]
+        `[^`]+`|                                 # `Procedure Name`
+        ""[^""]+""|                              # ""Procedure Name""
+        [a-zA-Z_@#][a-zA-Z0-9_@$#]*              # ProcedureName
+    )
+    $",
+            RegexOptions.IgnorePatternWhitespace |
+            RegexOptions.Compiled |
+            RegexOptions.CultureInvariant
+        );
+
         /// <summary>
         /// 数据库。
         /// </summary>
@@ -208,6 +244,11 @@ namespace Inkslab.Linq
 
         private static CommandSql MakeCommandSql(string sql, Dictionary<string, object> dictionaries, int? commandTimeout = null)
         {
+            if (_validProcedureNameTokens.IsMatch(sql))
+            {
+                return new StoredProcedureCommandSql(sql, dictionaries, commandTimeout);
+            }
+
             var inlist = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             var match = _inlistTokens.Match(sql);
@@ -218,7 +259,7 @@ namespace Inkslab.Linq
 
                 if (dictionaries.TryGetValue(name, out var value))
                 {
-                    if (value is DbParameter) //? 数据库参数不做处理。
+                    if (value is IDataParameter) //? 数据库参数不做处理。
                     {
                         continue;
                     }
@@ -248,10 +289,6 @@ namespace Inkslab.Linq
                     }
 
                     parameters.TryAdd(name, value);
-                }
-                else
-                {
-                    throw new KeyNotFoundException(name);
                 }
 
                 return mt.Value;
@@ -387,7 +424,10 @@ namespace Inkslab.Linq
             return new CommandSql(commandSql, parameters, commandTimeout);
         }
 
-        private static string Format(object value, bool throwError)
+        /// <summary>
+        /// 格式化参数值为SQL字面量。
+        /// </summary>
+        public static string Format(object value, bool throwError)
         {
             switch (value)
             {
@@ -398,7 +438,34 @@ namespace Inkslab.Linq
                 case Enum @enum:
                     return @enum.ToString("D");
                 case string text:
-                    return string.Concat("'", text, "'");
+                    // 防止SQL注入：转义单引号
+                    return string.Concat("'", text.Replace("'", "''"), "'");
+                case DateTime dateTime:
+                    // 日期时间格式化 - ISO 8601 格式，兼容所有主流数据库
+                    // SQL Server, MySQL, PostgreSQL, SQLite, Oracle 等都支持此格式
+                    return string.Concat("'", dateTime.ToString("yyyy-MM-dd HH:mm:ss.fff"), "'");
+                case DateTimeOffset dateTimeOffset:
+                    // 带时区的日期时间 - ISO 8601 格式
+                    return string.Concat("'", dateTimeOffset.ToString("yyyy-MM-dd HH:mm:ss.fffzzz"), "'");
+                case TimeSpan timeSpan:
+                    // 时间间隔 - 格式化为 HH:mm:ss.fff
+                    return string.Concat("'", timeSpan.ToString(@"hh\:mm\:ss\.fff"), "'");
+                case Guid guid:
+                    // GUID - 某些数据库(如PostgreSQL)需要明确的GUID格式
+                    return string.Concat("'", guid.ToString(), "'");
+                case byte[] bytes:
+                    // 二进制数据 - 转换为十六进制字符串
+                    // SQL Server: 0x..., PostgreSQL: \x..., Oracle: HEXTORAW('...')
+                    return string.Concat("0x", BitConverter.ToString(bytes).Replace("-", ""));
+                case decimal decimalValue:
+                    // Decimal - 使用不变文化格式，避免本地化问题
+                    return decimalValue.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                case float floatValue:
+                    // Float - 使用不变文化格式
+                    return floatValue.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                case double doubleValue:
+                    // Double - 使用不变文化格式
+                    return doubleValue.ToString(System.Globalization.CultureInfo.InvariantCulture);
                 case DbParameter parameter:
                     return Format(parameter.Value, throwError);
                 case IEnumerable objects:
@@ -445,7 +512,7 @@ namespace Inkslab.Linq
                         return value.ToString();
                     }
 
-                    return string.Concat("'", value.ToString(), "'");
+                    return Format(value.ToString(), throwError);
             }
         }
 
@@ -513,24 +580,33 @@ namespace Inkslab.Linq
                 throw new InvalidOperationException();
             }
 
-            if (param is Dictionary<string, object> dictionaries)
+            if (param is IDictionary<string, object> dictionaries)
             {
-                return dictionaries;
+                return dictionaries.ToDictionary(x => Clean(x.Key), x => x.Value);
             }
 
             if (param is IEnumerable<KeyValuePair<string, object>> collection)
             {
-                return new Dictionary<string, object>(collection);
+                return collection.ToDictionary(x => Clean(x.Key), x => x.Value);
             }
 
             if (param is IEnumerable objects)
             {
-                return objects.Cast<DbParameter>()
-                    .ToDictionary(x => x.ParameterName, x => (object)x);
+                return objects.Cast<IDataParameter>()
+                    .ToDictionary(x => Clean(x.ParameterName), x => (object)x);
             }
 
             return _lru.Get(param.GetType())
                 .Invoke(param);
+        }
+
+        private static string Clean(string name)
+        {
+            return name[0] switch
+            {
+                '@' or ':' or '?' => name[1..],
+                _ => name,
+            };
         }
         #endregion
     }

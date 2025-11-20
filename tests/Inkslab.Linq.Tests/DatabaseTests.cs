@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -144,6 +145,59 @@ namespace Inkslab.Linq.Tests
             string sql = "INSERT INTO `user`(`name`,`date`,`is_administrator`) VALUES(@name,@now,0);SELECT @@IDENTITY;";
 
             var i = _database.Single<long?>(sql, new { name = "测试", now = DateTime.Now });
+        }
+
+        [Fact]
+        public async Task CreateAndExecuteStoredProcedureWithOutputParametersAsync()
+        {
+/*             // Create stored procedure with input, output and return parameters
+            string createProcSql = @"
+                DROP PROCEDURE IF EXISTS GetUserInfo;
+                
+                DELIMITER $$
+                CREATE PROCEDURE GetUserInfo(
+                    IN UserId INT,
+                    OUT UserName VARCHAR(50),
+                    OUT UserCount INT
+                )
+                BEGIN
+                    SELECT name INTO UserName FROM `user` WHERE id = UserId;
+                    SELECT COUNT(*) INTO UserCount FROM `user`;
+                    SELECT * FROM `user` WHERE id = UserId;
+                END$$
+                DELIMITER ;";
+
+            await _database.ExecuteAsync(createProcSql); */
+
+            var userName = new DynamicParameter
+            {
+                Direction = ParameterDirection.Output,
+                DbType = DbType.String,
+                Size = 50
+            };
+
+            var userCount = new DynamicParameter
+            {
+                Direction = ParameterDirection.Output,
+                DbType = DbType.Int32
+            };
+
+            // Execute stored procedure with output parameters
+            var parameters = new Dictionary<string, object>
+            {
+                ["@UserId"] = 100,
+                ["@UserName"] = userName,
+                ["@UserCount"] = userCount
+            };
+
+            var result = await _database.QueryAsync<User>("GetUserInfo", parameters);
+
+            var userNameOutput = userName.Value;
+            var userCountOutput = Convert.ToInt32(userCount.Value);
+
+            Assert.NotNull(result);
+            Assert.NotNull(userNameOutput);
+            Assert.True(userCountOutput > 0);
         }
     }
 }

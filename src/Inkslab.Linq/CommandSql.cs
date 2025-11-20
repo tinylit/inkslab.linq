@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Data;
+using System.Data.Common;
 using System.Text.RegularExpressions;
 
 namespace Inkslab.Linq
@@ -38,6 +40,11 @@ namespace Inkslab.Linq
         public string Text { get; }
 
         /// <summary>
+        /// 命令类型。
+        /// </summary>
+        public CommandType CommandType { get; protected set; } = CommandType.Text;
+
+        /// <summary>
         /// 参数。
         /// </summary>
         public IReadOnlyDictionary<string, object> Parameters { get; }
@@ -46,6 +53,28 @@ namespace Inkslab.Linq
         /// 超时时间。
         /// </summary>
         public int? Timeout { set; get; }
+
+        /// <summary>
+        /// 回调。
+        /// </summary>
+        /// <param name="command">命令。</param>
+        public void Callback(IDbCommand command)
+        {
+            foreach (IDbDataParameter parameter in command.Parameters)
+            {
+                if (Parameters.TryGetValue(parameter.ParameterName, out var value))
+                {
+                    if (value is DynamicParameter dynamicParameter && (dynamicParameter.Direction == ParameterDirection.Output || dynamicParameter.Direction == ParameterDirection.InputOutput))
+                    {
+                        dynamicParameter.Value = parameter.Value;
+                    }
+                    else if (value is IDataParameter dbParameter && (dbParameter.Direction == ParameterDirection.Output || dbParameter.Direction == ParameterDirection.InputOutput))
+                    {
+                        dbParameter.Value = parameter.Value;
+                    }
+                }
+            }
+        }
 
         /// <summary>
         /// 转字符串。
@@ -62,37 +91,10 @@ namespace Inkslab.Linq
             {
                 var name = m.Groups["name"].Value;
 
-                if (Parameters.TryGetValue(name, out var value) 
+                if (Parameters.TryGetValue(name, out var value)
                     || Parameters.TryGetValue(m.Value, out value)) //? 兼容Database操作。
                 {
-                    if (value is null)
-                    {
-                        return "null";
-                    }
-
-                    if (value is string text)
-                    {
-                        return string.Concat("'", text, "'");
-                    }
-
-                    if (value is Enum @enum)
-                    {
-                        return @enum.ToString("D");
-                    }
-
-                    var type = value.GetType();
-
-                    if (type.IsNullable())
-                    {
-                        type = Nullable.GetUnderlyingType(type);
-                    }
-
-                    if (type.IsMini())
-                    {
-                        return value.ToString();
-                    }
-
-                    return string.Concat("'", value.ToString(), "'");
+                    return Database.Format(value, throwError: false);
                 }
 
                 return m.Value;
@@ -104,6 +106,67 @@ namespace Inkslab.Linq
         /// </summary>
         /// <param name="sql">不需要参数的T-SQL执行脚本。</param>
         public static implicit operator CommandSql(string sql) => new CommandSql(sql);
+    }
+
+    /// <summary>
+    /// 存储过程命令SQL。
+    /// </summary>
+    public class StoredProcedureCommandSql : CommandSql
+    {
+        /// <summary>
+        /// 构造函数。
+        /// </summary>
+        /// <param name="text">SQL。</param>
+        /// <param name="parameters">参数。</param>
+        /// <param name="timeout">超时时间。</param>
+        public StoredProcedureCommandSql(string text, IReadOnlyDictionary<string, object> parameters = null, int? timeout = null)
+            : base(text, parameters, timeout)
+        {
+            CommandType = CommandType.StoredProcedure;
+        }
+
+        /// <summary>
+        /// 转字符串。
+        /// </summary>
+        public override string ToString()
+        {
+            var sb = new System.Text.StringBuilder();
+
+            sb.Append("EXEC ");
+
+            sb.Append(Text);
+
+            if (Parameters.Count > 0)
+            {
+                var first = true;
+
+                foreach (var (key, value) in Parameters)
+                {
+                    if (value is DynamicParameter dynamicParameter && dynamicParameter.Direction == ParameterDirection.Output)
+                    {
+                        continue;
+                    }
+
+                    if (first)
+                    {
+                        first = false;
+
+                        sb.Append(' ');
+                    }
+                    else
+                    {
+                        sb.Append(',');
+                    }
+
+                    sb.Append('@');
+                    sb.Append(key);
+                    sb.Append(" = ");
+                    sb.Append(Database.Format(value, throwError: false));
+                }
+            }
+
+            return sb.ToString();
+        }
     }
 
     /// <summary>

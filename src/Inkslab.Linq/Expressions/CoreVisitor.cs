@@ -718,6 +718,46 @@ namespace Inkslab.Linq.Expressions
                     Visit(node.Object);
                     Writer.CloseBrace();
                     break;
+                case DatabaseEngine.PostgreSQL:
+                
+                    Visit(node.Object);
+
+                    Writer.Operator(SqlOperator.Add);
+
+                    Writer.Write("INTERVAL ");
+
+                    switch (node.Method.Name)
+                    {
+                        case nameof(DateTime.AddMilliseconds):
+                            Writer.Write("'1 millisecond'");
+                            break;
+                        case nameof(DateTime.AddSeconds):
+                            Writer.Write("'1 second'");
+                            break;
+                        case nameof(DateTime.AddMinutes):
+                            Writer.Write("'1 minute'");
+                            break;
+                        case nameof(DateTime.AddHours):
+                            Writer.Write("'1 hour'");
+                            break;
+                        case nameof(DateTime.AddDays):
+                            Writer.Write("'1 day'");
+                            break;
+                        case nameof(DateTime.AddMonths):
+                            Writer.Write("'1 month'");
+                            break;
+                        case nameof(DateTime.AddYears):
+                            Writer.Write("'1 year'");
+                            break;
+                        default:
+                            throw new NotSupportedException($"日期时间的“{node.Method.Name}”方法不被支持！");
+                    }
+
+                    Writer.Operator(SqlOperator.Multiply);
+
+                    Visit(node.Arguments[0]);
+
+                    break;
                 default:
                     throw new NotSupportedException($"日期时间的“{node.Method.Name}”方法不被支持！");
             }
@@ -740,10 +780,10 @@ namespace Inkslab.Linq.Expressions
                 int parameterCount = 1;
                 var maxParamterCount = Engine switch
                 {
+                    DatabaseEngine.Oracle => 256,
                     DatabaseEngine.SQLite => 1000,
                     DatabaseEngine.SqlServer => 10000,
-                    DatabaseEngine.MySQL => 20000,
-                    DatabaseEngine.Oracle => 256,
+                    DatabaseEngine.MySQL or DatabaseEngine.PostgreSQL => 20000,
                     _ => 128,
                 };
                 Writer.Keyword(SqlKeyword.IN);

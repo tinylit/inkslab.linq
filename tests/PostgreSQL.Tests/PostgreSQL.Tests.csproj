@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Inkslab.Linq.PostgreSQL\Inkslab.Linq.PostgreSQL.csproj" />
+  </ItemGroup>
+</Project>

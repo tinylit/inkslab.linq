@@ -149,8 +149,8 @@ namespace Inkslab.Linq.Expressions
         /// <param name="node">节点。</param>
         protected virtual void Startup(MethodCallExpression node)
         {
-            var instanceArg = node.Method.IsStatic 
-                ? node.Arguments[0] 
+            var instanceArg = node.Method.IsStatic
+                ? node.Arguments[0]
                 : node.Object;
 
             switch (node.Method.Name)
@@ -343,7 +343,7 @@ namespace Inkslab.Linq.Expressions
         /// 是否需要条件转义。
         /// </summary>
         /// <returns></returns>
-        protected bool RequiresConditionalEscape() => Engine != DatabaseEngine.MySQL;
+        protected bool RequiresConditionalEscape() => Engine is not (DatabaseEngine.MySQL or DatabaseEngine.PostgreSQL);
 
         /// <summary>
         /// 是否为条件。
@@ -654,6 +654,69 @@ namespace Inkslab.Linq.Expressions
             Writer.CloseBrace();
         }
 
+        private void PostgreSQL(string name, Expression node)
+        {
+            if (name == nameof(DateTime.Date))
+            {
+                Writer.Write("CAST");
+                Writer.OpenBrace();
+                Writer.Write("DATE_TRUNC");
+                Writer.OpenBrace();
+                Writer.Write("'day'");
+                Writer.Delimiter();
+
+                Visit(node);
+
+                Writer.CloseBrace();
+
+                Writer.Write("AS DATE");
+
+                Writer.CloseBrace();
+
+                return;
+            }
+
+            Writer.Write("EXTRACT");
+
+            Writer.OpenBrace();
+
+            switch (name)
+            {
+                case nameof(DateTime.Year):
+                    Writer.Write("YEAR");
+                    break;
+                case nameof(DateTime.Month):
+                    Writer.Write("MONTH");
+                    break;
+                case nameof(DateTime.Day):
+                    Writer.Write("DAY");
+                    break;
+                case nameof(DateTime.Hour):
+                    Writer.Write("HOUR");
+                    break;
+                case nameof(DateTime.Minute):
+                    Writer.Write("MINUTE");
+                    break;
+                case nameof(DateTime.Second):
+                    Writer.Write("SECOND");
+                    break;
+                case nameof(DateTime.DayOfWeek):
+                    Writer.Write("DOW");
+                    break;
+                case nameof(DateTime.DayOfYear):
+                    Writer.Write("DOY");
+                    break;
+                default:
+                    throw new NotSupportedException($"不支持“{name}”日期片段计算!");
+            }
+
+            Visit(node);
+
+            Writer.Keyword(SqlKeyword.FROM);
+
+            Writer.CloseBrace();
+        }
+
         /// <summary>
         /// SqlServer
         /// </summary>
@@ -815,38 +878,24 @@ namespace Inkslab.Linq.Expressions
         /// <param name="node">节点。</param>
         protected virtual void DateTimeMember(MemberExpression node)
         {
+            if (Engine == DatabaseEngine.PostgreSQL)
+            {
+                PostgreSQL(node.Member.Name, node.Expression);
+
+                return;
+            }
+
             switch (node.Member.Name)
             {
-                case nameof(DateTime.Day) when Engine == DatabaseEngine.PostgreSQL:
-                    Writer.Write("EXTRACT");
-                    Writer.OpenBrace();
-                    Writer.Write("DAY FROM ");
-                    Visit(node.Expression);
-                    Writer.CloseBrace();
-                    break;
                 case nameof(DateTime.Day):
                     Writer.Write("DAY");
                     Writer.OpenBrace();
                     Visit(node.Expression);
                     Writer.CloseBrace();
                     break;
-                case nameof(DateTime.Month) when Engine == DatabaseEngine.PostgreSQL:
-                    Writer.Write("EXTRACT");
-                    Writer.OpenBrace();
-                    Writer.Write("MONTH FROM ");
-                    Visit(node.Expression);
-                    Writer.CloseBrace();
-                    break;
                 case nameof(DateTime.Month):
                     Writer.Write("MOUTH");
                     Writer.OpenBrace();
-                    Visit(node.Expression);
-                    Writer.CloseBrace();
-                    break;
-                case nameof(DateTime.Year) when Engine == DatabaseEngine.PostgreSQL:
-                    Writer.Write("EXTRACT");
-                    Writer.OpenBrace();
-                    Writer.Write("YEAR FROM ");
                     Visit(node.Expression);
                     Writer.CloseBrace();
                     break;

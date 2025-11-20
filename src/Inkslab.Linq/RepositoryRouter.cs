@@ -212,6 +212,190 @@ namespace Inkslab.Linq
             );
         }
 
+        /// <summary>
+        /// 获取数据库类型名称（支持8大主流数据库：MySQL、SQL Server、PostgreSQL、SQLite、Oracle、DB2、Access、Sybase）。
+        /// </summary>
+        /// <param name="entry">列信息</param>
+        /// <param name="engine">数据库引擎</param>
+        /// <returns>数据库类型名称</returns>
+        private static string GetDbTypeName(Entry entry, DatabaseEngine engine)
+        {
+            var typeCode = Type.GetTypeCode(entry.ColumnType);
+            var length = entry.Length;
+
+            switch (typeCode)
+            {
+                case TypeCode.Boolean:
+                    return engine switch
+                    {
+                        DatabaseEngine.PostgreSQL => "boolean",
+                        DatabaseEngine.Oracle => "number(1)",
+                        DatabaseEngine.SQLite => "integer",
+                        _ => "bit" // MySQL, SqlServer, DB2, Access, Sybase
+                    };
+
+                case TypeCode.Char:
+                    return engine switch
+                    {
+                        DatabaseEngine.MySQL or DatabaseEngine.PostgreSQL or DatabaseEngine.SQLite 
+                            or DatabaseEngine.Oracle or DatabaseEngine.DB2 => "char(1)",
+                        DatabaseEngine.Access => "text(1)",
+                        _ => "nchar(1)" // SqlServer, Sybase
+                    };
+
+                case TypeCode.Byte:
+                    return engine switch
+                    {
+                        DatabaseEngine.PostgreSQL or DatabaseEngine.DB2 => "smallint",
+                        DatabaseEngine.Oracle => "number(3)",
+                        DatabaseEngine.SQLite => "integer",
+                        DatabaseEngine.Access => "byte",
+                        _ => "tinyint" // MySQL, SqlServer, Sybase
+                    };
+
+                case TypeCode.SByte:
+                    return engine switch
+                    {
+                        DatabaseEngine.MySQL => "tinyint unsigned",
+                        DatabaseEngine.PostgreSQL or DatabaseEngine.DB2 => "smallint",
+                        DatabaseEngine.Oracle => "number(3)",
+                        DatabaseEngine.SQLite => "integer",
+                        _ => "smallint" // SqlServer, Sybase, Access
+                    };
+
+                case TypeCode.Int16:
+                    return engine switch
+                    {
+                        DatabaseEngine.Oracle => "number(5)",
+                        DatabaseEngine.SQLite => "integer",
+                        _ => "smallint" // MySQL, SqlServer, PostgreSQL, DB2, Sybase, Access
+                    };
+
+                case TypeCode.UInt16:
+                    return engine switch
+                    {
+                        DatabaseEngine.MySQL => "smallint unsigned",
+                        DatabaseEngine.PostgreSQL or DatabaseEngine.SQLite or DatabaseEngine.DB2 => "integer",
+                        DatabaseEngine.Oracle => "number(5)",
+                        _ => "int" // SqlServer, Sybase, Access
+                    };
+
+                case TypeCode.Int32:
+                    return engine switch
+                    {
+                        DatabaseEngine.PostgreSQL or DatabaseEngine.SQLite or DatabaseEngine.DB2 => "integer",
+                        DatabaseEngine.Oracle => "number(10)",
+                        DatabaseEngine.Access => "long",
+                        _ => "int" // MySQL, SqlServer, Sybase
+                    };
+
+                case TypeCode.UInt32:
+                    return engine switch
+                    {
+                        DatabaseEngine.MySQL => "int unsigned",
+                        DatabaseEngine.PostgreSQL or DatabaseEngine.DB2 => "bigint",
+                        DatabaseEngine.Oracle => "number(10)",
+                        DatabaseEngine.SQLite => "integer",
+                        _ => "bigint" // SqlServer, Sybase, Access
+                    };
+
+                case TypeCode.Int64:
+                    return engine switch
+                    {
+                        DatabaseEngine.Oracle => "number(19)",
+                        DatabaseEngine.SQLite => "integer",
+                        DatabaseEngine.Access => "decimal",
+                        _ => "bigint" // MySQL, SqlServer, PostgreSQL, DB2, Sybase
+                    };
+
+                case TypeCode.UInt64:
+                    return engine switch
+                    {
+                        DatabaseEngine.MySQL => "bigint unsigned",
+                        DatabaseEngine.PostgreSQL => "numeric(20)",
+                        DatabaseEngine.Oracle => "number(20)",
+                        DatabaseEngine.SQLite => "integer",
+                        DatabaseEngine.DB2 => "decimal(20)",
+                        _ => "bigint" // SqlServer, Sybase, Access
+                    };
+
+                case TypeCode.Single:
+                    return engine switch
+                    {
+                        DatabaseEngine.PostgreSQL or DatabaseEngine.SQLite or DatabaseEngine.DB2 => "real",
+                        DatabaseEngine.Oracle => "binary_float",
+                        DatabaseEngine.Access => "single",
+                        _ => "float" // MySQL, SqlServer, Sybase
+                    };
+
+                case TypeCode.Double:
+                    return engine switch
+                    {
+                        DatabaseEngine.PostgreSQL => "double precision",
+                        DatabaseEngine.Oracle => "binary_double",
+                        DatabaseEngine.SQLite => "real",
+                        DatabaseEngine.DB2 or DatabaseEngine.MySQL or DatabaseEngine.Access => "double",
+                        _ => "float" // SqlServer, Sybase
+                    };
+
+                case TypeCode.Decimal:
+                    return engine switch
+                    {
+                        DatabaseEngine.PostgreSQL or DatabaseEngine.SQLite => "numeric",
+                        DatabaseEngine.Oracle => "number",
+                        _ => "decimal" // MySQL, SqlServer, DB2, Access, Sybase
+                    };
+
+                case TypeCode.DateTime:
+                    return engine switch
+                    {
+                        DatabaseEngine.PostgreSQL or DatabaseEngine.DB2 => "timestamp",
+                        DatabaseEngine.Oracle => "date",
+                        DatabaseEngine.SQLite or DatabaseEngine.MySQL or DatabaseEngine.Access => "datetime",
+                        _ => "datetime" // SqlServer, Sybase
+                    };
+
+                case TypeCode.String:
+                    if (length == -1)
+                    {
+                        return engine switch
+                        {
+                            DatabaseEngine.SqlServer => "ntext",
+                            DatabaseEngine.MySQL or DatabaseEngine.PostgreSQL or DatabaseEngine.SQLite or DatabaseEngine.Sybase => "text",
+                            DatabaseEngine.Oracle or DatabaseEngine.DB2 => "clob",
+                            DatabaseEngine.Access => "memo",
+                            _ => "text"
+                        };
+                    }
+
+                    return engine switch
+                    {
+                        DatabaseEngine.SqlServer when length > 8000 => "nvarchar(max)",
+                        DatabaseEngine.SqlServer => $"nvarchar({length})",
+                        DatabaseEngine.MySQL when length <= 65535 => $"varchar({length})",
+                        DatabaseEngine.MySQL => "text",
+                        DatabaseEngine.PostgreSQL when length <= 10485760 => $"varchar({length})",
+                        DatabaseEngine.PostgreSQL => "text",
+                        DatabaseEngine.Oracle when length <= 4000 => $"varchar2({length})",
+                        DatabaseEngine.Oracle => "clob",
+                        DatabaseEngine.SQLite when length <= 1000000000 => $"varchar({length})",
+                        DatabaseEngine.SQLite => "text",
+                        DatabaseEngine.DB2 when length <= 32672 => $"varchar({length})",
+                        DatabaseEngine.DB2 => "clob",
+                        DatabaseEngine.Access when length <= 255 => $"text({length})",
+                        DatabaseEngine.Access => "memo",
+                        DatabaseEngine.Sybase when length <= 8000 => $"varchar({length})",
+                        DatabaseEngine.Sybase => "text",
+                        _ => "text"
+                    };
+
+                default:
+                    throw new NotSupportedException(
+                        $"列\"{entry.ColumnName}\"的类型\"{entry.ColumnType}\"不支持批处理！"
+                    );
+            }
+        }
+
         #region 命令。
         private class Entry
         {
@@ -631,6 +815,10 @@ namespace Inkslab.Linq
                 {
                     sb.Append("TEMPORARY ");
                 }
+                else if (Engine == DatabaseEngine.PostgreSQL)
+                {
+                    sb.Append("TEMP ");
+                }
 
                 sb.Append("TABLE ").Append(Settings.Name(temporaryName)).Append('(');
 
@@ -645,50 +833,7 @@ namespace Inkslab.Linq
 
                     sb.Append(Settings.Name(entry.ColumnName))
                         .Append(' ')
-                        .Append(
-                            Type.GetTypeCode(entry.ColumnType) switch
-                            {
-                                TypeCode.Boolean => "bit",
-                                TypeCode.Char => Engine == DatabaseEngine.MySQL
-                                        ? "char(1)"
-                                        : "nchar(1)",
-                                TypeCode.Byte => "tinyint",
-                                TypeCode.SByte when Engine == DatabaseEngine.MySQL
-                                    => "tinyint unsigned",
-                                TypeCode.SByte or TypeCode.Int16 => "smallint",
-                                TypeCode.UInt16 when Engine == DatabaseEngine.MySQL
-                                    => "smallint unsigned",
-                                TypeCode.UInt16 or TypeCode.Int32 => "int",
-                                TypeCode.UInt32 when Engine == DatabaseEngine.MySQL
-                                    => "int unsigned",
-                                TypeCode.UInt32 or TypeCode.Int64 => "bigint",
-                                TypeCode.UInt64 when Engine == DatabaseEngine.MySQL
-                                    => "bigint unsigned",
-                                TypeCode.Single => "float",
-                                TypeCode.Double => "double",
-                                TypeCode.Decimal => "decimal",
-                                TypeCode.DateTime => "datetime",
-                                TypeCode.String when entry.Length == -1
-                                    => Engine == DatabaseEngine.SqlServer
-                                        ? "ntext"
-                                        : "text",
-                                TypeCode.String
-                                    => Engine switch
-                                    {
-                                        DatabaseEngine.SqlServer when entry.Length > 8000 => "nvarchar(max)",
-                                        DatabaseEngine.SqlServer => $"nvarchar({entry.Length})",
-                                        DatabaseEngine.MySQL when entry.Length <= 65535 => $"varchar({entry.Length})",
-                                        DatabaseEngine.PostgreSQL when entry.Length <= 65535 => $"varchar({entry.Length})",
-                                        DatabaseEngine.SQLite when entry.Length <= 65532 => $"varchar({entry.Length})",
-                                        DatabaseEngine.Oracle when entry.Length <= 32767 => $"varchar({entry.Length})",
-                                        _ => "text"
-                                    },
-                                _
-                                    => throw new NotSupportedException(
-                                        $"列“{entry.ColumnName}”的类型“{entry.ColumnType}”不支持批处理！"
-                                    ),
-                            }
-                        );
+                        .Append(GetDbTypeName(entry, Engine));
 
                     if (!entry.Nullable)
                     {
@@ -1154,37 +1299,7 @@ namespace Inkslab.Linq
 
                     sb.Append(Settings.Name(entry.ColumnName))
                         .Append(' ')
-                        .Append(
-                            Type.GetTypeCode(entry.ColumnType) switch
-                            {
-                                TypeCode.Boolean => "bit",
-                                TypeCode.Char => "char(1)",
-                                TypeCode.Byte => "tinyint",
-                                TypeCode.SByte when Engine == DatabaseEngine.MySQL
-                                    => "tinyint unsigned",
-                                TypeCode.SByte or TypeCode.Int16 => "smallint",
-                                TypeCode.UInt16 when Engine == DatabaseEngine.MySQL
-                                    => "smallint unsigned",
-                                TypeCode.UInt16 or TypeCode.Int32 => "int",
-                                TypeCode.UInt32 when Engine == DatabaseEngine.MySQL
-                                    => "int unsigned",
-                                TypeCode.UInt32 or TypeCode.Int64 => "bigint",
-                                TypeCode.UInt64 when Engine == DatabaseEngine.MySQL
-                                    => "bigint unsigned",
-                                TypeCode.Single => "float",
-                                TypeCode.Double => "double",
-                                TypeCode.Decimal => "decimal",
-                                TypeCode.DateTime => "datetime",
-                                TypeCode.String
-                                    => Engine == DatabaseEngine.MySQL
-                                        ? "varchar(1024)"
-                                        : "nvarchar(1024)",
-                                _
-                                    => throw new NotSupportedException(
-                                        $"列“{entry.ColumnName}”的类型“{entry.ColumnType}”不支持批处理！"
-                                    ),
-                            }
-                        );
+                        .Append(GetDbTypeName(entry, Engine));
 
                     if (!entry.Nullable)
                     {
@@ -1804,37 +1919,7 @@ namespace Inkslab.Linq
 
                     sb.Append(Settings.Name(entry.ColumnName))
                         .Append(' ')
-                        .Append(
-                            Type.GetTypeCode(entry.ColumnType) switch
-                            {
-                                TypeCode.Boolean => "bit",
-                                TypeCode.Char => "char(1)",
-                                TypeCode.Byte => "tinyint",
-                                TypeCode.SByte when Engine == DatabaseEngine.MySQL
-                                    => "tinyint unsigned",
-                                TypeCode.SByte or TypeCode.Int16 => "smallint",
-                                TypeCode.UInt16 when Engine == DatabaseEngine.MySQL
-                                    => "smallint unsigned",
-                                TypeCode.UInt16 or TypeCode.Int32 => "int",
-                                TypeCode.UInt32 when Engine == DatabaseEngine.MySQL
-                                    => "int unsigned",
-                                TypeCode.UInt32 or TypeCode.Int64 => "bigint",
-                                TypeCode.UInt64 when Engine == DatabaseEngine.MySQL
-                                    => "bigint unsigned",
-                                TypeCode.Single => "float",
-                                TypeCode.Double => "double",
-                                TypeCode.Decimal => "decimal",
-                                TypeCode.DateTime => "datetime",
-                                TypeCode.String
-                                    => Engine == DatabaseEngine.MySQL
-                                        ? "varchar(1024)"
-                                        : "nvarchar(1024)",
-                                _
-                                    => throw new NotSupportedException(
-                                        $"列“{entry.ColumnName}”的类型“{entry.ColumnType}”不支持批处理！"
-                                    ),
-                            }
-                        );
+                        .Append(GetDbTypeName(entry, Engine));
 
                     if (!entry.Nullable)
                     {

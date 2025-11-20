@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Text;
+﻿using System.Text;
 
 namespace Inkslab.Linq.SqlServer
 {
@@ -8,28 +7,6 @@ namespace Inkslab.Linq.SqlServer
     /// </summary>
     public class SqlServerCorrectSettings : IDbCorrectSettings
     {
-        private readonly IReadOnlyCollection<IFormatter> _formatters;
-
-        /// <summary>
-        /// 适配器。
-        /// </summary>
-        public SqlServerCorrectSettings()
-        {
-            _formatters = new List<IFormatter>(0);
-        }
-
-        /// <summary>
-        /// 适配器。
-        /// </summary>
-        /// <param name="formatters">格式化器。</param>
-        public SqlServerCorrectSettings(IEnumerable<IFormatter> formatters)
-        {
-            _formatters = new List<IFormatter>(formatters);
-        }
-
-        /// <inheritdoc/>
-        public IReadOnlyCollection<IFormatter> Formatters => _formatters;
-
         /// <inheritdoc/>
         public string Name(string name) => string.Concat("[", name, "]");
 

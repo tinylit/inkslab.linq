@@ -1,21 +1,21 @@
 using System.Collections.Generic;
 using System.Reflection;
 
-namespace Inkslab.Linq.SqlServer
+namespace Inkslab.Linq.PostgreSQL
 {
     /// <summary>
-    /// SqlServer 适配器。
+    /// PostgreSQL 适配器。
     /// </summary>
-    public class SqlServerAdapter : IDbAdapter
+    public class PostgreSQLAdapter : IDbAdapter
     {
-        private readonly SqlServerCorrectSettings _settings;
+        private readonly PostgreSQLCorrectSettings _settings;
 
         /// <summary>
         /// 适配器。
         /// </summary>
-        public SqlServerAdapter()
+        public PostgreSQLAdapter()
         {
-            _settings = new SqlServerCorrectSettings();
+            _settings = new PostgreSQLCorrectSettings();
         }
 
         /// <inheritdoc/>

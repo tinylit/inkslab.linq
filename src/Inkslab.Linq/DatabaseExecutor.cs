@@ -59,6 +59,7 @@ namespace Inkslab.Linq
                 using (var command = dbConnection.CreateCommand())
                 {
                     command.CommandText = commandSql.Text;
+                    command.CommandType = commandSql.CommandType;
 
                     if (commandSql.Timeout.HasValue)
                     {
@@ -70,7 +71,11 @@ namespace Inkslab.Linq
                         LookupDb.AddParameterAuto(command, name, value);
                     }
 
-                    return command.ExecuteNonQuery();
+                    var result = command.ExecuteNonQuery();
+
+                    commandSql.Callback(command);
+
+                    return result;
                 }
             }
             finally
@@ -108,6 +113,7 @@ namespace Inkslab.Linq
                 await using (var command = dbConnection.CreateCommand())
                 {
                     command.CommandText = commandSql.Text;
+                    command.CommandType = commandSql.CommandType;
 
                     if (commandSql.Timeout.HasValue)
                     {
@@ -119,7 +125,11 @@ namespace Inkslab.Linq
                         LookupDb.AddParameterAuto(command, name, value);
                     }
 
-                    return await command.ExecuteNonQueryAsync(cancellationToken);
+                    var result = await command.ExecuteNonQueryAsync(cancellationToken);
+
+                    commandSql.Callback(command);
+
+                    return result;
                 }
             }
             finally
@@ -156,6 +166,7 @@ namespace Inkslab.Linq
             using (var command = dbConnection.CreateCommand())
             {
                 command.CommandText = commandSql.Text;
+                command.CommandType = commandSql.CommandType;
 
                 if (commandSql.Timeout.HasValue)
                 {
@@ -189,6 +200,8 @@ namespace Inkslab.Linq
                         }
                     }
                 }
+
+                commandSql.Callback(command);
             }
 
             return results;
@@ -223,6 +236,7 @@ namespace Inkslab.Linq
                 command = dbConnection.CreateCommand();
 
                 command.CommandText = commandSql.Text;
+                command.CommandType = commandSql.CommandType;
 
                 if (commandSql.Timeout.HasValue)
                 {
@@ -241,7 +255,7 @@ namespace Inkslab.Linq
                         type => new MapAdaper(type)
                     );
 
-                return new DbGridReader(dbConnection, command, reader, adaper);
+                return new DbGridReader(dbConnection, command, reader, commandSql, adaper);
             }
             catch
             {
@@ -311,6 +325,7 @@ namespace Inkslab.Linq
             using (var command = dbConnection.CreateCommand())
             {
                 command.CommandText = commandSql.Text;
+                command.CommandType = commandSql.CommandType;
 
                 if (commandSql.Timeout.HasValue)
                 {
@@ -322,48 +337,55 @@ namespace Inkslab.Linq
                     LookupDb.AddParameterAuto(command, name, value);
                 }
 
-                using (var reader = command.ExecuteReader(behavior))
+                try
                 {
-                    if (reader.HasRows)
+                    using (var reader = command.ExecuteReader(behavior))
                     {
-                        var adaper = _adapters.GetOrAdd(
-                            reader.GetType(),
-                            type => new MapAdaper(type)
-                        );
-
-                        var map = adaper.CreateMap<T>();
-
-                        if (reader.Read())
+                        if (reader.HasRows)
                         {
-                            var result = map.Map(reader);
+                            var adaper = _adapters.GetOrAdd(
+                                reader.GetType(),
+                                type => new MapAdaper(type)
+                            );
 
-                            if (commandSql.RowStyle >= RowStyle.Single
-                                && reader.Read())
+                            var map = adaper.CreateMap<T>();
+
+                            if (reader.Read())
                             {
-                                ThrowMultipleRows(commandSql.RowStyle);
+                                var result = map.Map(reader);
+
+                                if (commandSql.RowStyle >= RowStyle.Single
+                                    && reader.Read())
+                                {
+                                    ThrowMultipleRows(commandSql.RowStyle);
+                                }
+
+                                return result;
                             }
-
-                            return result;
                         }
-                    }
 
-                    if (
-                        commandSql.HasDefaultValue
-                        || (commandSql.RowStyle & RowStyle.FirstOrDefault)
-                            == RowStyle.FirstOrDefault
-                    )
-                    {
-                        return commandSql.DefaultValue;
-                    }
+                        if (
+                            commandSql.HasDefaultValue
+                            || (commandSql.RowStyle & RowStyle.FirstOrDefault)
+                                == RowStyle.FirstOrDefault
+                        )
+                        {
+                            return commandSql.DefaultValue;
+                        }
 
-                    if (commandSql.CustomError)
-                    {
-                        throw new NoElementException(commandSql.NoElementError);
-                    }
+                        if (commandSql.CustomError)
+                        {
+                            throw new NoElementException(commandSql.NoElementError);
+                        }
 
-                    throw new InvalidOperationException(
-                        "The input sequence contains more than one element."
-                    );
+                        throw new InvalidOperationException(
+                            "The input sequence contains more than one element."
+                        );
+                    }
+                }
+                finally
+                {
+                    commandSql.Callback(command);
                 }
             }
         }
@@ -400,6 +422,7 @@ namespace Inkslab.Linq
             await using (var command = dbConnection.CreateCommand())
             {
                 command.CommandText = commandSql.Text;
+                command.CommandType = commandSql.CommandType;
 
                 if (commandSql.Timeout.HasValue)
                 {
@@ -411,50 +434,56 @@ namespace Inkslab.Linq
                     LookupDb.AddParameterAuto(command, name, value);
                 }
 
-                await using (
-                    var reader = await command.ExecuteReaderAsync(behavior, cancellationToken)
-                )
+                try
                 {
-                    if (reader.HasRows)
+                    await using (var reader = await command.ExecuteReaderAsync(behavior, cancellationToken))
                     {
-                        var adaper = _adapters.GetOrAdd(
-                            reader.GetType(),
-                            type => new MapAdaper(type)
-                        );
-
-                        var map = adaper.CreateMap<T>();
-
-                        if (await reader.ReadAsync(cancellationToken))
+                        if (reader.HasRows)
                         {
-                            var result = map.Map(reader);
+                            var adaper = _adapters.GetOrAdd(
+                                reader.GetType(),
+                                type => new MapAdaper(type)
+                            );
 
-                            if (commandSql.RowStyle >= RowStyle.Single
-                                && await reader.ReadAsync(cancellationToken))
+                            var map = adaper.CreateMap<T>();
+
+                            if (await reader.ReadAsync(cancellationToken))
                             {
-                                ThrowMultipleRows(commandSql.RowStyle);
+                                var result = map.Map(reader);
+
+                                if (commandSql.RowStyle >= RowStyle.Single
+                                    && await reader.ReadAsync(cancellationToken))
+                                {
+                                    ThrowMultipleRows(commandSql.RowStyle);
+                                }
+
+                                return result;
                             }
-
-                            return result;
                         }
+
+                        if (
+                            commandSql.HasDefaultValue
+                            || (commandSql.RowStyle & RowStyle.FirstOrDefault)
+                                == RowStyle.FirstOrDefault
+                        )
+                        {
+                            return commandSql.DefaultValue;
+                        }
+
+                        if (commandSql.CustomError)
+                        {
+                            throw new NoElementException(commandSql.NoElementError);
+                        }
+
+                        throw new InvalidOperationException(
+                            "The input sequence contains more than one element."
+                        );
                     }
 
-                    if (
-                        commandSql.HasDefaultValue
-                        || (commandSql.RowStyle & RowStyle.FirstOrDefault)
-                            == RowStyle.FirstOrDefault
-                    )
-                    {
-                        return commandSql.DefaultValue;
-                    }
-
-                    if (commandSql.CustomError)
-                    {
-                        throw new NoElementException(commandSql.NoElementError);
-                    }
-
-                    throw new InvalidOperationException(
-                        "The input sequence contains more than one element."
-                    );
+                }
+                finally
+                {
+                    commandSql.Callback(command);
                 }
             }
         }
@@ -488,6 +517,7 @@ namespace Inkslab.Linq
                 command = dbConnection.CreateCommand();
 
                 command.CommandText = commandSql.Text;
+                command.CommandType = commandSql.CommandType;
 
                 if (commandSql.Timeout.HasValue)
                 {
@@ -506,7 +536,7 @@ namespace Inkslab.Linq
                         type => new MapAdaper(type)
                     );
 
-                return new AsyncDbGridReader(dbConnection, command, reader, adaper);
+                return new AsyncDbGridReader(dbConnection, command, reader, commandSql, adaper);
             }
             catch
             {
@@ -727,6 +757,7 @@ namespace Inkslab.Linq
                 await using (var command = connection.CreateCommand())
                 {
                     command.CommandText = _commandSql.Text;
+                    command.CommandType = _commandSql.CommandType;
 
                     if (_commandSql.Timeout.HasValue)
                     {
@@ -760,6 +791,8 @@ namespace Inkslab.Linq
                             }
                         }
                     }
+
+                    _commandSql.Callback(command);
                 }
             }
         }
@@ -792,6 +825,7 @@ namespace Inkslab.Linq
                 using (var command = _connection.CreateCommand())
                 {
                     command.CommandText = commandSql.Text;
+                    command.CommandType = commandSql.CommandType;
 
                     if (commandSql.Timeout.HasValue)
                     {
@@ -804,6 +838,8 @@ namespace Inkslab.Linq
                     }
 
                     int influenceRows = command.ExecuteNonQuery();
+
+                    commandSql.Callback(command);
 
                     RowsExecuted += influenceRows;
 
@@ -878,6 +914,7 @@ namespace Inkslab.Linq
                 using (var command = _connection.CreateCommand())
                 {
                     command.CommandText = commandSql.Text;
+                    command.CommandType = commandSql.CommandType;
 
                     if (commandSql.Timeout.HasValue)
                     {
@@ -894,6 +931,8 @@ namespace Inkslab.Linq
                     int influenceRows = command.ExecuteNonQuery();
 
                     _stopwatch.Stop();
+
+                    commandSql.Callback(command);
 
                     RowsExecuted += influenceRows;
 
@@ -968,6 +1007,7 @@ namespace Inkslab.Linq
                 using (var command = _connection.CreateCommand())
                 {
                     command.CommandText = commandSql.Text;
+                    command.CommandType = commandSql.CommandType;
 
                     if (commandSql.Timeout.HasValue)
                     {
@@ -980,6 +1020,8 @@ namespace Inkslab.Linq
                     }
 
                     int influenceRows = await command.ExecuteNonQueryAsync(_cancellationToken);
+
+                    commandSql.Callback(command);
 
                     RowsExecuted += influenceRows;
 
@@ -1053,6 +1095,7 @@ namespace Inkslab.Linq
                 using (var command = _connection.CreateCommand())
                 {
                     command.CommandText = commandSql.Text;
+                    command.CommandType = commandSql.CommandType;
 
                     if (commandSql.Timeout.HasValue)
                     {
@@ -1065,6 +1108,8 @@ namespace Inkslab.Linq
                     }
 
                     int influenceRows = await command.ExecuteNonQueryAsync(_cancellationToken);
+
+                    commandSql.Callback(command);
 
                     RowsExecuted += influenceRows;
 
@@ -1128,13 +1173,15 @@ namespace Inkslab.Linq
             private readonly DbConnection _connection;
             private readonly DbCommand _command;
             private readonly DbDataReader _reader;
+            private readonly CommandSql _commandSql;
             private readonly MapAdaper _adaper;
 
-            public AsyncDbGridReader(DbConnection connection, DbCommand command, DbDataReader reader, MapAdaper adaper)
+            public AsyncDbGridReader(DbConnection connection, DbCommand command, DbDataReader reader, CommandSql commandSql, MapAdaper adaper)
             {
                 _connection = connection;
                 _command = command;
                 _reader = reader;
+                _commandSql = commandSql;
                 _adaper = adaper;
             }
 
@@ -1186,7 +1233,7 @@ namespace Inkslab.Linq
 
                 IsConsumed = true;
 
-                return new AsyncEnumerable<T>(this, gridIndex);
+                return new AsyncEnumerable<T>(this, _gridIndex);
             }
 
             private async IAsyncEnumerator<T> ReadDeferredAsync<T>(int index, CancellationToken cancellationToken)
@@ -1195,7 +1242,7 @@ namespace Inkslab.Linq
                 {
                     var map = _adaper.CreateMap<T>();
 
-                    while (index == gridIndex && await _reader.ReadAsync(cancellationToken))
+                    while (index == _gridIndex && await _reader.ReadAsync(cancellationToken))
                     {
                         if (!await map.IsInvalidAsync(_reader, cancellationToken))
                         {
@@ -1205,21 +1252,21 @@ namespace Inkslab.Linq
                 }
                 finally // finally so that First etc progresses things even when multiple rows
                 {
-                    if (index == gridIndex)
+                    if (index == _gridIndex)
                     {
                         await NextResultAsync(cancellationToken);
                     }
                 }
             }
 
-            private int gridIndex; //, readCount;
-            private volatile bool disposed;
+            private int _gridIndex; //, readCount;
+            private volatile bool _disposed;
 
             private async Task NextResultAsync(CancellationToken cancellationToken)
             {
                 if (await _reader.NextResultAsync(cancellationToken))
                 {
-                    Interlocked.Increment(ref gridIndex);
+                    Interlocked.Increment(ref _gridIndex);
 
                     IsConsumed = false;
                 }
@@ -1234,12 +1281,12 @@ namespace Inkslab.Linq
             /// </summary>
             public async ValueTask DisposeAsync()
             {
-                if (disposed)
+                if (_disposed)
                 {
                     return;
                 }
 
-                disposed = true;
+                _disposed = true;
 
                 if (!_reader.IsClosed)
                 {
@@ -1247,6 +1294,8 @@ namespace Inkslab.Linq
                 }
 
                 await _reader.DisposeAsync();
+
+                _commandSql.Callback(_command);
 
                 await _command.DisposeAsync();
 
@@ -1293,13 +1342,15 @@ namespace Inkslab.Linq
             private readonly DbConnection _connection;
             private readonly DbCommand _command;
             private readonly DbDataReader _reader;
+            private readonly CommandSql _commandSql;
             private readonly MapAdaper _adaper;
 
-            public DbGridReader(DbConnection connection, DbCommand command, DbDataReader reader, MapAdaper adaper)
+            public DbGridReader(DbConnection connection, DbCommand command, DbDataReader reader, CommandSql commandSql, MapAdaper adaper)
             {
                 _connection = connection;
                 _command = command;
                 _reader = reader;
+                _commandSql = commandSql;
                 _adaper = adaper;
             }
 
@@ -1350,7 +1401,7 @@ namespace Inkslab.Linq
 
                 IsConsumed = true;
 
-                return ReadDeferred<T>(gridIndex);
+                return ReadDeferred<T>(_gridIndex);
             }
 
             public List<T> Read<T>()
@@ -1366,7 +1417,7 @@ namespace Inkslab.Linq
                 {
                     var map = _adaper.CreateMap<T>();
 
-                    while (index == gridIndex && _reader.Read())
+                    while (index == _gridIndex && _reader.Read())
                     {
                         if (!map.IsInvalid(_reader))
                         {
@@ -1376,21 +1427,21 @@ namespace Inkslab.Linq
                 }
                 finally // finally so that First etc progresses things even when multiple rows
                 {
-                    if (index == gridIndex)
+                    if (index == _gridIndex)
                     {
                         NextResult();
                     }
                 }
             }
 
-            private int gridIndex; //, readCount;
+            private int _gridIndex; //, readCount;
 
             private void NextResult()
             {
                 if (_reader.NextResult())
                 {
                     // readCount++;
-                    gridIndex++;
+                    _gridIndex++;
 
                     IsConsumed = false;
                 }
@@ -1400,19 +1451,19 @@ namespace Inkslab.Linq
                 }
             }
 
-            private bool disposed;
+            private bool _disposed;
 
             /// <summary>
             /// Dispose the grid, closing and disposing both the underlying reader and command.
             /// </summary>
             public void Dispose()
             {
-                if (disposed)
+                if (_disposed)
                 {
                     return;
                 }
 
-                disposed = true;
+                _disposed = true;
 
                 if (!_reader.IsClosed)
                 {
@@ -1420,6 +1471,8 @@ namespace Inkslab.Linq
                 }
 
                 _reader.Dispose();
+
+                _commandSql.Callback(_command);
 
                 _command.Dispose();
 

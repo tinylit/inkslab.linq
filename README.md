@@ -3,7 +3,7 @@
 一个高性能的 .NET LINQ 扩展库，提供强大的数据库查询能力和事务管理功能。
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.2.39-green.svg)](.nupkgs/)
+[![Version](https://img.shields.io/badge/version-1.2.46-green.svg)](.nupkgs/)
 [![.NET](https://img.shields.io/badge/.NET-6.0%20%7C%20Standard%202.1-purple.svg)](Directory.Build.props)
 [![GitHub](https://img.shields.io/github/license/tinylit/inkslab.linq.svg)](LICENSE)
 [![GitHub issues](https://img.shields.io/github/issues-raw/tinylit/inkslab.linq)](../../issues)
@@ -305,7 +305,7 @@ public async Task<List<UserStatsDto>> GetUserStatsAsync()
 
 ```csharp
 // 分片表实体
-[Table("user_sharding")]
+[Table("user_[sharding]")]
 public class UserSharding
 {
     [Key]
@@ -667,14 +667,167 @@ var concatResult = await activeUsers.Concat(inactiveUsers)
     .ToListAsync();
 ```
 
+### 5. 存储过程调用
+
+框架支持调用带有输入参数、输出参数和返回值的存储过程。
+
+#### 创建存储过程示例（MySQL）
+
+```sql
+DROP PROCEDURE IF EXISTS GetUserInfo;
+
+DELIMITER $$
+CREATE PROCEDURE GetUserInfo(
+    IN UserId INT,
+    OUT UserName VARCHAR(50),
+    OUT UserCount INT
+)
+BEGIN
+    SELECT name INTO UserName FROM `user` WHERE id = UserId;
+    SELECT COUNT(*) INTO UserCount FROM `user`;
+    SELECT * FROM `user` WHERE id = UserId;
+END$$
+DELIMITER ;
+```
+
+#### 调用存储过程
+
+```csharp
+using Inkslab.Linq;
+using System.Data;
+
+public class UserService
+{
+    private readonly IDatabase _database;
+
+    public UserService(IDatabase database)
+    {
+        _database = database;
+    }
+
+    // 调用带输出参数的存储过程
+    public async Task<User> GetUserInfoAsync(int userId)
+    {
+        // 定义输出参数
+        var userNameParam = new DynamicParameter
+        {
+            Direction = ParameterDirection.Output,
+            DbType = DbType.String,
+            Size = 50  // 输出参数需要指定大小
+        };
+
+        var userCountParam = new DynamicParameter
+        {
+            Direction = ParameterDirection.Output,
+            DbType = DbType.Int32
+        };
+
+        // 构建参数字典
+        var parameters = new Dictionary<string, object>
+        {
+            ["@UserId"] = userId,           // 输入参数
+            ["@UserName"] = userNameParam,  // 输出参数
+            ["@UserCount"] = userCountParam // 输出参数
+        };
+
+        // 执行存储过程并获取查询结果
+        var result = await _database.QueryAsync<User>("GetUserInfo", parameters);
+
+        // 读取输出参数的值
+        var userName = userNameParam.Value as string;
+        var userCount = Convert.ToInt32(userCountParam.Value);
+
+        Console.WriteLine($"用户名: {userName}, 总用户数: {userCount}");
+
+        return result.FirstOrDefault();
+    }
+
+    // 调用存储过程（仅执行，不返回结果集）
+    public async Task<int> UpdateUserStatusAsync(int userId, bool isActive)
+    {
+        var parameters = new Dictionary<string, object>
+        {
+            ["@UserId"] = userId,
+            ["@IsActive"] = isActive
+        };
+
+        return await _database.ExecuteAsync("UpdateUserStatus", parameters);
+    }
+
+    // 调用带返回值的存储过程
+    public async Task<int> DeleteInactiveUsersAsync()
+    {
+        // 定义返回值参数
+        var returnValueParam = new DynamicParameter
+        {
+            Direction = ParameterDirection.ReturnValue,
+            DbType = DbType.Int32
+        };
+
+        var parameters = new Dictionary<string, object>
+        {
+            ["@ReturnValue"] = returnValueParam
+        };
+
+        await _database.ExecuteAsync("DeleteInactiveUsers", parameters);
+
+        // 获取存储过程返回值
+        return Convert.ToInt32(returnValueParam.Value);
+    }
+}
+```
+
+#### DynamicParameter 参数说明
+
+`DynamicParameter` 用于定义输出参数和返回值参数，支持以下属性：
+
+```csharp
+public class DynamicParameter
+{
+    // 参数方向：Input, Output, InputOutput, ReturnValue
+    public ParameterDirection Direction { get; set; }
+    
+    // 数据库类型
+    public DbType DbType { get; set; }
+    
+    // 参数大小（字符串/二进制类型必须指定）
+    public int Size { get; set; }
+    
+    // 数值精度
+    public byte Precision { get; set; }
+    
+    // 数值小数位数
+    public byte Scale { get; set; }
+    
+    // 参数值（输出参数执行后可从此属性读取返回值）
+    public object Value { get; set; }
+}
+```
+
+#### 参数方向说明
+
+| 参数方向 | 说明 | 使用场景 |
+|---------|------|---------|
+| `ParameterDirection.Input` | 输入参数（默认） | 传递数据到存储过程 |
+| `ParameterDirection.Output` | 输出参数 | 从存储过程获取返回数据 |
+| `ParameterDirection.InputOutput` | 输入输出参数 | 既传入数据又接收返回数据 |
+| `ParameterDirection.ReturnValue` | 返回值 | 获取存储过程的 RETURN 值 |
+
+#### 注意事项
+
+1. **输出参数必须指定大小**：对于字符串类型的输出参数，必须设置 `Size` 属性
+2. **参数名称**：参数名称建议使用 `@` 前缀（如 `@UserId`）
+3. **读取输出值**：输出参数的值在存储过程执行后通过 `Value` 属性获取
+4. **类型转换**：输出参数的 `Value` 可能为 `DBNull`，使用前需进行类型检查和转换
+
 ## 📦 NuGet 包信息
 
 | 包名 | 版本 | 描述 |
 |------|------|------|
-| Inkslab.Linq | 1.2.39 | 核心库，提供基础抽象和接口 |
-| Inkslab.Linq.SqlServer | 1.2.39 | SQL Server 数据库支持 |
-| Inkslab.Linq.MySql | 1.2.39 | MySQL 数据库支持 |
-| Inkslab.Transactions | 1.2.39 | 事务管理组件 |
+| Inkslab.Linq | 1.2.45 | 核心库，提供基础抽象和接口 |
+| Inkslab.Linq.SqlServer | 1.2.45 | SQL Server 数据库支持 |
+| Inkslab.Linq.MySql | 1.2.45 | MySQL 数据库支持 |
+| Inkslab.Transactions | 1.2.45 | 事务管理组件 |
 
 ### 包依赖关系
 
@@ -687,16 +840,16 @@ var concatResult = await activeUsers.Concat(inactiveUsers)
   
   <ItemGroup>
     <!-- 核心包 -->
-    <PackageReference Include="Inkslab.Linq" Version="1.2.39" />
+    <PackageReference Include="Inkslab.Linq" Version="1.2.45" />
     
     <!-- 根据需要选择数据库支持 -->
-    <PackageReference Include="Inkslab.Linq.SqlServer" Version="1.2.39" />
+    <PackageReference Include="Inkslab.Linq.SqlServer" Version="1.2.45" />
     <!-- 或者 -->
-    <PackageReference Include="Inkslab.Linq.MySql" Version="1.2.39" />
+    <PackageReference Include="Inkslab.Linq.MySql" Version="1.2.45" />
     <PackageReference Include="MySqlConnector" Version="2.4.0" />
     
     <!-- 事务支持 -->
-    <PackageReference Include="Inkslab.Transactions" Version="1.2.39" />
+    <PackageReference Include="Inkslab.Transactions" Version="1.2.45" />
   </ItemGroup>
 </Project>
 ```

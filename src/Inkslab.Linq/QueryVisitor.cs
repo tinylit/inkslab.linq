@@ -38,7 +38,7 @@ namespace Inkslab.Linq
 
                     Writer.Keyword(Enums.SqlKeyword.SELECT);
 
-                    if (Engine == DatabaseEngine.MySQL)
+                    if (Engine is DatabaseEngine.MySQL or DatabaseEngine.PostgreSQL)
                     {
                         base.LinqCore(node);
 

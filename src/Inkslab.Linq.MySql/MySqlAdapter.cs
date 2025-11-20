@@ -19,9 +19,8 @@ namespace Inkslab.Linq.MySql
         }
 
         /// <inheritdoc/>
-        public DatabaseEngine Engine => DatabaseEngine.MySQL;
-        /// <inheritdoc/>
         public IDbCorrectSettings Settings => _settings;
+        
         /// <inheritdoc/>
         public IReadOnlyDictionary<MethodInfo, IMethodVisitor> Visitors { get; } = new Dictionary<MethodInfo, IMethodVisitor>();
     }

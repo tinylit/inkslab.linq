@@ -219,10 +219,15 @@ namespace Inkslab.Linq
 
         private static object ChangeValue(DatabaseEngine databaseEngine, Type valueType, object value)
         {
+            if (databaseEngine == DatabaseEngine.PostgreSQL && valueType.IsEnum)
+            {
+                return Convert.ChangeType(value, Enum.GetUnderlyingType(valueType)); // 解决 PostgreSQL 不支持枚举类型直接存储的问题
+            }
+
             // 使用 switch pattern 匹配以提高分支预测与可读性
             switch (value)
             {
-                case DateTime dt when dt.Kind != DateTimeKind.Utc && databaseEngine == DatabaseEngine.PostgreSQL:
+                case DateTime dt when dt.Kind != DateTimeKind.Utc && databaseEngine == DatabaseEngine.PostgreSQL: // PostgreSQL 要求 UTC 时间
                     return DateTime.SpecifyKind(dt, DateTimeKind.Utc);
 
                 case Guid guid when databaseEngine == DatabaseEngine.MySQL:
@@ -241,20 +246,25 @@ namespace Inkslab.Linq
 
                 case bool b when databaseEngine == DatabaseEngine.Oracle:
                     return b ? 1 : 0;
+
                 case Version v:
                     return v.ToString();
+
                 case JsonObject jo:
                     return jo.ToJsonString();
+
                 case JsonArray ja:
                     return ja.ToJsonString();
+
                 case JsonDocument jd:
                     return jd.RootElement.GetRawText();
+
                 case JsonPayload jp:
                     return jp.ToString();
 
                 case JsonbPayload jbp:
                     return jbp.ToString();
-
+                    
                 default:
                     // 对于 Newtonsoft 类型，使用 valueType.FullName 做后备判断以避免直接依赖第三方类型
                     if (valueType?.FullName is "Newtonsoft.Json.Linq.JObject" or "Newtonsoft.Json.Linq.JArray")

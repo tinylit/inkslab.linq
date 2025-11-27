@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Linq.Expressions;
 using System.Text.RegularExpressions;
-using System.Text.Json.Nodes;
 
 namespace Inkslab.Linq
 {
@@ -53,9 +53,11 @@ namespace Inkslab.Linq
                 [typeof(DateTime)] = DbType.DateTime,
                 [typeof(DateTimeOffset)] = DbType.DateTimeOffset,
                 [typeof(TimeSpan)] = DbType.Time,
+#if !NET_Traditional
                 [typeof(JsonArray)] = JsonbDbType,
                 [typeof(JsonObject)] = JsonbDbType,
                 [typeof(JsonDocument)] = JsonbDbType,
+#endif
                 [typeof(JsonPayload)] = JsonDbType,
                 [typeof(JsonbPayload)] = JsonbDbType,
                 [typeof(byte[])] = DbType.Binary,
@@ -88,11 +90,6 @@ namespace Inkslab.Linq
             if (dataType.FullName == "System.Data.Linq.Binary")
             {
                 return DbType.Binary;
-            }
-
-            if (dataType.FullName is "System.Xml.Linq.XDocument" or "System.Xml.Linq.XElement")
-            {
-                return DbType.Xml;
             }
 
             if (dataType.FullName is "Newtonsoft.Json.Linq.JObject" or "Newtonsoft.Json.Linq.JArray")
@@ -244,16 +241,14 @@ namespace Inkslab.Linq
 
                 case bool b when databaseEngine == DatabaseEngine.Oracle:
                     return b ? 1 : 0;
-
                 case Version v:
                     return v.ToString();
-
-                case JsonNode jn:
-                    return jn.ToJsonString();
-
+                case JsonObject jo:
+                    return jo.ToJsonString();
+                case JsonArray ja:
+                    return ja.ToJsonString();
                 case JsonDocument jd:
                     return jd.RootElement.GetRawText();
-
                 case JsonPayload jp:
                     return jp.ToString();
 

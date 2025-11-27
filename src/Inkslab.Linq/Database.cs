@@ -473,8 +473,12 @@ namespace Inkslab.Linq
                     return Format(jsonbPayload.ToString(), throwError);
                 case JsonPayload jsonPayload:
                     return Format(jsonPayload.ToString(), throwError);
+                case System.Text.Json.Nodes.JsonObject jsonObject:
+                    return Format(jsonObject.ToJsonString(), throwError);
                 case JsonDocument jsonDocument:
                     return Format(jsonDocument.RootElement.GetRawText(), throwError);
+                case System.Text.Json.Nodes.JsonArray jsonArray:
+                    return Format(jsonArray.ToJsonString(), throwError);
                 default:
                     var type = value.GetType();
 
@@ -484,11 +488,6 @@ namespace Inkslab.Linq
                     }
 
                     if (type.FullName is "Newtonsoft.Json.Linq.JObject" or "Newtonsoft.Json.Linq.JArray")
-                    {
-                        return Format(value.ToString(), throwError);
-                    }
-
-                    if (value is System.Text.Json.Nodes.JsonObject or System.Text.Json.Nodes.JsonArray)
                     {
                         return Format(value.ToString(), throwError);
                     }

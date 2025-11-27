@@ -8,6 +8,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -281,7 +282,7 @@ namespace Inkslab.Linq
                     return mt.Value;
                 }
 
-                if (dictionaries.TryGetValue(name, out var value) || dictionaries.TryGetValue(mt.Value, out value))
+                if (dictionaries.TryGetValue(name, out var value))
                 {
                     if (value is null or DBNull) //? 空值处理为 null。
                     {
@@ -329,7 +330,7 @@ namespace Inkslab.Linq
                     {
                         if (analysisFirst)
                         {
-                            if (!dictionaries.TryGetValue(name, out var value) && !dictionaries.TryGetValue(mt.Value, out value))
+                            if (!dictionaries.TryGetValue(name, out var value))
                             {
                                 return mt.Value;
                             }
@@ -468,7 +469,31 @@ namespace Inkslab.Linq
                     return doubleValue.ToString(System.Globalization.CultureInfo.InvariantCulture);
                 case DbParameter parameter:
                     return Format(parameter.Value, throwError);
-                case IEnumerable objects:
+                case JsonbPayload jsonbPayload:
+                    return Format(jsonbPayload.ToString(), throwError);
+                case JsonPayload jsonPayload:
+                    return Format(jsonPayload.ToString(), throwError);
+                case JsonDocument jsonDocument:
+                    return Format(jsonDocument.RootElement.GetRawText(), throwError);
+                default:
+                    var type = value.GetType();
+
+                    if (type.IsMini())
+                    {
+                        return value.ToString();
+                    }
+
+                    if (type.FullName is "Newtonsoft.Json.Linq.JObject" or "Newtonsoft.Json.Linq.JArray")
+                    {
+                        return Format(value.ToString(), throwError);
+                    }
+
+                    if (value is System.Text.Json.Nodes.JsonObject or System.Text.Json.Nodes.JsonArray)
+                    {
+                        return Format(value.ToString(), throwError);
+                    }
+
+                    if (value is IEnumerable objects)
                     {
                         if (throwError)
                         {
@@ -503,13 +528,6 @@ namespace Inkslab.Linq
                         sb.Append(')');
 
                         return sb.ToString();
-                    }
-                default:
-                    var type = value.GetType();
-
-                    if (type.IsMini())
-                    {
-                        return value.ToString();
                     }
 
                     return Format(value.ToString(), throwError);
@@ -555,7 +573,7 @@ namespace Inkslab.Linq
                 }
 
                 DbType dbType = propertyType.IsArray && propertyType != typeof(byte[]) || propertyType != typeof(string) && typeof(IEnumerable).IsAssignableFrom(propertyType)
-                    ? (DbType)(-1)
+                    ? LookupDb.EnumerableDbType
                     : LookupDb.For(propertyType);
 
                 expressions.Add(Call(dictionariesVar, _dictionaryAdd, Constant(propertyInfo.Name), Convert(Property(targetVar, propertyInfo), typeof(object))));

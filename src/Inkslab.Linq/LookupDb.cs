@@ -2,6 +2,10 @@
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
+using System.Text.Json;
+using System.Linq.Expressions;
+using System.Text.RegularExpressions;
+using System.Text.Json.Nodes;
 
 namespace Inkslab.Linq
 {
@@ -10,6 +14,21 @@ namespace Inkslab.Linq
     /// </summary>
     public static class LookupDb
     {
+        /// <summary>
+        /// 数组数据库类型。
+        /// </summary>
+        public const DbType EnumerableDbType = (DbType)(-1); // Custom value for Array type
+
+        /// <summary>
+        /// JSON 数据库类型。
+        /// </summary>
+        public const DbType JsonDbType = (DbType)(-512); // Custom value for JSON type
+
+        /// <summary>
+        /// JSONB 数据库类型。
+        /// </summary>
+        public const DbType JsonbDbType = (DbType)(-1024); // Custom value for JSONB type
+
         private static readonly Dictionary<Type, DbType> _typeMap;
 
         static LookupDb()
@@ -34,6 +53,11 @@ namespace Inkslab.Linq
                 [typeof(DateTime)] = DbType.DateTime,
                 [typeof(DateTimeOffset)] = DbType.DateTimeOffset,
                 [typeof(TimeSpan)] = DbType.Time,
+                [typeof(JsonArray)] = JsonbDbType,
+                [typeof(JsonObject)] = JsonbDbType,
+                [typeof(JsonDocument)] = JsonbDbType,
+                [typeof(JsonPayload)] = JsonDbType,
+                [typeof(JsonbPayload)] = JsonbDbType,
                 [typeof(byte[])] = DbType.Binary,
                 [typeof(object)] = DbType.Object
             };
@@ -66,32 +90,34 @@ namespace Inkslab.Linq
                 return DbType.Binary;
             }
 
-            return DbType.Object;
-        }
-
-        private static string Clean(string name)
-        {
-            return name[0] switch
+            if (dataType.FullName is "System.Xml.Linq.XDocument" or "System.Xml.Linq.XElement")
             {
-                '@' or ':' or '?' => name[1..],
-                _ => name,
-            };
+                return DbType.Xml;
+            }
+
+            if (dataType.FullName is "Newtonsoft.Json.Linq.JObject" or "Newtonsoft.Json.Linq.JArray")
+            {
+                return JsonbDbType;
+            }
+
+            return DbType.Object;
         }
 
         /// <summary>
         /// 参数适配。
         /// </summary>
         /// <param name="command">命令。</param>
+        /// <param name="databaseEngine">数据库引擎。</param>
         /// <param name="name">参数名称。</param>
         /// <param name="value">参数值。</param>
-        public static void AddParameterAuto(IDbCommand command, string name, object value)
+        public static void AddParameterAuto(IDbCommand command, DatabaseEngine databaseEngine, string name, object value)
         {
             var dbParameter = command.CreateParameter();
 
             switch (value)
             {
                 case null or DBNull:
-                    dbParameter.ParameterName = Clean(name);
+                    dbParameter.ParameterName = name;
                     dbParameter.Value = DBNull.Value;
 
                     if (dbParameter is DbParameter myParameter)
@@ -101,16 +127,37 @@ namespace Inkslab.Linq
                     break;
                 case DynamicParameter dynamicParameter:
 
-                    dbParameter.Value = dynamicParameter.Value is null ? DBNull.Value : ChangeValue(command, dynamicParameter.Value);
+                    var dynamicParameterValueType = dynamicParameter.Value?.GetType() ?? typeof(object);
 
-                    dbParameter.ParameterName = Clean(name);
+                    dbParameter.Value = dynamicParameter.Value is null ? DBNull.Value : ChangeValue(databaseEngine, dynamicParameterValueType, dynamicParameter.Value);
+
+                    dbParameter.ParameterName = name;
 
                     dbParameter.Direction = dynamicParameter.Direction;
 
-                    if (dynamicParameter.DbType.HasValue)
+                    var dbType = dynamicParameter.DbType ?? (dbParameter.Value is null ? DbType.Object : For(dynamicParameterValueType));
+
+                    if (dbType < 0)
                     {
-                        dbParameter.DbType = dynamicParameter.DbType.Value;
+                        if (databaseEngine == DatabaseEngine.PostgreSQL)
+                        {
+                            if (dbType.IsJsonType())
+                            {
+                                command.CommandText = Regex.Replace(command.CommandText, @"(?<![\p{L}\p{N}@_])[?@:](" + name + @")(?![\p{L}\p{N}_])", m => $"{m.Value}::json", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+                            }
+                            else if (dbType.IsJsonbType())
+                            {
+                                command.CommandText = Regex.Replace(command.CommandText, @"(?<![\p{L}\p{N}@_])[?@:](" + name + @")(?![\p{L}\p{N}_])", m => $"{m.Value}::jsonb", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+                            }
+                        }
+
+                        dbParameter.DbType = DbType.String;
                     }
+                    else
+                    {
+                        dbParameter.DbType = dbType;
+                    }
+
                     if (dynamicParameter.Size.HasValue)
                     {
                         dbParameter.Size = dynamicParameter.Size.Value;
@@ -131,22 +178,40 @@ namespace Inkslab.Linq
                     }
                     break;
                 default:
-                    dbParameter.Value = ChangeValue(command, value);
-                    dbParameter.ParameterName = Clean(name);
-                    dbParameter.Direction = ParameterDirection.Input;
+                    var valueType = value.GetType();
 
-                    if (value is string text)
+                    var valueDbType = For(valueType);
+
+                    if (valueDbType < 0)
                     {
-                        dbParameter.DbType = DbType.String;
-
-                        if (text.Length < 4000)
+                        if (databaseEngine == DatabaseEngine.PostgreSQL)
                         {
-                            dbParameter.Size = 4000;
+                            if (valueDbType.IsJsonType())
+                            {
+                                command.CommandText = Regex.Replace(command.CommandText, @"(?<![\p{L}\p{N}@_])[?@:](" + name + @")(?![\p{L}\p{N}_])", m => $"{m.Value}::json", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+                            }
+                            else if (valueDbType.IsJsonbType())
+                            {
+                                command.CommandText = Regex.Replace(command.CommandText, @"(?<![\p{L}\p{N}@_])[?@:](" + name + @")(?![\p{L}\p{N}_])", m => $"{m.Value}::jsonb", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+                            }
                         }
+
+                        dbParameter.DbType = DbType.String;
                     }
                     else
                     {
-                        dbParameter.DbType = For(dbParameter.Value.GetType());
+                        dbParameter.DbType = valueDbType;
+                    }
+
+                    var realValue = ChangeValue(databaseEngine, valueType, value);
+
+                    dbParameter.Value = realValue;
+                    dbParameter.ParameterName = name;
+                    dbParameter.Direction = ParameterDirection.Input;
+
+                    if (realValue is string text && text.Length < 4000)
+                    {
+                        dbParameter.Size = 4000;
                     }
 
                     break;
@@ -155,74 +220,55 @@ namespace Inkslab.Linq
             command.Parameters.Add(dbParameter);
         }
 
-        private static object ChangeValue(IDbCommand command, object value)
+        private static object ChangeValue(DatabaseEngine databaseEngine, Type valueType, object value)
         {
-            var commandType = command.GetType();
-            var commandTypeName = commandType.FullName ?? string.Empty;
-            var assemblyName = commandType.Assembly.FullName ?? string.Empty;
-
-            // PostgreSQL: DateTime 需要指定 UTC Kind
-            if (value is DateTime dateTime && dateTime.Kind != DateTimeKind.Utc)
+            // 使用 switch pattern 匹配以提高分支预测与可读性
+            switch (value)
             {
-                if (commandTypeName.StartsWith("Npgsql.") && assemblyName.StartsWith("Npgsql,"))
-                {
-                    return DateTime.SpecifyKind(dateTime, DateTimeKind.Utc);
-                }
-            }
+                case DateTime dt when dt.Kind != DateTimeKind.Utc && databaseEngine == DatabaseEngine.PostgreSQL:
+                    return DateTime.SpecifyKind(dt, DateTimeKind.Utc);
 
-            // MySQL: GUID 需要转换为字符串或字节数组
-            if (value is Guid guid)
-            {
-                if (commandTypeName.StartsWith("MySql.") && (assemblyName.StartsWith("MySql.Data,") || assemblyName.StartsWith("MySqlConnector,")))
-                {
+                case Guid guid when databaseEngine == DatabaseEngine.MySQL:
                     // MySQL 通常使用 CHAR(36) 或 BINARY(16) 存储 GUID
-                    // 这里转换为字符串格式,如需二进制格式可改为 guid.ToByteArray()
+                    // 返回字符串格式；如果需要二进制请改为 guid.ToByteArray()
                     return guid.ToString();
-                }
-            }
 
-            // Oracle: GUID 需要转换为字节数组
-            if (value is Guid oracleGuid)
-            {
-                if (commandTypeName.StartsWith("Oracle.") && (assemblyName.StartsWith("Oracle.DataAccess,") || assemblyName.StartsWith("Oracle.ManagedDataAccess,")))
-                {
-                    return oracleGuid.ToByteArray();
-                }
-            }
+                case Guid guid when databaseEngine == DatabaseEngine.Oracle:
+                    return guid.ToByteArray();
 
-            // SQLite: Boolean 需要转换为整数
-            if (value is bool boolValue)
-            {
-                if (commandTypeName.StartsWith("System.Data.SQLite.") || commandTypeName.StartsWith("Microsoft.Data.Sqlite."))
-                {
-                    return boolValue ? 1 : 0;
-                }
-            }
+                case bool b when databaseEngine == DatabaseEngine.SQLite:
+                    return b ? 1 : 0;
 
-            // SQLite: TimeSpan 需要转换为字符串或 Ticks
-            if (value is TimeSpan timeSpan)
-            {
-                if (commandTypeName.StartsWith("System.Data.SQLite.") || commandTypeName.StartsWith("Microsoft.Data.Sqlite."))
-                {
-                    return timeSpan.Ticks; // 或使用 timeSpan.ToString()
-                }
-            }
+                case TimeSpan ts when databaseEngine == DatabaseEngine.SQLite:
+                    return ts.Ticks; // 或使用 ts.ToString()
 
-            // Oracle: Boolean 需要转换为数字
-            if (value is bool oracleBool)
-            {
-                if (commandTypeName.StartsWith("Oracle.") && (assemblyName.StartsWith("Oracle.DataAccess,") || assemblyName.StartsWith("Oracle.ManagedDataAccess,")))
-                {
-                    return oracleBool ? 1 : 0;
-                }
-            }
+                case bool b when databaseEngine == DatabaseEngine.Oracle:
+                    return b ? 1 : 0;
 
-            if (value is Version version)
-            {
-                return version.ToString();
-            }
+                case Version v:
+                    return v.ToString();
 
-            return value;
+                case JsonNode jn:
+                    return jn.ToJsonString();
+
+                case JsonDocument jd:
+                    return jd.RootElement.GetRawText();
+
+                case JsonPayload jp:
+                    return jp.ToString();
+
+                case JsonbPayload jbp:
+                    return jbp.ToString();
+
+                default:
+                    // 对于 Newtonsoft 类型，使用 valueType.FullName 做后备判断以避免直接依赖第三方类型
+                    if (valueType?.FullName is "Newtonsoft.Json.Linq.JObject" or "Newtonsoft.Json.Linq.JArray")
+                    {
+                        return value.ToString();
+                    }
+
+                    return value;
+            }
         }
     }
 }

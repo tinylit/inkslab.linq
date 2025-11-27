@@ -327,8 +327,8 @@ namespace Inkslab.Linq
 
         private readonly SqlWriter _writer;
 
-        private int takeSize = 0;
-        private int skipSize = 0;
+        private int _takeSize = 0;
+        private int _skipSize = 0;
 
         private readonly Writer _main;
         private readonly Writer _rank;
@@ -575,22 +575,22 @@ namespace Inkslab.Linq
                 throw new ArgumentOutOfRangeException(nameof(takeSize), "参数值必须大于零!");
             }
 
-            if (this.takeSize > 0 && takeSize > this.takeSize)
+            if (this._takeSize > 0 && takeSize > this._takeSize)
             {
                 throw new IndexOutOfRangeException();
             }
 
-            if (skipSize > 0)
+            if (_skipSize > 0)
             {
-                if (skipSize > takeSize)
+                if (_skipSize > takeSize)
                 {
                     throw new IndexOutOfRangeException();
                 }
 
-                takeSize -= skipSize;
+                takeSize -= _skipSize;
             }
 
-            this.takeSize = takeSize;
+            this._takeSize = takeSize;
         }
 
         /// <summary>
@@ -604,7 +604,7 @@ namespace Inkslab.Linq
                 throw new ArgumentOutOfRangeException(nameof(skipSize), "参数不能小于0。");
             }
 
-            this.skipSize += skipSize;
+            this._skipSize += skipSize;
         }
 
         /// <summary>
@@ -618,14 +618,14 @@ namespace Inkslab.Linq
                 throw new IndexOutOfRangeException();
             }
 
-            if (takeSize > 0 && index > takeSize)
+            if (_takeSize > 0 && index > _takeSize)
             {
                 throw new IndexOutOfRangeException();
             }
 
-            takeSize = 1;
+            _takeSize = 1;
 
-            skipSize += index;
+            _skipSize += index;
         }
 
         /// <summary>
@@ -954,9 +954,9 @@ namespace Inkslab.Linq
         /// <inheritdoc/>
         public override string ToString()
         {
-            if (takeSize > 0)
+            if (_takeSize > 0)
             {
-                return Settings.ToSQL(_main.ToString(), takeSize, skipSize, _rank.ToString());
+                return Settings.ToSQL(_main.ToString(), _takeSize, _skipSize, _rank.ToString());
             }
 
             return string.Concat(_main.ToString(), _rank.ToString());

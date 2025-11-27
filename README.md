@@ -3,7 +3,7 @@
 一个高性能的 .NET LINQ 扩展库，提供强大的数据库查询能力和事务管理功能。
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.2.46-green.svg)](.nupkgs/)
+[![Version](https://img.shields.io/badge/version-1.2.47-green.svg)](.nupkgs/)
 [![.NET](https://img.shields.io/badge/.NET-6.0%20%7C%20Standard%202.1-purple.svg)](Directory.Build.props)
 [![GitHub](https://img.shields.io/github/license/tinylit/inkslab.linq.svg)](LICENSE)
 [![GitHub issues](https://img.shields.io/github/issues-raw/tinylit/inkslab.linq)](../../issues)
@@ -43,6 +43,9 @@ Install-Package Inkslab.Linq.SqlServer
 # MySQL 支持
 Install-Package Inkslab.Linq.MySql
 
+# PostgreSQL 支持
+Install-Package Inkslab.Linq.PostgreSQL
+
 # 事务管理
 Install-Package Inkslab.Transactions
 ```
@@ -62,6 +65,10 @@ services.UseMySql()
 // 或 SQL Server 配置
 services.UseSqlServer()
     .UseLinq("Server=localhost;Database=MyDB;Trusted_Connection=true;");
+
+// 或 PostgreSQL 配置（支持 JSON/JSONB 和批量操作）
+services.UsePostgreSQL()
+    .UseLinq("Host=localhost;Database=mydb;Username=postgres;Password=password;");
 
 // 添加日志（可选）
 services.AddLogging(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Debug));
@@ -431,6 +438,7 @@ Inkslab.Linq/                          # 核心抽象层
 ├── IRepository<T>                      # 仓储接口
 ├── IDatabase                           # 数据库接口  
 ├── IQueryable<T>                       # 查询接口
+├── DynamicParameter                    # 动态参数（用于输出参数和JSON类型）
 └── TransactionUnit                     # 事务单元
 
 Inkslab.Linq.SqlServer/                 # SQL Server 实现
@@ -442,6 +450,13 @@ Inkslab.Linq.MySql/                     # MySQL 实现
 ├── MySqlAdapter                        # MySQL 适配器
 ├── MySqlBulkCopyFactory               # 批量复制工厂
 └── MySqlLinqServiceCollectionExtensions
+
+Inkslab.Linq.PostgreSQL/                # PostgreSQL 实现
+├── PostgreSQLAdapter                   # PostgreSQL 适配器
+├── PostgreSQLBulkAssistant            # PostgreSQL 批量复制（基于 COPY 命令）
+├── PostgreSQLBulkCopyFactory          # 批量复制工厂
+├── JsonPayload / JsonbPayload          # JSON 数据类型支持
+└── PostgreSQLLinqServiceCollectionExtensions
 
 Inkslab.Transactions/                   # 事务管理
 └── TransactionUnit                     # 事务单元实现
@@ -456,6 +471,11 @@ public class SqlServerPromotionConnectionStrings : IConnectionStrings
     public string Strings { get; } = "Server=localhost;Database=Promotion;Trusted_Connection=true;";
 }
 
+public class PostgreSQLAnalyticsConnectionStrings : IConnectionStrings
+{
+    public string Strings { get; } = "Host=localhost;Database=analytics;Username=postgres;Password=password;";
+}
+
 public void ConfigureServices(IServiceCollection services)
 {
     // MySQL 主数据库
@@ -466,6 +486,10 @@ public void ConfigureServices(IServiceCollection services)
     services.UseSqlServer()
         .UseDatabase<SqlServerPromotionConnectionStrings>();
 
+    // PostgreSQL 分析数据库（支持 JSON/JSONB 和批量操作）
+    services.UsePostgreSQL()
+        .UseDatabase<PostgreSQLAnalyticsConnectionStrings>();
+
     services.AddLogging(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Debug));
 }
 
@@ -473,14 +497,17 @@ public void ConfigureServices(IServiceCollection services)
 public class CombinationService
 {
     private readonly IQueryable<User> _users; // 使用主数据库
-    private readonly IDatabase<SqlServerPromotionConnectionStrings> _promotionDb; // 使用专用数据库
+    private readonly IDatabase<SqlServerPromotionConnectionStrings> _promotionDb; // 使用专用 SQL Server 数据库
+    private readonly IDatabase<PostgreSQLAnalyticsConnectionStrings> _analyticsDb; // 使用专用 PostgreSQL 数据库
 
     public CombinationService(
         IQueryable<User> users, 
-        IDatabase<SqlServerPromotionConnectionStrings> promotionDb)
+        IDatabase<SqlServerPromotionConnectionStrings> promotionDb,
+        IDatabase<PostgreSQLAnalyticsConnectionStrings> analyticsDb)
     {
         _users = users;
         _promotionDb = promotionDb;
+        _analyticsDb = analyticsDb;
     }
 
     public async Task<object> GetDataAsync()
@@ -488,12 +515,17 @@ public class CombinationService
         // 主数据库查询
         var users = await _users.Where(x => x.Id == 100).ToListAsync();
 
-        // 专用数据库原生 SQL 查询
+        // 专用 SQL Server 数据库原生 SQL 查询
         var promotions = await _promotionDb.QueryAsync<(long Id, string Name)>(
             "SELECT Id, Name FROM Activity WHERE Id > @id ORDER BY CreateTime DESC OFFSET 10 ROWS FETCH NEXT 10 ROWS ONLY", 
             new { id = 100 });
 
-        return new { users, promotions };
+        // 专用 PostgreSQL 数据库 JSON 查询
+        var jsonData = await _analyticsDb.QueryAsync<UserContentsOfJsonbPayload>(
+            "SELECT * FROM user_contents WHERE id = @id",
+            new { id = 1 });
+
+        return new { users, promotions, jsonData };
     }
 }
 ```
@@ -670,7 +702,334 @@ var concatResult = await activeUsers.Concat(inactiveUsers)
     .ToListAsync();
 ```
 
-### 5. 存储过程调用
+### 5. PostgreSQL JSON 数据类型支持
+
+Inkslab.Linq 为 PostgreSQL 提供了完整的 JSON/JSONB 数据类型支持，支持多种 JSON 表示方式。
+
+#### 支持的 JSON 类型
+
+框架支持以下 JSON 类型的自动转换和处理：
+
+1. **`JsonDocument`** - .NET System.Text.Json 标准类型，用于只读JSON解析
+2. **`JObject`** - Newtonsoft.Json 类型，提供强大的JSON操作能力
+3. **`JsonPayload`** - 框架内置类型，用于存储原始JSON字符串
+4. **`JsonbPayload`** - 框架内置类型，专门用于PostgreSQL JSONB类型
+
+#### 实体定义
+
+```csharp
+using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
+using Inkslab.Linq;
+using Inkslab.Linq.Annotations;
+using Newtonsoft.Json.Linq;
+
+// 使用 JsonDocument（只读）
+[Table("user_contents")]
+public class UserContentsOfJsonDocument
+{
+    [Key]
+    [Field("id")]
+    [DatabaseGenerated]
+    public int Id { get; set; }
+
+    [Field("content")]
+    public JsonDocument Content { get; set; }
+}
+
+// 使用 JObject（可编辑）
+[Table("user_contents")]
+public class UserContentsOfJObject
+{
+    [Key]
+    [Field("id")]
+    [DatabaseGenerated]
+    public int Id { get; set; }
+
+    [Field("content")]
+    public JObject Content { get; set; }
+}
+
+// 使用 JsonbPayload（推荐用于 JSONB）
+[Table("user_contents")]
+public class UserContentsOfJsonbPayload
+{
+    [Key]
+    [Field("id")]
+    [DatabaseGenerated]
+    public int Id { get; set; }
+
+    [Field("content")]
+    public JsonbPayload Content { get; set; }
+}
+```
+
+#### 插入 JSON 数据
+
+```csharp
+public class UserService
+{
+    private readonly IRepository<UserContentsOfJsonDocument> _repositoryOfJsonDocument;
+    private readonly IRepository<UserContentsOfJObject> _repositoryOfJObject;
+    private readonly IRepository<UserContentsOfJsonbPayload> _repositoryOfJsonbPayload;
+    private readonly IDatabase _database;
+
+    public UserService(
+        IRepository<UserContentsOfJsonDocument> repositoryOfJsonDocument,
+        IRepository<UserContentsOfJObject> repositoryOfJObject,
+        IRepository<UserContentsOfJsonbPayload> repositoryOfJsonbPayload,
+        IDatabase database)
+    {
+        _repositoryOfJsonDocument = repositoryOfJsonDocument;
+        _repositoryOfJObject = repositoryOfJObject;
+        _repositoryOfJsonbPayload = repositoryOfJsonbPayload;
+        _database = database;
+    }
+
+    // 使用 JsonDocument 插入
+    public async Task InsertWithJsonDocumentAsync()
+    {
+        var data = new UserContentsOfJsonDocument
+        {
+            Content = JsonDocument.Parse("{\"name\":\"inkslab\",\"age\":18}")
+        };
+        
+        await _repositoryOfJsonDocument.Into(data).ExecuteAsync();
+    }
+
+    // 使用 JObject 插入
+    public async Task InsertWithJObjectAsync()
+    {
+        var data = new UserContentsOfJObject
+        {
+            Content = JObject.Parse("{\"name\":\"inkslab\",\"age\":20}")
+        };
+        
+        await _repositoryOfJObject.Into(data).ExecuteAsync();
+    }
+
+    // 使用 JsonbPayload 插入
+    public async Task InsertWithJsonbPayloadAsync()
+    {
+        var data = new UserContentsOfJsonbPayload
+        {
+            Content = new JsonbPayload("{\"name\":\"inkslab\",\"age\":35}")
+        };
+        
+        await _repositoryOfJsonbPayload.Into(data).ExecuteAsync();
+    }
+
+    // 直接指定 JSONB 类型
+    public async Task InsertDirectJsonbAsync()
+    {
+        string sql = "INSERT INTO \"user_contents\"(\"content\") VALUES(@content::jsonb) RETURNING id;";
+        
+        var id = await _database.SingleAsync<long?>(sql, new { 
+            content = "{\"name\":\"测试\"}" 
+        });
+    }
+
+    // 使用 DynamicParameter 指定 JSONB 类型
+    public async Task InsertWithDynamicParameterAsync()
+    {
+        string sql = "INSERT INTO \"user_contents\"(\"content\") VALUES(@content) RETURNING id;";
+        
+        var id = await _database.SingleAsync<long?>(sql, new
+        {
+            content = new DynamicParameter
+            {
+                Value = "{\"name\":\"测试2\"}",
+                DbType = LookupDb.JsonbDbType,
+                Direction = ParameterDirection.Input
+            }
+        });
+    }
+}
+```
+
+#### 查询 JSON 数据
+
+```csharp
+public async Task QueryJsonDataAsync()
+{
+    var queryable = _queryableOfJsonbPayload;
+
+    // 查询所有 JSON 数据
+    var allData = await queryable
+        .OrderByDescending(x => x.Id)
+        .ToListAsync();
+
+    // 获取最新的 JSON 记录
+    var latest = await queryable
+        .OrderByDescending(x => x.Id)
+        .FirstOrDefaultAsync();
+
+    // 使用原生 SQL 查询 JSON 字段
+    string sql = "SELECT * FROM \"user_contents\" WHERE id = @id";
+    var result = await _database.FirstOrDefaultAsync<UserContentsOfJsonDocument>(sql, new { id = 1 });
+}
+```
+
+#### 注意事项
+
+1. **自动类型转换**：框架会自动识别 JSON 参数并应用 `::json` 或 `::jsonb` 强制转换
+2. **JsonDocument 性能**：对于只读场景，`JsonDocument`、`JsonObject`、`JsonArray` 性能最优，内存占用最低
+3. **JObject 灵活性**：需要修改 JSON 内容时使用 `JObject`、`JArray`
+4. **JsonPayload 推荐**：对于 PostgreSQL JSON 字段，推荐使用 `JsonPayload`
+5. **JsonbPayload 推荐**：对于 PostgreSQL JSONB 字段，推荐使用 `JsonbPayload`
+
+### 6. PostgreSQL 批量操作
+
+PostgreSQL 通过 `COPY` 命令支持高效的批量数据导入，框架提供了便捷的批量操作接口。
+
+#### 基本批量插入
+
+```csharp
+using System.Data;
+using Inkslab.Linq.PostgreSQL;
+
+public class PostgreSQLBulkExample
+{
+    private readonly IDatabase _database;
+
+    public PostgreSQLBulkExample(IDatabase database)
+    {
+        _database = database;
+    }
+
+    // 使用仓储进行批量插入
+    public async Task<int> BulkInsertAsync(List<User> users)
+    {
+        return await _userRepository
+            .Timeout(100)
+            .Ignore()
+            .Into(users)
+            .ExecuteAsync();
+    }
+
+    // 使用数据表进行批量插入
+    public async Task<int> BulkInsertWithDataTableAsync()
+    {
+        var dataTable = new DataTable("users");
+
+        // 定义列结构
+        dataTable.Columns.Add("name", typeof(string));
+        dataTable.Columns.Add("email", typeof(string));
+        dataTable.Columns.Add("age", typeof(int));
+        dataTable.Columns.Add("salary", typeof(decimal));
+        dataTable.Columns.Add("is_active", typeof(bool));
+        dataTable.Columns.Add("created_at", typeof(DateTime));
+
+        // 添加测试数据（示例：1000行）
+        var random = new Random();
+        var now = DateTime.Now;
+
+        for (int i = 1; i <= 1000; i++)
+        {
+            dataTable.Rows.Add(
+                $"用户{i:D4}",
+                $"user{i:D4}@example.com",
+                random.Next(18, 65),
+                Math.Round((decimal)(random.NextDouble() * 50000 + 30000), 2),
+                random.Next(2) == 1,
+                now.AddMinutes(-random.Next(0, 525600))
+            );
+        }
+
+        // 执行批量插入
+        return await _database.WriteToServerAsync(connectionStrings, dataTable);
+    }
+}
+```
+
+#### 批量插入 JSON 数据
+
+```csharp
+public async Task BulkInsertJsonDataAsync()
+{
+    var dataTable = new DataTable("user_contents");
+
+    // 定义列结构
+    dataTable.Columns.Add("content", typeof(JsonDocument));
+
+    // 添加 JSON 数据
+    var random = new Random();
+    var now = DateTime.Now;
+
+    for (int i = 1; i <= 1000; i++)
+    {
+        dataTable.Rows.Add(
+            JsonDocument.Parse($@"{{
+                ""id"": {i},
+                ""name"": ""用户{i:D4}"",
+                ""age"": {random.Next(18, 65)},
+                ""salary"": {Math.Round((decimal)(random.NextDouble() * 50000 + 30000), 2)},
+                ""is_active"": {(random.Next(2) == 1).ToString().ToLower()},
+                ""created_at"": ""{now:o}""
+            }}")
+        );
+    }
+
+    // 执行批量插入
+    int rowsAffected = await _database.WriteToServerAsync(connectionStrings, dataTable);
+    Console.WriteLine($"成功插入 {rowsAffected} 行 JSON 数据");
+}
+```
+
+#### 事务内批量操作
+
+```csharp
+public async Task BulkInsertInTransactionAsync()
+{
+    await using (var transaction = new TransactionUnit())
+    {
+        // 准备数据
+        var dataTable = new DataTable("users");
+        dataTable.Columns.Add("name", typeof(string));
+        dataTable.Columns.Add("email", typeof(string));
+
+        // 添加数据...
+        dataTable.Rows.Add("张三", "zhangsan@test.com");
+        dataTable.Rows.Add("李四", "lisi@test.com");
+
+        // 批量插入
+        int rowsAffected = await _database.WriteToServerAsync(connectionStrings, dataTable);
+
+        Console.WriteLine($"插入 {rowsAffected} 行数据");
+
+        // 提交事务
+        await transaction.CompleteAsync();
+    }
+}
+```
+
+#### 处理特殊字符
+
+```csharp
+public async Task HandleSpecialCharactersAsync()
+{
+    // 当表名或列名包含特殊字符时，框架会自动处理
+    var dataTable = new DataTable("user data");  // 表名包含空格
+    dataTable.Columns.Add("full name", typeof(string));        // 列名包含空格
+    dataTable.Columns.Add("e-mail address", typeof(string));   // 列名包含连字符
+    dataTable.Columns.Add("salary/month", typeof(decimal));    // 列名包含斜杠
+
+    // 添加数据
+    dataTable.Rows.Add("张三", "zhangsan@company.com", 8500.50m);
+
+    // 自动处理特殊字符，生成: COPY "user data" ("full name", "e-mail address", "salary/month") FROM STDIN
+    int rowsAffected = await _database.WriteToServerAsync(connectionStrings, dataTable);
+}
+```
+
+#### 性能优化建议
+
+- **批量大小**：建议每批插入 1000-10000 行，平衡内存和性能
+- **超时设置**：对于大批量操作，使用 `.Timeout(seconds)` 设置合理的超时时间
+- **事务处理**：大型批量操作建议在事务内执行，便于失败时回滚
+- **性能指标**：框架支持获取插入速率（行/秒）用于性能监控
+
+### 7. 存储过程调用
 
 框架支持调用带有输入参数、输出参数和返回值的存储过程。
 
@@ -827,10 +1186,11 @@ public class DynamicParameter
 
 | 包名 | 版本 | 描述 |
 |------|------|------|
-| Inkslab.Linq | 1.2.45 | 核心库，提供基础抽象和接口 |
-| Inkslab.Linq.SqlServer | 1.2.45 | SQL Server 数据库支持 |
-| Inkslab.Linq.MySql | 1.2.45 | MySQL 数据库支持 |
-| Inkslab.Transactions | 1.2.45 | 事务管理组件 |
+| Inkslab.Linq | 1.2.46 | 核心库，提供基础抽象和接口 |
+| Inkslab.Linq.SqlServer | 1.2.46 | SQL Server 数据库支持 |
+| Inkslab.Linq.MySql | 1.2.46 | MySQL 数据库支持 |
+| Inkslab.Linq.PostgreSQL | 1.2.46 | PostgreSQL 数据库支持，包含 JSON/JSONB 和批量操作 |
+| Inkslab.Transactions | 1.2.46 | 事务管理组件 |
 
 ### 包依赖关系
 
@@ -843,16 +1203,22 @@ public class DynamicParameter
   
   <ItemGroup>
     <!-- 核心包 -->
-    <PackageReference Include="Inkslab.Linq" Version="1.2.45" />
+    <PackageReference Include="Inkslab.Linq" Version="1.2.46" />
     
-    <!-- 根据需要选择数据库支持 -->
-    <PackageReference Include="Inkslab.Linq.SqlServer" Version="1.2.45" />
-    <!-- 或者 -->
-    <PackageReference Include="Inkslab.Linq.MySql" Version="1.2.45" />
+    <!-- 根据需要选择数据库支持（可选择其中一个或多个） -->
+    <!-- SQL Server 支持 -->
+    <PackageReference Include="Inkslab.Linq.SqlServer" Version="1.2.46" />
+    
+    <!-- MySQL 支持 -->
+    <PackageReference Include="Inkslab.Linq.MySql" Version="1.2.46" />
     <PackageReference Include="MySqlConnector" Version="2.4.0" />
     
+    <!-- PostgreSQL 支持（包含 JSON/JSONB 和 COPY 批量操作） -->
+    <PackageReference Include="Inkslab.Linq.PostgreSQL" Version="1.2.46" />
+    <PackageReference Include="Npgsql" Version="8.0.0" />
+    
     <!-- 事务支持 -->
-    <PackageReference Include="Inkslab.Transactions" Version="1.2.45" />
+    <PackageReference Include="Inkslab.Transactions" Version="1.2.46" />
   </ItemGroup>
 </Project>
 ```

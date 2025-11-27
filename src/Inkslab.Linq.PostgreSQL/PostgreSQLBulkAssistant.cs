@@ -4,6 +4,9 @@ using System.Threading.Tasks;
 using System.Text;
 using System;
 using Npgsql;
+using System.Text.Json;
+using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace Inkslab.Linq.PostgreSQL
 {
@@ -189,6 +192,34 @@ namespace Inkslab.Linq.PostgreSQL
         /// <param name="dataType">数据类型</param>
         private static void WriteValue(NpgsqlBinaryImporter writer, object value, Type dataType)
         {
+            if (value is JsonDocument jsonDocument)
+            {
+                writer.Write(jsonDocument.RootElement.GetRawText(), NpgsqlTypes.NpgsqlDbType.Jsonb);
+
+                return;
+            }
+
+            if (value is JsonbPayload jsonbPayload)
+            {
+                writer.Write(jsonbPayload.ToString(), NpgsqlTypes.NpgsqlDbType.Jsonb);
+
+                return;
+            }
+
+            if (value is JsonPayload jsonPayload)
+            {
+                writer.Write(jsonPayload.ToString(), NpgsqlTypes.NpgsqlDbType.Json);
+
+                return;
+            }
+
+            if (dataType.FullName is "Newtonsoft.Json.Linq.JObject" or "Newtonsoft.Json.Linq.JArray")
+            {
+                writer.Write(value.ToString(), NpgsqlTypes.NpgsqlDbType.Jsonb);
+
+                return;
+            }
+
             // 根据数据类型写入相应的值，明确指定NpgsqlDbType以确保类型严格性
             switch (Type.GetTypeCode(dataType))
             {
@@ -270,6 +301,34 @@ namespace Inkslab.Linq.PostgreSQL
         /// <param name="cancellationToken">取消令牌</param>
         private static async Task WriteValueAsync(NpgsqlBinaryImporter writer, object value, Type dataType, CancellationToken cancellationToken)
         {
+            if (value is JsonDocument jsonDocument)
+            {
+                await writer.WriteAsync(jsonDocument.RootElement.GetRawText(), NpgsqlTypes.NpgsqlDbType.Jsonb, cancellationToken);
+
+                return;
+            }
+
+            if (value is JsonbPayload jsonbPayload)
+            {
+                await writer.WriteAsync(jsonbPayload.ToString(), NpgsqlTypes.NpgsqlDbType.Jsonb, cancellationToken);
+
+                return;
+            }
+
+            if (value is JsonPayload jsonPayload)
+            {
+                await writer.WriteAsync(jsonPayload.ToString(), NpgsqlTypes.NpgsqlDbType.Json, cancellationToken);
+
+                return;
+            }
+
+            if (dataType.FullName is "Newtonsoft.Json.Linq.JObject" or "Newtonsoft.Json.Linq.JArray")
+            {
+                await writer.WriteAsync(value.ToString(), NpgsqlTypes.NpgsqlDbType.Jsonb, cancellationToken);
+
+                return;
+            }
+
             // 根据数据类型写入相应的值，明确指定NpgsqlDbType以确保类型严格性
             switch (Type.GetTypeCode(dataType))
             {
@@ -538,11 +597,40 @@ namespace Inkslab.Linq.PostgreSQL
                         else
                         {
                             // 非基元类型使用参数化（防止注入）
-                            string paramName = $"@p{paramIndex++}";
+                            string paramName = $"p{paramIndex++}";
 
-                            sb.Append(paramName);
+                            sb.Append('@')
+                                .Append(paramName);
 
-                            LookupDb.AddParameterAuto(command, paramName, value);
+                            if (value is JsonDocument jsonDoc)
+                            {
+                                sb.Append("::jsonb");
+
+                                LookupDb.AddParameterAuto(command, DatabaseEngine.PostgreSQL, paramName, jsonDoc.RootElement.GetRawText());
+                            }
+                            else if (value is JsonbPayload jsonbPayload)
+                            {
+                                sb.Append("::jsonb");
+
+                                LookupDb.AddParameterAuto(command, DatabaseEngine.PostgreSQL, paramName, jsonbPayload.ToString());
+                            }
+                            else if (value is JsonPayload jsonPayload)
+                            {
+                                sb.Append("::json");
+
+                                LookupDb.AddParameterAuto(command, DatabaseEngine.PostgreSQL, paramName, jsonPayload.ToString());
+                            }
+                            else if (column.DataType.FullName is "Newtonsoft.Json.Linq.JObject" or "Newtonsoft.Json.Linq.JArray")
+                            {
+                                sb.Append("::jsonb");
+
+                                LookupDb.AddParameterAuto(command, DatabaseEngine.PostgreSQL, paramName, value.ToString());
+                            }
+                            else
+                            {
+                                // 普通参数
+                                LookupDb.AddParameterAuto(command, DatabaseEngine.PostgreSQL, paramName, value);
+                            }
                         }
                     }
 
@@ -551,6 +639,7 @@ namespace Inkslab.Linq.PostgreSQL
 
                 command.CommandText = sb.ToString();
             }
+
 
             /// <summary>
             /// 格式化简单类型值为SQL字符串（仅用于数值和布尔类型）

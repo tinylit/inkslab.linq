@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Inkslab.Linq.Exceptions;
@@ -68,7 +69,7 @@ namespace Inkslab.Linq
 
                     foreach (var (name, value) in commandSql.Parameters)
                     {
-                        LookupDb.AddParameterAuto(command, name, value);
+                        LookupDb.AddParameterAuto(command, databaseStrings.Engine, name, value);
                     }
 
                     var result = command.ExecuteNonQuery();
@@ -122,7 +123,7 @@ namespace Inkslab.Linq
 
                     foreach (var (name, value) in commandSql.Parameters)
                     {
-                        LookupDb.AddParameterAuto(command, name, value);
+                        LookupDb.AddParameterAuto(command, databaseStrings.Engine, name, value);
                     }
 
                     var result = await command.ExecuteNonQueryAsync(cancellationToken);
@@ -175,7 +176,7 @@ namespace Inkslab.Linq
 
                 foreach (var (name, value) in commandSql.Parameters)
                 {
-                    LookupDb.AddParameterAuto(command, name, value);
+                    LookupDb.AddParameterAuto(command, databaseStrings.Engine, name, value);
                 }
 
                 using (var reader = command.ExecuteReader(behavior))
@@ -245,7 +246,7 @@ namespace Inkslab.Linq
 
                 foreach (var (name, value) in commandSql.Parameters)
                 {
-                    LookupDb.AddParameterAuto(command, name, value);
+                    LookupDb.AddParameterAuto(command, databaseStrings.Engine, name, value);
                 }
 
                 reader = command.ExecuteReader(behavior);
@@ -334,7 +335,7 @@ namespace Inkslab.Linq
 
                 foreach (var (name, value) in commandSql.Parameters)
                 {
-                    LookupDb.AddParameterAuto(command, name, value);
+                    LookupDb.AddParameterAuto(command, databaseStrings.Engine, name, value);
                 }
 
                 try
@@ -431,7 +432,7 @@ namespace Inkslab.Linq
 
                 foreach (var (name, value) in commandSql.Parameters)
                 {
-                    LookupDb.AddParameterAuto(command, name, value);
+                    LookupDb.AddParameterAuto(command, databaseStrings.Engine, name, value);
                 }
 
                 try
@@ -526,7 +527,7 @@ namespace Inkslab.Linq
 
                 foreach (var (name, value) in commandSql.Parameters)
                 {
-                    LookupDb.AddParameterAuto(command, name, value);
+                    LookupDb.AddParameterAuto(command, databaseStrings.Engine, name, value);
                 }
 
                 reader = await command.ExecuteReaderAsync(behavior);
@@ -766,7 +767,7 @@ namespace Inkslab.Linq
 
                     foreach (var (name, value) in _commandSql.Parameters)
                     {
-                        LookupDb.AddParameterAuto(command, name, value);
+                        LookupDb.AddParameterAuto(command, _connectionStrings.Engine, name, value);
                     }
 
                     await using (var reader = await command.ExecuteReaderAsync(behavior, cancellationToken))
@@ -834,7 +835,7 @@ namespace Inkslab.Linq
 
                     foreach (var (name, value) in commandSql.Parameters)
                     {
-                        LookupDb.AddParameterAuto(command, name, value);
+                        LookupDb.AddParameterAuto(command, _engine, name, value);
                     }
 
                     int influenceRows = command.ExecuteNonQuery();
@@ -923,7 +924,7 @@ namespace Inkslab.Linq
 
                     foreach (var (name, value) in commandSql.Parameters)
                     {
-                        LookupDb.AddParameterAuto(command, name, value);
+                        LookupDb.AddParameterAuto(command, _engine, name, value);
                     }
 
                     _stopwatch.Start();
@@ -1016,7 +1017,7 @@ namespace Inkslab.Linq
 
                     foreach (var (name, value) in commandSql.Parameters)
                     {
-                        LookupDb.AddParameterAuto(command, name, value);
+                        LookupDb.AddParameterAuto(command, _engine, name, value);
                     }
 
                     int influenceRows = await command.ExecuteNonQueryAsync(_cancellationToken);
@@ -1104,7 +1105,7 @@ namespace Inkslab.Linq
 
                     foreach (var (name, value) in commandSql.Parameters)
                     {
-                        LookupDb.AddParameterAuto(command, name, value);
+                        LookupDb.AddParameterAuto(command, _engine, name, value);
                     }
 
                     int influenceRows = await command.ExecuteNonQueryAsync(_cancellationToken);
@@ -1708,9 +1709,9 @@ namespace Inkslab.Linq
                 _typeCode = type.GetMethod(nameof(Type.GetTypeCode), BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly, null, new Type[] { type }, null);
             }
 
-            private int refCount = 0;
+            private int _refCount = 0;
 
-            private volatile bool recovering = false;
+            private volatile bool _recovering = false;
 
             private readonly ConcurrentDictionary<Type, IDbMapper> _mappers =
                 new ConcurrentDictionary<Type, IDbMapper>(100, 2 * COLLECT_PER_ITEMS);
@@ -1778,11 +1779,53 @@ namespace Inkslab.Linq
                     return New(propertyType.GetConstructor(new Type[] { Types.Object }), Call(dbVar, _getValue, iVar));
                 }
 
+                if (propertyType.FullName is "Newtonsoft.Json.Linq.JObject" or "Newtonsoft.Json.Linq.JArray")
+                {
+                    var jsonVar = Variable(Types.String);
+
+                    return Block(propertyType, new ParameterExpression[] { jsonVar },
+                        Assign(jsonVar, Call(dbVar, _typeMap[Types.String], iVar)),
+                        Condition(Equal(jsonVar, Constant(null, Types.String)),
+                            Constant(null, propertyType),
+                            Call(propertyType.GetMethod("Parse", BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly, null, new Type[] { Types.String }, null), jsonVar)
+                        )
+                    );
+                }
+
+                if (propertyType == Types.JsonPayload || propertyType == Types.JsonbPayload)
+                {
+                    var jsonVar = Variable(Types.String);
+
+                    return Block(propertyType, new ParameterExpression[] { jsonVar },
+                        Assign(jsonVar, Call(dbVar, _typeMap[Types.String], iVar)),
+                        Condition(Equal(jsonVar, Constant(null, Types.String)),
+                            Constant(null, propertyType),
+                            New(propertyType.GetConstructor(new Type[] { Types.String }), jsonVar)
+                        )
+                    );
+                }
+
+                if (propertyType.IsAssignableFrom(Types.JsonDocument))
+                {
+                    var jsonVar = Variable(Types.String);
+
+                    return Block(propertyType, new ParameterExpression[] { jsonVar },
+                        Assign(jsonVar, Call(dbVar, _typeMap[Types.String], iVar)),
+                        Condition(Equal(jsonVar, Constant(null, Types.String)),
+                            Constant(null, propertyType),
+                            Call(Types.JsonDocument.GetMethod("Parse", BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly, null, new Type[] { Types.String, typeof(JsonDocumentOptions) }, null), jsonVar, Default(typeof(JsonDocumentOptions)))
+                        )
+                    );
+                }
+
                 if (!_typeMap.TryGetValue(propertyType, out MethodInfo originalFn))
                 {
                     var typeArg = Variable(typeof(Type));
 
-                    return Block(new ParameterExpression[] { typeArg }, Assign(typeArg, Call(dbVar, _getFieldType, iVar)), ToSolveByTransform(propertyType, dbVar, iVar, typeArg));
+                    return Block(new ParameterExpression[] { typeArg }, 
+                        Assign(typeArg, Call(dbVar, _getFieldType, iVar)), 
+                        ToSolveByTransform(propertyType, dbVar, iVar, typeArg)
+                    );
                 }
                 else if (propertyType == Types.Object)
                 {
@@ -1796,7 +1839,8 @@ namespace Inkslab.Linq
                         Assign(typeArg, Call(dbVar, _getFieldType, iVar)),
                         Condition(Equal(typeArg, Constant(propertyType)),
                             Call(dbVar, originalFn, iVar),
-                            ToSolveByTransform(propertyType, dbVar, iVar, typeArg))
+                            ToSolveByTransform(propertyType, dbVar, iVar, typeArg)
+                        )
                     );
                 }
                 else
@@ -1953,12 +1997,12 @@ namespace Inkslab.Linq
                         typeof(T),
                         type =>
                         {
-                            if (Interlocked.Increment(ref refCount) >= COLLECT_PER_ITEMS)
+                            if (Interlocked.Increment(ref _refCount) >= COLLECT_PER_ITEMS)
                             {
-                                if (recovering) { }
+                                if (_recovering) { }
                                 else
                                 {
-                                    recovering = true;
+                                    _recovering = true;
 
                                     new Timer(
                                         render =>
@@ -1985,9 +2029,9 @@ namespace Inkslab.Linq
                                             catch { }
                                             finally
                                             {
-                                                recovering = false;
+                                                _recovering = false;
 
-                                                Interlocked.Exchange(ref refCount, _mappers.Count);
+                                                Interlocked.Exchange(ref _refCount, _mappers.Count);
                                             }
                                         },
                                         _mappers.Keys,

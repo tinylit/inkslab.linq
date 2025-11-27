@@ -66,6 +66,26 @@ namespace Inkslab.Linq
         public static readonly Type String = typeof(string);
 
         /// <summary>
+        /// <see cref="System.Text.Json.Nodes.JsonNode"/>
+        /// </summary>
+        public static readonly Type JsonNode = typeof(System.Text.Json.Nodes.JsonNode);
+
+        /// <summary>
+        /// <see cref="System.Text.Json.JsonDocument"/>
+        /// </summary>
+        public static readonly Type JsonDocument = typeof(System.Text.Json.JsonDocument);
+
+        /// <summary>
+        /// <see cref="Linq.JsonPayload"/>
+        /// </summary>
+        public static readonly Type JsonPayload = typeof(JsonPayload);
+
+        /// <summary>
+        /// <see cref="Linq.JsonbPayload"/>
+        /// </summary>
+        public static readonly Type JsonbPayload = typeof(JsonbPayload);
+
+        /// <summary>
         /// <see cref="System.Guid"/>
         /// </summary>
         public static readonly Type Guid = typeof(Guid);

@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Npgsql;
 using Inkslab.Linq.PostgreSQL;
 using Xunit;
+using System.Text.Json;
 
 namespace PostgreSQL.Tests
 {
@@ -42,6 +43,80 @@ namespace PostgreSQL.Tests
 
             // 准备测试数据
             var dataTable = CreateTestDataTable();
+
+            // 使用 PostgreSQL 批量复制
+            using var bulkAssistant = new PostgreSQLBulkAssistant(connection);
+
+            try
+            {
+                // 设置超时时间
+                bulkAssistant.BulkCopyTimeout = 30;
+
+                // 执行批量插入
+                Console.WriteLine($"开始插入 {dataTable.Rows.Count} 行数据到表 '{dataTable.TableName}'...");
+
+                var startTime = DateTime.Now;
+                int rowsAffected = await bulkAssistant.WriteToServerAsync(dataTable);
+                var duration = DateTime.Now - startTime;
+
+                Console.WriteLine($"批量插入完成！");
+                Console.WriteLine($"- 插入行数: {rowsAffected}");
+                Console.WriteLine($"- 耗时: {duration.TotalMilliseconds:F2} 毫秒");
+                Console.WriteLine($"- 平均速度: {rowsAffected / duration.TotalSeconds:F0} 行/秒");
+
+                // 验证插入结果
+                await VerifyInsertedDataAsync(connection);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"批量插入失败: {ex.Message}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// 演示基本的批量数据插入功能
+        /// </summary>
+        [Fact]
+        public static async Task BasicBulkInsertJsonAsync()
+        {
+            using var connection = new NpgsqlConnection(ConnectionString);
+            await connection.OpenAsync();
+
+            // 创建测试表（如果不存在）
+            var createTableSql = @"
+                CREATE TABLE IF NOT EXISTS user_contents (
+                    id SERIAL PRIMARY KEY,
+                    content        jsonb  NOT NULL
+                )";
+
+            using (var cmd = new NpgsqlCommand(createTableSql, connection))
+            {
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            var dataTable = new DataTable("user_contents");
+
+            // 定义列结构
+            dataTable.Columns.Add("content", typeof(JsonDocument));
+
+            // 添加测试数据
+            var random = new Random();
+            var now = DateTime.Now;
+
+            for (int i = 1; i <= 1000; i++)
+            {
+                dataTable.Rows.Add(
+                    JsonDocument.Parse($@"{{
+                        ""id"": {i},
+                        ""name"": ""用户{i:D4}"",
+                        ""age"": {random.Next(18, 65)},
+                        ""salary"": {Math.Round((decimal)(random.NextDouble() * 50000 + 30000), 2)},
+                        ""is_active"": {(random.Next(2) == 1).ToString().ToLower()},
+                        ""created_at"": ""{now.AddMinutes(-random.Next(0, 525600)):o}""
+                    }}")
+                );
+            }
 
             // 使用 PostgreSQL 批量复制
             using var bulkAssistant = new PostgreSQLBulkAssistant(connection);
@@ -157,7 +232,7 @@ namespace PostgreSQL.Tests
             {
                 dataTable.Rows.Add(
                     $"用户{i:D4}",                           // name
-                    $"{emailPrefix}{i:D4}@example.com",              // email
+                    $"{emailPrefix}{i:D4}.{now.Ticks}@example.com",              // email
                     random.Next(18, 65),                    // age
                     Math.Round((decimal)(random.NextDouble() * 50000 + 30000), 2), // salary
                     random.Next(2) == 1,                    // is_active
@@ -166,6 +241,83 @@ namespace PostgreSQL.Tests
             }
 
             return dataTable;
+        }
+
+        /// <summary>
+        /// 演示基本的批量数据插入功能
+        /// </summary>
+        [Fact]
+        public static async Task BasicBulkInsertJsonTransactionAsync()
+        {
+            using var connection = new NpgsqlConnection(ConnectionString);
+            await connection.OpenAsync();
+
+            // 创建测试表（如果不存在）
+            var createTableSql = @"
+                CREATE TABLE IF NOT EXISTS user_contents (
+                    id SERIAL PRIMARY KEY,
+                    content        jsonb  NOT NULL
+                )";
+
+            using (var cmd = new NpgsqlCommand(createTableSql, connection))
+            {
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            var dataTable = new DataTable("user_contents");
+
+            // 定义列结构
+            dataTable.Columns.Add("content", typeof(JsonDocument));
+
+            // 添加测试数据
+            var random = new Random();
+            var now = DateTime.Now;
+
+            for (int i = 1; i <= 1000; i++)
+            {
+                dataTable.Rows.Add(
+                    JsonDocument.Parse($@"{{
+                        ""id"": {i},
+                        ""name"": ""用户{i:D4}"",
+                        ""age"": {random.Next(18, 65)},
+                        ""salary"": {Math.Round((decimal)(random.NextDouble() * 50000 + 30000), 2)},
+                        ""is_active"": {(random.Next(2) == 1).ToString().ToLower()},
+                        ""created_at"": ""{now.AddMinutes(-random.Next(0, 525600)):o}""
+                    }}")
+                );
+            }
+
+
+            await using var transaction = await connection.BeginTransactionAsync();
+
+            // 使用 PostgreSQL 批量复制
+            using var bulkAssistant = new PostgreSQLBulkAssistant.PostgreSQLBulk(connection, transaction);
+
+            try
+            {
+                // 设置超时时间
+                bulkAssistant.BulkCopyTimeout = 30;
+
+                // 执行批量插入
+                Console.WriteLine($"开始插入 {dataTable.Rows.Count} 行数据到表 '{dataTable.TableName}'...");
+
+                var startTime = DateTime.Now;
+                int rowsAffected = await bulkAssistant.WriteToServerAsync(dataTable);
+                var duration = DateTime.Now - startTime;
+
+                Console.WriteLine($"批量插入完成！");
+                Console.WriteLine($"- 插入行数: {rowsAffected}");
+                Console.WriteLine($"- 耗时: {duration.TotalMilliseconds:F2} 毫秒");
+                Console.WriteLine($"- 平均速度: {rowsAffected / duration.TotalSeconds:F0} 行/秒");
+
+                // 验证插入结果
+                await VerifyInsertedDataAsync(connection);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"批量插入失败: {ex.Message}");
+                throw;
+            }
         }
 
         /// <summary>

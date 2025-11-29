@@ -4,8 +4,7 @@ using Microsoft.Extensions.Logging;
 using System;
 
 namespace PostgreSQL.Tests
-{
-    public class Startup : XunitPlus.Startup
+{    public class Startup : XunitPlus.Startup
     {
         public Startup(Type serviceType) : base(serviceType)
         {

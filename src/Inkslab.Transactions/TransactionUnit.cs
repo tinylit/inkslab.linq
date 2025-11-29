@@ -67,7 +67,7 @@ namespace Inkslab.Transactions
             _transactionOption = transactionOption;
         }
 
-        private bool complete;
+        private bool _complete;
 
         /// <summary>
         /// 提交事务，若提交失败自动回滚。
@@ -76,17 +76,17 @@ namespace Inkslab.Transactions
         /// <returns></returns>
         public async Task CompleteAsync(CancellationToken cancellationToken = default)
         {
-            if (disposed)
+            if (_disposed)
             {
                 throw new ObjectDisposedException(nameof(TransactionUnit));
             }
 
-            if (complete)
+            if (_complete)
             {
                 throw new InvalidOperationException();
             }
 
-            complete = true;
+            _complete = true;
 
             if (_transactionOption == TransactionOption.Suppress)
             {
@@ -98,14 +98,14 @@ namespace Inkslab.Transactions
             }
         }
         
-        private bool disposed;
+        private bool _disposed;
 
         /// <inheritdoc/>
         public void Dispose()
         {
-            if (!disposed)
+            if (!_disposed)
             {
-                disposed = true;
+                _disposed = true;
 
                 Transaction.Current = _previousTransaction;
 
@@ -115,7 +115,7 @@ namespace Inkslab.Transactions
                 }
                 else if (_transactionOption == TransactionOption.RequiresNew || _previousTransaction is null)
                 {
-                    if (!complete)
+                    if (!_complete)
                     {
                         _transaction.Rollback();
                     }
@@ -130,9 +130,9 @@ namespace Inkslab.Transactions
         /// <inheritdoc/>
         public async ValueTask DisposeAsync()
         {
-            if (!disposed)
+            if (!_disposed)
             {
-                disposed = true;
+                _disposed = true;
 
                 Transaction.Current = _previousTransaction;
 
@@ -142,7 +142,7 @@ namespace Inkslab.Transactions
                 }
                 else if (_transactionOption == TransactionOption.RequiresNew || _previousTransaction is null)
                 {
-                    if (!complete)
+                    if (!_complete)
                     {
                         await _transaction.RollbackAsync();
                     }

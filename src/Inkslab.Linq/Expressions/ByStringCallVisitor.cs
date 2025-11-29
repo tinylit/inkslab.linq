@@ -235,9 +235,6 @@ namespace Inkslab.Linq.Expressions
                             case DatabaseEngine.PostgreSQL:
                                 Writer.Write("SUBSTRING");
                                 break;
-                            case DatabaseEngine.Access:
-                                Writer.Write("MID");
-                                break;
                             case DatabaseEngine.SQLite:
                             case DatabaseEngine.DB2:
                             case DatabaseEngine.Oracle:
@@ -476,28 +473,6 @@ namespace Inkslab.Linq.Expressions
                             }
 
                             Writer.CloseBrace();
-                            break;
-                        case DatabaseEngine.Access when node.Arguments.Count <= 2:
-
-                            Writer.Write("InStr");
-
-                            Writer.OpenBrace();
-
-                            if (node.Arguments.Count > 1)
-                            {
-                                Visit(node.Arguments[1]);
-
-                                Writer.Delimiter();
-                            }
-
-                            Visit(node.Object);
-
-                            Writer.Delimiter();
-
-                            Visit(node.Arguments[0]);
-
-                            Writer.CloseBrace();
-
                             break;
                         case DatabaseEngine.SQLite when node.Arguments.Count == 1:
 

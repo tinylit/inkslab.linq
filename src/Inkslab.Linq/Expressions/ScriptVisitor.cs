@@ -18,69 +18,69 @@ namespace Inkslab.Linq.Expressions
         /// <summary>
         /// 允许 SELECT。
         /// </summary>
-        private int? commandTimeout;
+        private int? _commandTimeout;
 
         /// <summary>
         /// 无排序。
         /// </summary>
-        private bool unsorted = true;
+        private bool _unsorted = true;
 
         /// <summary>
         /// 允许 SELECT。
         /// </summary>
-        private bool allowSelect = true;
+        private bool _allowSelect = true;
 
         /// <summary>
         /// 构建。
         /// </summary>
-        private bool buildSelect = false;
+        private bool _buildSelect = false;
 
         /// <summary>
         /// 去重。
         /// </summary>
-        private bool isDistinct = false;
+        private bool _isDistinct = false;
 
         /// <summary>
         /// 分组表达式。
         /// </summary>
-        private bool isGrouping = false;
+        private bool _isGrouping = false;
 
         /// <summary>
         /// 是查询表达式。
         /// </summary>
-        private bool isQueryable = false;
+        private bool _isQueryable = false;
 
         /// <summary>
         /// 聚合统计。
         /// </summary>
-        private bool isAggregateCount = false;
+        private bool _isAggregateCount = false;
 
         /// <summary>
         /// 预热处理。
         /// </summary>
-        private bool treatmentPreheating = true;
+        private bool _treatmentPreheating = true;
 
         /// <summary>
         /// 参数刷新。
         /// </summary>
-        private bool parameterRef = true;
+        private bool _parameterRef = true;
 
         /// <summary>
         /// 已预热参数。
         /// </summary>
-        private bool preheatedParameter = false;
+        private bool _preheatedParameter = false;
 
         /// <summary>
         /// 预热参数。
         /// </summary>
-        private bool preheatingParameter = true;
+        private bool _preheatingParameter = true;
 
         /// <summary>
         /// 参数刷新值。
         /// </summary>
-        private ParameterExpression parameterRel;
+        private ParameterExpression _parameterRel;
 
-        private volatile bool backflowWorking = false;
+        private volatile bool _backflowWorking = false;
 
         /// <summary>
         /// 主干表达式。
@@ -145,17 +145,17 @@ namespace Inkslab.Linq.Expressions
                 case nameof(Queryable.Min):
                 case nameof(Queryable.Average):
                 case nameof(Queryable.Aggregate):
-                    isGrouping = true;
+                    _isGrouping = true;
                     break;
                 case nameof(Queryable.Count):
                 case nameof(Queryable.LongCount):
-                    isAggregateCount = true;
+                    _isAggregateCount = true;
                     break;
                 case nameof(Queryable.Union):
                 case nameof(Queryable.Concat):
                 case nameof(Queryable.Intersect):
                 case nameof(Queryable.Except):
-                    buildSelect = true;
+                    _buildSelect = true;
                     break;
                 case nameof(QueryableExtentions.Insert):
                 case nameof(QueryableExtentions.Update):
@@ -165,16 +165,16 @@ namespace Inkslab.Linq.Expressions
                     break;
                 default:
 
-                    buildSelect = true;
+                    _buildSelect = true;
 
-                    isGrouping = this is AggregateSelectVisitor;
+                    _isGrouping = this is AggregateSelectVisitor;
 
                     break;
             }
 
             var declaringType = node.Method.DeclaringType;
 
-            isQueryable = declaringType == Types.Queryable || declaringType == Types.QueryableExtentions;
+            _isQueryable = declaringType == Types.Queryable || declaringType == Types.QueryableExtentions;
 
             base.Startup(node);
         }
@@ -217,23 +217,23 @@ namespace Inkslab.Linq.Expressions
 
         private bool SkipLinqCall(MethodCallExpression node)
         {
-            if (isGrouping) //? 已经在分组分析器中了，继续进行分析。
+            if (_isGrouping) //? 已经在分组分析器中了，继续进行分析。
             {
                 return false;
             }
 
-            if (isGrouping = node.IsGrouping(true))
+            if (_isGrouping = node.IsGrouping(true))
             {
-                if (isAggregateCount)
+                if (_isAggregateCount)
                 {
                     Circuity(node);
 
                     return true;
                 }
 
-                buildSelect = false;
+                _buildSelect = false;
 
-                using (ScriptVisitor visitor = unsorted ? new AggregateCheckSortSelectVisitor(this) : new AggregateSelectVisitor(this))
+                using (ScriptVisitor visitor = _unsorted ? new AggregateCheckSortSelectVisitor(this) : new AggregateSelectVisitor(this))
                 {
                     visitor.Startup(node);
                 }
@@ -254,7 +254,7 @@ namespace Inkslab.Linq.Expressions
 
             string name = node.Method.Name;
 
-            if (unsorted)
+            if (_unsorted)
             {
                 switch (name)
                 {
@@ -262,16 +262,16 @@ namespace Inkslab.Linq.Expressions
                     case nameof(Queryable.ThenBy):
                     case nameof(Queryable.OrderByDescending):
                     case nameof(Queryable.ThenByDescending):
-                        unsorted = false;
+                        _unsorted = false;
                         break;
                 }
             }
 
-            LinqRef(node, ref allowSelect);
+            LinqRef(node, ref _allowSelect);
 
-            if (treatmentPreheating)
+            if (_treatmentPreheating)
             {
-                if (isGrouping
+                if (_isGrouping
                     ? name == nameof(Queryable.GroupBy)
                     : node.Arguments.Count == (node.Method.IsStatic
                         ? 2
@@ -280,12 +280,12 @@ namespace Inkslab.Linq.Expressions
                 {
                     if (Preheat(node))
                     {
-                        treatmentPreheating = false;
+                        _treatmentPreheating = false;
                     }
                 }
             }
 
-            if (isAggregateCount)
+            if (_isAggregateCount)
             {
                 switch (name)
                 {
@@ -311,7 +311,7 @@ namespace Inkslab.Linq.Expressions
             }
 
             //? 查询检查。
-            if (allowSelect)
+            if (_allowSelect)
             {
                 switch (name)
                 {
@@ -326,7 +326,7 @@ namespace Inkslab.Linq.Expressions
             }
 
             //? 必须排序检查。
-            if (unsorted)
+            if (_unsorted)
             {
                 switch (name)
                 {
@@ -372,7 +372,7 @@ namespace Inkslab.Linq.Expressions
                 case nameof(Queryable.Count) when node.Arguments.Count == 1:
                 case nameof(Queryable.LongCount) when node.Arguments.Count == 1:
 
-                    allowSelect = this.allowSelect;
+                    allowSelect = this._allowSelect;
                     break;
                 //? 跳过组合函数。
                 case nameof(Queryable.Union):
@@ -380,11 +380,11 @@ namespace Inkslab.Linq.Expressions
                 case nameof(Queryable.Except):
                 case nameof(Queryable.Intersect):
 
-                    allowSelect = this.allowSelect;
+                    allowSelect = this._allowSelect;
                     break;
                 case nameof(Queryable.Select):
 
-                    if (this.allowSelect)
+                    if (this._allowSelect)
                     {
                         goto default;
                     }
@@ -394,14 +394,14 @@ namespace Inkslab.Linq.Expressions
                 //? 跳过字段限制的函数。
                 case nameof(Queryable.Cast):
                 case nameof(Queryable.OfType):
-                    allowSelect = this.allowSelect;
+                    allowSelect = this._allowSelect;
                     break;
                 //? 跳过生成 SELECT 的函数。
                 case nameof(Queryable.Join):
                 case nameof(Queryable.SelectMany):
                     goto default;
                 case nameof(Queryable.Distinct):
-                    if (this.allowSelect)
+                    if (this._allowSelect)
                     {
                         allowSelect = true;
 
@@ -410,7 +410,7 @@ namespace Inkslab.Linq.Expressions
 
                     throw new DSyntaxErrorException("使用去重函数需先指定查询字段，如：*.Select(x=>{column-pairt}).Distinct()。");
                 case nameof(Queryable.DefaultIfEmpty):
-                    if (this.allowSelect)
+                    if (this._allowSelect)
                     {
                         allowSelect = true;
 
@@ -419,7 +419,7 @@ namespace Inkslab.Linq.Expressions
 
                     throw new DSyntaxErrorException("使用默认值函数需先指定查询字段，如：*.Select(x=>{column-pairt}).DefaultIfEmpty({default-value})。");
                 default:
-                    this.allowSelect = allowSelect = false;
+                    this._allowSelect = allowSelect = false;
                     break;
             }
         }
@@ -427,18 +427,18 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override void Constant(IQueryable value)
         {
-            if (buildSelect)
+            if (_buildSelect)
             {
                 Writer.Keyword(SqlKeyword.SELECT);
 
-                if (isDistinct)
+                if (_isDistinct)
                 {
                     Writer.Keyword(SqlKeyword.DISTINCT);
                 }
 
                 Select(value.Expression);
 
-                buildSelect = false;
+                _buildSelect = false;
             }
 
             DataSourceMode();
@@ -468,7 +468,11 @@ namespace Inkslab.Linq.Expressions
         /// </summary>
         protected virtual void TableAs()
         {
-            Writer.Keyword(SqlKeyword.AS);
+            //? DB2 和 Sybase 不支持 AS 关键字。
+            if (Engine is not (DatabaseEngine.DB2 or DatabaseEngine.Sybase or DatabaseEngine.Oracle))
+            {
+                Writer.Keyword(SqlKeyword.AS);
+            }
 
             Nickname();
         }
@@ -478,13 +482,13 @@ namespace Inkslab.Linq.Expressions
         /// </summary>
         protected void Nickname()
         {
-            parameterRef = false;
+            _parameterRef = false;
 
-            if (parameterRel is null)
+            if (_parameterRel is null)
             {
                 Writer.Name("g");
             }
-            else if (TryGetSourceParameter(parameterRel, out ParameterExpression parameter))
+            else if (TryGetSourceParameter(_parameterRel, out ParameterExpression parameter))
             {
                 Writer.Name(parameter.Name);
             }
@@ -547,11 +551,11 @@ namespace Inkslab.Linq.Expressions
             {
                 case nameof(Queryable.Select):
 
-                    buildSelect = false;
+                    _buildSelect = false;
 
                     Writer.Keyword(SqlKeyword.SELECT);
 
-                    if (isDistinct)
+                    if (_isDistinct)
                     {
                         Writer.Keyword(SqlKeyword.DISTINCT);
                     }
@@ -567,7 +571,7 @@ namespace Inkslab.Linq.Expressions
                     break;
                 case nameof(Queryable.Distinct):
 
-                    isDistinct = true;
+                    _isDistinct = true;
 
                     Visit(node.Arguments[0]);
 
@@ -578,13 +582,13 @@ namespace Inkslab.Linq.Expressions
                 case nameof(Queryable.Intersect):
                 case nameof(Queryable.Except):
 
-                    if (buildSelect)
+                    if (_buildSelect)
                     {
                         Writer.Keyword(SqlKeyword.SELECT);
 
                         Writer.Write('*');
 
-                        buildSelect = false;
+                        _buildSelect = false;
                     }
 
                     DataSourceMode();
@@ -663,21 +667,21 @@ namespace Inkslab.Linq.Expressions
                 case nameof(Queryable.Join):
                 case nameof(Queryable.SelectMany):
                     {
-                        if (buildSelect)
+                        if (_buildSelect)
                         {
                             Writer.Keyword(SqlKeyword.SELECT);
 
-                            if (isDistinct)
+                            if (_isDistinct)
                             {
                                 Writer.Keyword(SqlKeyword.DISTINCT);
                             }
                         }
 
-                        var visitor = new JoinVisitor(this, _joinRelationships, buildSelect);
+                        var visitor = new JoinVisitor(this, _joinRelationships, _buildSelect);
 
                         _joinVisitors.Add(visitor);
 
-                        buildSelect = false;
+                        _buildSelect = false;
 
                         visitor.Startup((Expression)node); //? 分析表信息。
 
@@ -686,7 +690,7 @@ namespace Inkslab.Linq.Expressions
                 case nameof(QueryableExtentions.DataSharding):
 
                     VisitMethodCall(node);
-                    
+
                     break;
                 default:
 
@@ -722,13 +726,13 @@ namespace Inkslab.Linq.Expressions
 
                     int timeOut = node.Arguments[1].GetValueFromExpression<int>();
 
-                    if (commandTimeout.HasValue)
+                    if (_commandTimeout.HasValue)
                     {
-                        commandTimeout += timeOut;
+                        _commandTimeout += timeOut;
                     }
                     else
                     {
-                        commandTimeout = new int?(timeOut);
+                        _commandTimeout = new int?(timeOut);
                     }
 
                     visitor.Visit(node.Arguments[0]);
@@ -736,13 +740,13 @@ namespace Inkslab.Linq.Expressions
                     break;
 
                 default:
-                    if (!backflowWorking && _visitor is IBackflowVisitor backflowVisitor)
+                    if (!_backflowWorking && _visitor is IBackflowVisitor backflowVisitor)
                     {
-                        backflowWorking = true;
+                        _backflowWorking = true;
 
                         backflowVisitor.Backflow(this, node);
 
-                        backflowWorking = false;
+                        _backflowWorking = false;
 
                         break;
                     }
@@ -993,12 +997,12 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected virtual bool Preheat(MethodCallExpression node)
         {
-            if (preheatingParameter)
+            if (_preheatingParameter)
             {
                 if (TryParametricPreheating(node.Arguments[1], out ParameterExpression parameterNode))
                 {
-                    preheatedParameter = true;
-                    preheatingParameter = false;
+                    _preheatedParameter = true;
+                    _preheatingParameter = false;
 
                     return ParameterRefresh(parameterNode);
                 }
@@ -1018,9 +1022,9 @@ namespace Inkslab.Linq.Expressions
         {
             _parameterOwners.Add((parameter.Type, parameter.Name));
 
-            if (parameterRef)
+            if (_parameterRef)
             {
-                parameterRel = parameter;
+                _parameterRel = parameter;
 
                 return true;
             }
@@ -1108,7 +1112,7 @@ namespace Inkslab.Linq.Expressions
         /// <returns>是否准备成功。</returns>
         protected bool PreparingParameterRelationship(string relationshipName, ParameterExpression node)
         {
-            preheatedParameter = false;
+            _preheatedParameter = false;
 
             Type parameterType = node.Type;
 
@@ -1129,13 +1133,13 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override bool TryGetSourceParameter(Expression node, out ParameterExpression parameterExpression)
         {
-            if (preheatedParameter) //? 参数预热，兼容 Union/Concat/Except/Intersect 别名分析。
+            if (_preheatedParameter) //? 参数预热，兼容 Union/Concat/Except/Intersect 别名分析。
             {
-                preheatedParameter = false;
+                _preheatedParameter = false;
 
                 if (ParameterRelationshipSupplementIsSupport())
                 {
-                    if (!PreparingParameterRelationship(parameterRel.Name, parameterRel))
+                    if (!PreparingParameterRelationship(_parameterRel.Name, _parameterRel))
                     {
                         throw new NotSupportedException("请保持查询参数的名称一致性！");
                     }
@@ -1147,9 +1151,9 @@ namespace Inkslab.Linq.Expressions
                 case ParameterExpression parameter:
                     if (_parameterOwners.Contains((parameter.Type, parameter.Name)))
                     {
-                        parameterExpression = parameterRel;
+                        parameterExpression = _parameterRel;
 
-                        parameterRef = false;
+                        _parameterRef = false;
 
                         return true;
                     }
@@ -1168,9 +1172,9 @@ namespace Inkslab.Linq.Expressions
 
                     if (_parameterOwners.Contains((memberExpression.Type, memberExpression.Member.Name)))
                     {
-                        parameterExpression = parameterRel;
+                        parameterExpression = _parameterRel;
 
-                        parameterRef = false;
+                        _parameterRef = false;
 
                         return true;
                     }
@@ -1216,7 +1220,7 @@ namespace Inkslab.Linq.Expressions
         {
             string sql = Writer.ToString();
 
-            return new CommandSql(sql, Writer.Parameters, commandTimeout);
+            return new CommandSql(sql, Writer.Parameters, _commandTimeout);
         }
 
         #region 嵌套类。
@@ -1339,7 +1343,7 @@ namespace Inkslab.Linq.Expressions
 
             protected override void LinqCore(MethodCallExpression node)
             {
-                if (_scriptVisitor.unsorted)
+                if (_scriptVisitor._unsorted)
                 {
                     switch (node.Method.Name)
                     {
@@ -1347,7 +1351,7 @@ namespace Inkslab.Linq.Expressions
                         case nameof(Queryable.ThenBy):
                         case nameof(Queryable.OrderByDescending):
                         case nameof(Queryable.ThenByDescending):
-                            _scriptVisitor.unsorted = false;
+                            _scriptVisitor._unsorted = false;
                             break;
                     }
                 }

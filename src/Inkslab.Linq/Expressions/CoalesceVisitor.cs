@@ -138,7 +138,6 @@ namespace Inkslab.Linq.Expressions
                     }
 
                     break;
-                case DatabaseEngine.Access:
                 default:
 
                     using (var domain = Writer.Domain())

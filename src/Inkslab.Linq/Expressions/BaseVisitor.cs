@@ -790,7 +790,6 @@ namespace Inkslab.Linq.Expressions
             {
                 switch (Engine)
                 {
-                    case DatabaseEngine.Access:
                     case DatabaseEngine.Sybase:
                     case DatabaseEngine.SqlServer:
                         Writer.Write("LEN");
@@ -1781,13 +1780,17 @@ namespace Inkslab.Linq.Expressions
             }
 
             string name = _tableInformation.Name;
-            string schema = _tableInformation.Schema;
+            string schema = _tableInformation.Schema ?? string.Empty;
 
-            if (schema.IsEmpty())
+            if (schema.Length == 0)
             {
                 if (Engine == DatabaseEngine.SqlServer)
                 {
                     schema = "dbo";
+                }
+                else if (Engine == DatabaseEngine.PostgreSQL)
+                {
+                    schema = "public";
                 }
             }
 

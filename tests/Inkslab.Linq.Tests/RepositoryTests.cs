@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
+using System.Threading.Tasks;
 using Inkslab.Linq.Annotations;
+using Inkslab.Transactions;
 using Xunit;
 
 namespace Inkslab.Linq.Tests
@@ -331,6 +333,21 @@ namespace Inkslab.Linq.Tests
                    UpdateBy = 1000000000000000000L,
                    UpdateTime = DateTime.Now
                });
+        }
+
+        [Fact]
+        public async Task DeleteAsync()
+        {
+            await _userRpo.Where(x => x.Id < 100).DeleteAsync();
+        }
+
+        [Fact]
+        public async Task DeleteAllAsync()
+        {
+            using (var tran = new TransactionUnit())
+            {
+                await _userRpo.DeleteAsync();
+            }
         }
     }
 }

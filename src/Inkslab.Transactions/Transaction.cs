@@ -155,7 +155,7 @@ namespace Inkslab.Transactions
                 throw new ArgumentNullException(nameof(transaction));
             }
 
-            if (disposed)
+            if (_disposed)
             {
                 throw new ObjectDisposedException(nameof(Transaction));
             }
@@ -163,7 +163,7 @@ namespace Inkslab.Transactions
             _transactions.Add(transaction);
         }
 
-        private bool complete;
+        private bool _complete;
 
         /// <summary>
         /// 提交事务。
@@ -171,17 +171,17 @@ namespace Inkslab.Transactions
         /// <param name="cancellationToken">取消令牌。</param>
         public async Task CommitAsync(CancellationToken cancellationToken = default)
         {
-            if (disposed)
+            if (_disposed)
             {
                 throw new ObjectDisposedException(nameof(Transaction));
             }
 
-            if (complete)
+            if (_complete)
             {
                 throw new InvalidOperationException();
             }
 
-            complete = true;
+            _complete = true;
 
             int i = 0, length = _transactions.Count;
 
@@ -226,17 +226,17 @@ namespace Inkslab.Transactions
         /// <param name="cancellationToken">取消令牌。</param>
         public async Task RollbackAsync(CancellationToken cancellationToken = default)
         {
-            if (disposed)
+            if (_disposed)
             {
                 throw new ObjectDisposedException(nameof(Transaction));
             }
 
-            if (complete)
+            if (_complete)
             {
                 throw new InvalidOperationException();
             }
 
-            complete = true;
+            _complete = true;
 
             try
             {
@@ -258,17 +258,17 @@ namespace Inkslab.Transactions
         /// </summary>
         public void Rollback()
         {
-            if (disposed)
+            if (_disposed)
             {
                 throw new ObjectDisposedException(nameof(Transaction));
             }
 
-            if (complete)
+            if (_complete)
             {
                 throw new InvalidOperationException();
             }
 
-            complete = true;
+            _complete = true;
 
             try
             {
@@ -285,16 +285,16 @@ namespace Inkslab.Transactions
             }
         }
 
-        private bool disposed;
+        private bool _disposed;
 
         /// <summary>
         /// 释放事务。
         /// </summary>
         public async ValueTask DisposeAsync()
         {
-            if (!disposed)
+            if (!_disposed)
             {
-                disposed = true;
+                _disposed = true;
 
                 try
                 {
@@ -302,7 +302,7 @@ namespace Inkslab.Transactions
                     {
                         var transaction = _transactions[i];
 
-                        if (!complete)
+                        if (!_complete)
                         {
                             await transaction.RollbackAsync();
                         }
@@ -312,9 +312,9 @@ namespace Inkslab.Transactions
                 }
                 finally
                 {
-                    if (!complete)
+                    if (!_complete)
                     {
-                        complete = true;
+                        _complete = true;
 
                         Status = TransactionStatus.Aborted;
 
@@ -335,9 +335,9 @@ namespace Inkslab.Transactions
         /// </summary>
         public void Dispose()
         {
-            if (!disposed)
+            if (!_disposed)
             {
-                disposed = true;
+                _disposed = true;
 
                 try
                 {
@@ -345,7 +345,7 @@ namespace Inkslab.Transactions
                     {
                         var transaction = _transactions[i];
 
-                        if (!complete)
+                        if (!_complete)
                         {
                             transaction.Rollback();
                         }
@@ -355,9 +355,9 @@ namespace Inkslab.Transactions
                 }
                 finally
                 {
-                    if (!complete)
+                    if (!_complete)
                     {
-                        complete = true;
+                        _complete = true;
 
                         Status = TransactionStatus.Aborted;
 

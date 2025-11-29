@@ -237,9 +237,8 @@ namespace Inkslab.Linq
                 case TypeCode.Char:
                     return engine switch
                     {
-                        DatabaseEngine.MySQL or DatabaseEngine.PostgreSQL or DatabaseEngine.SQLite 
+                        DatabaseEngine.MySQL or DatabaseEngine.PostgreSQL or DatabaseEngine.SQLite
                             or DatabaseEngine.Oracle or DatabaseEngine.DB2 => "char(1)",
-                        DatabaseEngine.Access => "text(1)",
                         _ => "nchar(1)" // SqlServer, Sybase
                     };
 
@@ -249,7 +248,6 @@ namespace Inkslab.Linq
                         DatabaseEngine.PostgreSQL or DatabaseEngine.DB2 => "smallint",
                         DatabaseEngine.Oracle => "number(3)",
                         DatabaseEngine.SQLite => "integer",
-                        DatabaseEngine.Access => "byte",
                         _ => "tinyint" // MySQL, SqlServer, Sybase
                     };
 
@@ -285,7 +283,6 @@ namespace Inkslab.Linq
                     {
                         DatabaseEngine.PostgreSQL or DatabaseEngine.SQLite or DatabaseEngine.DB2 => "integer",
                         DatabaseEngine.Oracle => "number(10)",
-                        DatabaseEngine.Access => "long",
                         _ => "int" // MySQL, SqlServer, Sybase
                     };
 
@@ -304,7 +301,6 @@ namespace Inkslab.Linq
                     {
                         DatabaseEngine.Oracle => "number(19)",
                         DatabaseEngine.SQLite => "integer",
-                        DatabaseEngine.Access => "decimal",
                         _ => "bigint" // MySQL, SqlServer, PostgreSQL, DB2, Sybase
                     };
 
@@ -324,7 +320,6 @@ namespace Inkslab.Linq
                     {
                         DatabaseEngine.PostgreSQL or DatabaseEngine.SQLite or DatabaseEngine.DB2 => "real",
                         DatabaseEngine.Oracle => "binary_float",
-                        DatabaseEngine.Access => "single",
                         _ => "float" // MySQL, SqlServer, Sybase
                     };
 
@@ -334,7 +329,7 @@ namespace Inkslab.Linq
                         DatabaseEngine.PostgreSQL => "double precision",
                         DatabaseEngine.Oracle => "binary_double",
                         DatabaseEngine.SQLite => "real",
-                        DatabaseEngine.DB2 or DatabaseEngine.MySQL or DatabaseEngine.Access => "double",
+                        DatabaseEngine.DB2 or DatabaseEngine.MySQL => "double",
                         _ => "float" // SqlServer, Sybase
                     };
 
@@ -351,7 +346,7 @@ namespace Inkslab.Linq
                     {
                         DatabaseEngine.PostgreSQL or DatabaseEngine.DB2 => "timestamp",
                         DatabaseEngine.Oracle => "date",
-                        DatabaseEngine.SQLite or DatabaseEngine.MySQL or DatabaseEngine.Access => "datetime",
+                        DatabaseEngine.SQLite or DatabaseEngine.MySQL => "datetime",
                         _ => "datetime" // SqlServer, Sybase
                     };
 
@@ -363,7 +358,6 @@ namespace Inkslab.Linq
                             DatabaseEngine.SqlServer => "ntext",
                             DatabaseEngine.MySQL or DatabaseEngine.PostgreSQL or DatabaseEngine.SQLite or DatabaseEngine.Sybase => "text",
                             DatabaseEngine.Oracle or DatabaseEngine.DB2 => "clob",
-                            DatabaseEngine.Access => "memo",
                             _ => "text"
                         };
                     }
@@ -382,8 +376,6 @@ namespace Inkslab.Linq
                         DatabaseEngine.SQLite => "text",
                         DatabaseEngine.DB2 when length <= 32672 => $"varchar({length})",
                         DatabaseEngine.DB2 => "clob",
-                        DatabaseEngine.Access when length <= 255 => $"text({length})",
-                        DatabaseEngine.Access => "memo",
                         DatabaseEngine.Sybase when length <= 8000 => $"varchar({length})",
                         DatabaseEngine.Sybase => "text",
                         _ => "text"
@@ -445,14 +437,23 @@ namespace Inkslab.Linq
                 int? commandTimeout
             )
             {
-                Name = shardingKey?.Length > 0 ? _instance.Fragment(shardingKey) : _instance.Name;
+                Name = _instance.DataSharding
+                    ? _instance.Fragment(shardingKey)
+                    : _instance.Name;
 
-                Schema =
-                    adapter.Engine == DatabaseEngine.SqlServer
-                        ? _instance.Schema.IsEmpty()
-                            ? "dbo"
-                            : _instance.Schema
-                        : _instance.Schema;
+                Schema = _instance.Schema ?? string.Empty;
+
+                if (Schema.Length == 0)
+                {
+                    if (adapter.Engine == DatabaseEngine.SqlServer)
+                    {
+                        Schema = "dbo";
+                    }
+                    else if (adapter.Engine == DatabaseEngine.PostgreSQL)
+                    {
+                        Schema = "public";
+                    }
+                }
 
                 Entities = entities;
                 Engine = adapter.Engine;
@@ -780,12 +781,24 @@ namespace Inkslab.Linq
 
                 if (Ignore)
                 {
-                    sb.Append("IGNORE ");
+                    if (Engine == DatabaseEngine.SQLite)
+                    {
+                        sb.Append("OR ");
+                    }
+
+                    if (Engine == DatabaseEngine.PostgreSQL)
+                    {
+
+                    }
+                    else
+                    {
+                        sb.Append("IGNORE ");
+                    }
                 }
 
                 sb.Append("INTO ");
 
-                if (Schema?.Length > 0)
+                if (Schema.Length > 0)
                 {
                     sb.Append(Settings.Name(Schema)).Append('.');
                 }
@@ -844,6 +857,12 @@ namespace Inkslab.Linq
                 }
 
                 sb.Append(')');
+
+                if (Ignore && Engine == DatabaseEngine.PostgreSQL)
+                {
+                    sb.AppendLine()
+                        .Append("ON CONFLICT DO NOTHING");
+                }
 
                 #endregion
 
@@ -923,12 +942,24 @@ namespace Inkslab.Linq
 
                 if (Ignore)
                 {
-                    sb.Append("IGNORE ");
+                    if (Engine == DatabaseEngine.SQLite)
+                    {
+                        sb.Append("OR ");
+                    }
+
+                    if (Engine == DatabaseEngine.PostgreSQL)
+                    {
+
+                    }
+                    else
+                    {
+                        sb.Append("IGNORE ");
+                    }
                 }
 
                 sb.Append("INTO ");
 
-                if (Schema?.Length > 0)
+                if (Schema.Length > 0)
                 {
                     sb.Append(Settings.Name(Schema)).Append('.');
                 }
@@ -1006,6 +1037,12 @@ namespace Inkslab.Linq
                     i++;
                 }
 
+                if (Ignore && Engine == DatabaseEngine.PostgreSQL)
+                {
+                    sb.AppendLine()
+                        .Append("ON CONFLICT DO NOTHING");
+                }
+
                 return new CommandSql(sb.ToString(), parameters, CommandTimeout);
             }
         }
@@ -1081,12 +1118,11 @@ namespace Inkslab.Linq
 
                 switch (Engine)
                 {
-                    case DatabaseEngine.Access:
                     case DatabaseEngine.MySQL:
 
                         sb.Append("UPDATE ");
 
-                        if (Schema?.Length > 0)
+                        if (Schema.Length > 0)
                         {
                             sb.Append(Settings.Name(Schema)).Append('.');
                         }
@@ -1114,7 +1150,7 @@ namespace Inkslab.Linq
 
                         sb.AppendLine().Append("FROM ");
 
-                        if (Schema?.Length > 0)
+                        if (Schema.Length > 0)
                         {
                             sb.Append(Settings.Name(Schema)).Append('.');
                         }
@@ -1135,7 +1171,7 @@ namespace Inkslab.Linq
                     case DatabaseEngine.PostgreSQL:
                         sb.Append("UPDATE ");
 
-                        if (Schema?.Length > 0)
+                        if (Schema.Length > 0)
                         {
                             sb.Append(Settings.Name(Schema)).Append('.');
                         }
@@ -1238,7 +1274,6 @@ namespace Inkslab.Linq
                                 switch (Engine)
                                 {
                                     case DatabaseEngine.MySQL:
-                                    case DatabaseEngine.Access:
                                     case DatabaseEngine.PostgreSQL:
                                         sb.Append("NOW()");
 
@@ -1416,7 +1451,7 @@ namespace Inkslab.Linq
 
                     sb.Append("UPDATE ");
 
-                    if (Schema?.Length > 0)
+                    if (Schema.Length > 0)
                     {
                         sb.Append(Settings.Name(Schema)).Append('.');
                     }
@@ -1455,10 +1490,8 @@ namespace Inkslab.Linq
                                     switch (Engine)
                                     {
                                         case DatabaseEngine.MySQL:
-                                        case DatabaseEngine.Access:
                                         case DatabaseEngine.PostgreSQL:
                                             sb.Append("NOW()");
-
                                             break;
                                         case DatabaseEngine.SqlServer:
                                         case DatabaseEngine.Sybase:
@@ -1616,7 +1649,7 @@ namespace Inkslab.Linq
 
                     sb.Append("DELETE FROM ");
 
-                    if (Schema?.Length > 0)
+                    if (Schema.Length > 0)
                     {
                         sb.Append(Settings.Name(Schema)).Append('.');
                     }
@@ -1686,7 +1719,7 @@ namespace Inkslab.Linq
                         {
                             sb.Append("DELETE FROM ");
 
-                            if (Schema?.Length > 0)
+                            if (Schema.Length > 0)
                             {
                                 sb.Append(Settings.Name(Schema)).Append('.');
                             }
@@ -1717,7 +1750,7 @@ namespace Inkslab.Linq
 
                         sb.Append("DELETE FROM ");
 
-                        if (Schema?.Length > 0)
+                        if (Schema.Length > 0)
                         {
                             sb.Append(Settings.Name(Schema)).Append('.');
                         }
@@ -1807,14 +1840,13 @@ namespace Inkslab.Linq
 
                 switch (Engine)
                 {
-                    case DatabaseEngine.Access:
                     case DatabaseEngine.SQLite:
                     case DatabaseEngine.MySQL:
                     case DatabaseEngine.SqlServer:
 
                         sb.Append("DELETE ").Append(t1).AppendLine().Append("FROM ");
 
-                        if (Schema?.Length > 0)
+                        if (Schema.Length > 0)
                         {
                             sb.Append(Settings.Name(Schema)).Append('.');
                         }
@@ -1836,7 +1868,7 @@ namespace Inkslab.Linq
                     case DatabaseEngine.PostgreSQL:
                         sb.Append("DELETE FROM ");
 
-                        if (Schema?.Length > 0)
+                        if (Schema.Length > 0)
                         {
                             sb.Append(Settings.Name(Schema)).Append('.');
                         }

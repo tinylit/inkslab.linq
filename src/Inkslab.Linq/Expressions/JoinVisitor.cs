@@ -13,9 +13,9 @@ namespace Inkslab.Linq.Expressions
     [DebuggerDisplay("Join")]
     public class JoinVisitor : SelectVisitor
     {
-        private JoinType joinType = JoinType.INNER;
+        private JoinType _joinType = JoinType.INNER;
 
-        private Transverter transverter = Transverter.Empty;
+        private Transverter _transverter = Transverter.Empty;
 
         private readonly ScriptVisitor _visitor;
         private readonly Dictionary<(Type, string), SelectVisitor> _joinRelationships;
@@ -39,7 +39,7 @@ namespace Inkslab.Linq.Expressions
         ///<inheritdoc/>
         protected override void DataSourceMode()
         {
-            switch (joinType)
+            switch (_joinType)
             {
                 case JoinType.INNER:
                     Writer.Keyword(Enums.SqlKeyword.INNER);
@@ -70,9 +70,9 @@ namespace Inkslab.Linq.Expressions
             out ParameterExpression parameter
         )
         {
-            if (transverter.TryGetValue(node, out parameter))
+            if (_transverter.TryGetValue(node, out parameter))
             {
-                if (transverter.IsBridge)
+                if (_transverter.IsBridge)
                 {
                     return base.TryPreparingParameter(parameter, out parameter);
                 }
@@ -89,9 +89,9 @@ namespace Inkslab.Linq.Expressions
             out ParameterExpression parameterExpression
         )
         {
-            if (transverter.TryGetValue(node, out parameterExpression))
+            if (_transverter.TryGetValue(node, out parameterExpression))
             {
-                if (transverter.IsBridge)
+                if (_transverter.IsBridge)
                 {
                     return base.TryGetSourceParameter(parameterExpression, out parameterExpression);
                 }
@@ -326,7 +326,7 @@ namespace Inkslab.Linq.Expressions
 
             protected override Expression VisitConstant(ConstantExpression node)
             {
-                _visitor.joinType = JoinType.CROSS;
+                _visitor._joinType = JoinType.CROSS;
 
                 return base.VisitConstant(node);
             }
@@ -335,7 +335,7 @@ namespace Inkslab.Linq.Expressions
             {
                 if (node.Method.Name == nameof(Queryable.DefaultIfEmpty))
                 {
-                    _visitor.joinType = JoinType.LEFT;
+                    _visitor._joinType = JoinType.LEFT;
 
                     return base.VisitMethodCall(node);
                 }
@@ -440,7 +440,7 @@ namespace Inkslab.Linq.Expressions
                     {
                         _visitor.ParameterRefresh(parameter);
 
-                        _visitor.transverter = new Transverter(
+                        _visitor._transverter = new Transverter(
                             parameter.Type,
                             parameter.Name,
                             parameter,

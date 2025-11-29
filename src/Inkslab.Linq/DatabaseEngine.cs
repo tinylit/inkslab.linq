@@ -6,10 +6,6 @@
     public enum DatabaseEngine
     {
         /// <summary>
-        /// Access。
-        /// </summary>
-        Access = 0,
-        /// <summary>
         /// SQLite。
         /// </summary>
         SQLite = 1,
@@ -28,14 +24,14 @@
         /// <summary>
         /// Oracle。
         /// </summary>
-        Oracle = 6,
+        Oracle = 5,
         /// <summary>
         /// DB2。
         /// </summary>
-        DB2 = 7,
+        DB2 = 6,
         /// <summary>
         /// Sybase。
         /// </summary>
-        Sybase = 8
+        Sybase = 7
     }
 }

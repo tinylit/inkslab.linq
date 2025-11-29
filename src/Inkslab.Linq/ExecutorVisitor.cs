@@ -14,7 +14,7 @@ namespace Inkslab.Linq
     /// </summary>
     public class ExecutorVisitor : BaseVisitor, IExecutorVisitor
     {
-        private int? commandTimeout;
+        private int? _commandTimeout;
 
         /// <inheritdoc/>
         public ExecutorVisitor(DbStrictAdapter adapter)
@@ -25,8 +25,10 @@ namespace Inkslab.Linq
         {
             switch (node.Method.Name)
             {
-                case nameof(QueryableExtentions.Delete) when IsAffectsAll(node):
-                    using (var visitor = new DeleteAllVisitor(this))
+                case nameof(QueryableExtentions.Delete) when Engine == DatabaseEngine.SQLite: //? SQLite 不支持别名删除。
+                    goto default;
+                case nameof(QueryableExtentions.Delete) when Engine is DatabaseEngine.SqlServer or DatabaseEngine.Sybase:
+                    using (var visitor = new SQLServerDeleteVisitor(this))
                     {
                         visitor.Startup(node);
                     }
@@ -37,14 +39,26 @@ namespace Inkslab.Linq
                         visitor.Startup(node);
                     }
                     break;
-                case nameof(QueryableExtentions.Update) when IsAffectsAll(node):
-                    using (var visitor = new UpdateAllVisitor(this))
+                case nameof(QueryableExtentions.Update) when Engine is DatabaseEngine.MySQL or DatabaseEngine.Sybase:
+                    using (var visitor = new MySQLUpdateVisitor(this, node.Arguments[^1]))
                     {
                         visitor.Startup(node);
                     }
                     break;
-                case nameof(QueryableExtentions.Update):
-                    using (var visitor = new UpdateVisitor(this, node.Arguments[^1]))
+                case nameof(QueryableExtentions.Update) when Engine == DatabaseEngine.SqlServer:
+                    using (var visitor = new SQLServerUpdateVisitor(this, node.Arguments[^1]))
+                    {
+                        visitor.Startup(node);
+                    }
+                    break;
+                case nameof(QueryableExtentions.Update) when Engine == DatabaseEngine.PostgreSQL:
+                    using (var visitor = new PostgreSQLUpdateVisitor(this, node.Arguments[^1]))
+                    {
+                        visitor.Startup(node);
+                    }
+                    break;
+                case nameof(QueryableExtentions.Update) when Engine == DatabaseEngine.Oracle:
+                    using (var visitor = new OracleUpdateVisitor(this, node.Arguments[^1]))
                     {
                         visitor.Startup(node);
                     }
@@ -56,25 +70,8 @@ namespace Inkslab.Linq
                     }
                     break;
                 default:
-                    throw new NotSupportedException();
+                    throw new NotSupportedException($"当前数据库引擎{Engine}的方法“{node.Method.Name}”不被支持！");
             }
-        }
-
-        private static bool IsAffectsAll(Expression node)
-        {
-            return node.NodeType == ExpressionType.Constant
-                || node.NodeType == ExpressionType.Call && IsAffectsAll((MethodCallExpression)node);
-        }
-
-        private static bool IsAffectsAll(MethodCallExpression node)
-        {
-            return node.Method.Name switch
-            {
-                nameof(QueryableExtentions.Delete) when node.Arguments.Count == (node.Method.IsStatic ? 1 : 0) => IsAffectsAll(node.Method.IsStatic ? node.Arguments[0] : node.Object),
-                nameof(QueryableExtentions.Update) => IsAffectsAll(node.Method.IsStatic ? node.Arguments[0] : node.Object),
-                nameof(QueryableExtentions.Timeout) => IsAffectsAll(node.Method.IsStatic ? node.Arguments[0] : node.Object),
-                _ => false,
-            };
         }
 
         /// <inheritdoc/>
@@ -108,13 +105,13 @@ namespace Inkslab.Linq
 
                     int timeOut = node.Arguments[1].GetValueFromExpression<int>();
 
-                    if (commandTimeout.HasValue)
+                    if (_commandTimeout.HasValue)
                     {
-                        commandTimeout += timeOut;
+                        _commandTimeout += timeOut;
                     }
                     else
                     {
-                        commandTimeout = new int?(timeOut);
+                        _commandTimeout = new int?(timeOut);
                     }
 
                     visitor.Visit(node.Arguments[0]);
@@ -134,7 +131,7 @@ namespace Inkslab.Linq
         {
             string sql = Writer.ToString();
 
-            return new CommandSql(sql, Writer.Parameters, commandTimeout);
+            return new CommandSql(sql, Writer.Parameters, _commandTimeout);
         }
 
         #region 内嵌类。
@@ -181,6 +178,69 @@ namespace Inkslab.Linq
                 _visitor.Backflow(this, node);
         }
 
+        private class SQLServerDeleteVisitor : ScriptVisitor
+        {
+            private readonly ExecutorVisitor _visitor;
+
+            /// <inheritdoc/>
+            public SQLServerDeleteVisitor(ExecutorVisitor visitor)
+                : base(visitor, ConditionType.Where, false)
+            {
+                _visitor = visitor;
+            }
+
+            /// <inheritdoc/>
+            protected override void LinqCore(MethodCallExpression node)
+            {
+                switch (node.Method.Name)
+                {
+                    case nameof(QueryableExtentions.Delete):
+
+                        var instanceArg = node.Method.IsStatic ? node.Arguments[0] : node.Object;
+
+                        if (node.Arguments.Count > (node.Method.IsStatic ? 1 : 0))
+                        {
+                            Where(node);
+                        }
+                        else
+                        {
+                            Visit(instanceArg);
+                        }
+
+                        break;
+
+                    default:
+
+                        base.LinqCore(node);
+
+                        break;
+                }
+            }
+
+            protected override void DataSourceMode()
+            {
+                Writer.Keyword(SqlKeyword.DELETE);
+            }
+
+            protected override void Constant(IQueryable value)
+            {
+                DataSourceMode();
+
+                Nickname();
+
+                Writer.Keyword(SqlKeyword.FROM);
+
+                Name();
+
+                TableAs();
+            }
+
+            protected override void Backflow(
+                ExpressionVisitor visitor,
+                MethodCallExpression node
+            ) => _visitor.Backflow(visitor, node);
+        }
+
         private class DeleteVisitor : ScriptVisitor
         {
             private readonly ExecutorVisitor _visitor;
@@ -220,7 +280,6 @@ namespace Inkslab.Linq
                 }
             }
 
-
             protected override void DataSourceMode()
             {
                 Writer.Keyword(SqlKeyword.DELETE);
@@ -233,195 +292,13 @@ namespace Inkslab.Linq
             ) => _visitor.Backflow(visitor, node);
         }
 
-        private class UpdateAllVisitor : ScriptVisitor
-        {
-            private readonly ExecutorVisitor _visitor;
-
-            /// <inheritdoc/>
-            public UpdateAllVisitor(ExecutorVisitor visitor)
-                : base(visitor, ConditionType.Where, false)
-            {
-                _visitor = visitor;
-            }
-
-            /// <inheritdoc/>
-            protected override void LinqCore(MethodCallExpression node)
-            {
-                switch (node.Method.Name)
-                {
-                    case nameof(QueryableExtentions.Update):
-
-                        var instanceArg = node.Method.IsStatic ? node.Arguments[0] : node.Object;
-
-                        var bodyArg = node.Arguments[^1];
-
-                        var updateFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-                        Writer.Keyword(SqlKeyword.UPDATE);
-
-                        Visit(instanceArg);
-
-                        Writer.Keyword(SqlKeyword.SET);
-
-                        var tableInfo = Table();
-
-                        using (var visitor = new SetVisitor(this, tableInfo, updateFields))
-                        {
-                            visitor.Visit(bodyArg);
-                        }
-
-                        if (updateFields.Count == 0)
-                        {
-                            throw new DSyntaxErrorException("请指定更新字段！");
-                        }
-
-                        if (tableInfo.Versions.Count > 0)
-                        {
-                            foreach (var (name, version) in tableInfo.Versions)
-                            {
-                                if (version == VersionKind.None || updateFields.Contains(name))
-                                {
-                                    continue;
-                                }
-
-                                if (!tableInfo.Fields.TryGetValue(name, out var field))
-                                {
-                                    continue;
-                                }
-
-                                Writer.Delimiter();
-
-                                Writer.Name(name);
-
-                                Writer.Write(" = ");
-
-                                switch (version)
-                                {
-                                    case VersionKind.Increment:
-
-                                        ParameterSchema();
-                                        Writer.Name(name);
-                                        Writer.Operator(SqlOperator.Add);
-                                        Writer.Constant(1);
-                                        break;
-                                    case VersionKind.Ticks:
-                                        Writer.Constant(DateTime.Now.Ticks);
-                                        break;
-                                    case VersionKind.Now:
-                                        switch (Engine)
-                                        {
-                                            case DatabaseEngine.MySQL:
-                                            case DatabaseEngine.Access:
-                                            case DatabaseEngine.PostgreSQL:
-                                                Writer.Write("NOW()");
-                                                break;
-                                            case DatabaseEngine.SqlServer:
-                                            case DatabaseEngine.Sybase:
-                                                Writer.Write("GETDATE()");
-                                                break;
-                                            default:
-                                                Writer.Constant(DateTime.Now);
-                                                break;
-                                        }
-                                        break;
-                                    case VersionKind.Timestamp:
-                                        Writer.Constant(DateTime.UtcNow - DateTime.UnixEpoch);
-                                        break;
-                                    default:
-                                        throw new NotSupportedException(
-                                            $"不支持“{tableInfo.Name}”表字段“{field}”版本“{version}”处理！"
-                                        );
-                                }
-                            }
-                        }
-
-                        break;
-
-                    default:
-
-                        base.LinqCore(node);
-
-                        break;
-                }
-            }
-
-            protected override void Backflow(
-                ExpressionVisitor visitor,
-                MethodCallExpression node
-            ) => _visitor.Backflow(visitor, node);
-
-            protected override void TableAs()
-            {
-                //? 忽略表别名。
-            }
-
-            protected override void DataSourceMode()
-            {
-                //? 不需要写入。
-            }
-
-            #region 内嵌类。
-            private class SetVisitor : BaseVisitor
-            {
-                private readonly UpdateAllVisitor _visitor;
-                private readonly ITableInfo _tableInfo;
-                private readonly HashSet<string> _updateFields;
-
-                public SetVisitor(
-                    UpdateAllVisitor visitor,
-                    ITableInfo tableInfo,
-                    HashSet<string> updateFields
-                )
-                    : base(visitor)
-                {
-                    _visitor = visitor;
-                    _tableInfo = tableInfo;
-                    _updateFields = updateFields;
-                }
-
-                protected override void Member(MemberInfo memberInfo, Expression node)
-                {
-                    if (!_updateFields.Add(memberInfo.Name))
-                    {
-                        throw new DSyntaxErrorException($"字段“{memberInfo.Name}”重复指定!");
-                    }
-
-                    if (_tableInfo.ReadOnlys.Contains(memberInfo.Name))
-                    {
-                        throw new DSyntaxErrorException($"“{memberInfo.Name}”是只读字段!");
-                    }
-
-                    if (_tableInfo.Fields.TryGetValue(memberInfo.Name, out string field))
-                    {
-                        Writer.Write(field);
-
-                        Writer.Write(" = ");
-
-                        base.Member(memberInfo, node);
-                    }
-                    else
-                    {
-                        throw new DSyntaxErrorException($"“{memberInfo.Name}”不是有效的数据库字段!");
-                    }
-                }
-
-                protected override void Lambda<T>(Expression<T> node)
-                {
-                    _visitor.PreparingParameter(node);
-
-                    base.Lambda(node);
-                }
-            }
-            #endregion
-        }
-
-        private class UpdateVisitor : ScriptVisitor
+        private class MySQLUpdateVisitor : ScriptVisitor
         {
             private readonly ExecutorVisitor _visitor;
             private readonly Expression _bodySetter;
 
             /// <inheritdoc/>
-            public UpdateVisitor(ExecutorVisitor visitor, Expression bodySetter)
+            public MySQLUpdateVisitor(ExecutorVisitor visitor, Expression bodySetter)
                 : base(visitor, ConditionType.Where, false)
             {
                 _visitor = visitor;
@@ -520,7 +397,6 @@ namespace Inkslab.Linq
                                 switch (Engine)
                                 {
                                     case DatabaseEngine.MySQL:
-                                    case DatabaseEngine.Access:
                                     case DatabaseEngine.PostgreSQL:
                                         Writer.Write("NOW()");
                                         break;
@@ -555,12 +431,12 @@ namespace Inkslab.Linq
             #region 内嵌类。
             private class SetVisitor : BaseVisitor
             {
-                private readonly UpdateVisitor _visitor;
+                private readonly MySQLUpdateVisitor _visitor;
                 private readonly ITableInfo _tableInfo;
                 private readonly HashSet<string> _updateFields;
 
                 public SetVisitor(
-                    UpdateVisitor visitor,
+                    MySQLUpdateVisitor visitor,
                     ITableInfo tableInfo,
                     HashSet<string> updateFields
                 )
@@ -609,8 +485,588 @@ namespace Inkslab.Linq
             #endregion
         }
 
+        private class SQLServerUpdateVisitor : ScriptVisitor
+        {
+            private readonly ExecutorVisitor _visitor;
+            private readonly Expression _bodySetter;
+
+            /// <inheritdoc/>
+            public SQLServerUpdateVisitor(ExecutorVisitor visitor, Expression bodySetter)
+                : base(visitor, ConditionType.Where, false)
+            {
+                _visitor = visitor;
+                _bodySetter = bodySetter;
+            }
+
+            /// <inheritdoc/>
+            protected override void LinqCore(MethodCallExpression node)
+            {
+                switch (node.Method.Name)
+                {
+                    case nameof(QueryableExtentions.Update):
+
+                        Visit(node.Method.IsStatic ? node.Arguments[0] : node.Object);
+
+                        break;
+
+                    default:
+
+                        base.LinqCore(node);
+
+                        break;
+                }
+            }
+
+            protected override void Constant(IQueryable value)
+            {
+                var tableInfo = Table();
+
+                Writer.Keyword(SqlKeyword.UPDATE);
+
+                Nickname();
+
+                Writer.Keyword(SqlKeyword.SET);
+
+                var updateFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                using (var visitor = new SetVisitor(this, tableInfo, updateFields))
+                {
+                    visitor.Visit(_bodySetter);
+                }
+
+                if (updateFields.Count == 0)
+                {
+                    throw new DSyntaxErrorException("请指定更新字段！");
+                }
+
+                if (tableInfo.Versions.Count > 0)
+                {
+                    foreach (var (name, version) in tableInfo.Versions)
+                    {
+                        if (version == VersionKind.None || updateFields.Contains(name))
+                        {
+                            continue;
+                        }
+
+                        if (tableInfo.ReadOnlys.Contains(name))
+                        {
+                            continue;
+                        }
+
+                        if (!tableInfo.Fields.TryGetValue(name, out var field))
+                        {
+                            continue;
+                        }
+
+                        Writer.Delimiter();
+
+                        ParameterSchema();
+
+                        Writer.Name(name);
+
+                        Writer.Write(" = ");
+
+                        switch (version)
+                        {
+                            case VersionKind.Increment:
+
+                                ParameterSchema();
+
+                                Writer.Name(name);
+
+                                Writer.Operator(SqlOperator.Add);
+
+                                Writer.Constant(1);
+
+                                break;
+                            case VersionKind.Ticks:
+                                Writer.Constant(DateTime.Now.Ticks);
+
+                                break;
+                            case VersionKind.Now:
+                                switch (Engine)
+                                {
+                                    case DatabaseEngine.MySQL:
+                                    case DatabaseEngine.PostgreSQL:
+                                        Writer.Write("NOW()");
+                                        break;
+                                    case DatabaseEngine.SqlServer:
+                                    case DatabaseEngine.Sybase:
+                                        Writer.Write("GETDATE()");
+                                        break;
+                                    default:
+                                        Writer.Constant(DateTime.Now);
+                                        break;
+                                }
+
+                                break;
+                            case VersionKind.Timestamp:
+                                Writer.Constant(DateTime.UtcNow - DateTime.UnixEpoch);
+
+                                break;
+                            default:
+                                throw new NotSupportedException(
+                                    $"不支持“{tableInfo.Name}”表字段“{field}”版本“{version}”处理！"
+                                );
+                        }
+                    }
+                }
+
+                base.Constant(value);
+            }
+
+            protected override void Backflow(
+                ExpressionVisitor visitor,
+                MethodCallExpression node
+            ) => _visitor.Backflow(visitor, node);
+
+            #region 内嵌类。
+            private class SetVisitor : BaseVisitor
+            {
+                private readonly SQLServerUpdateVisitor _visitor;
+                private readonly ITableInfo _tableInfo;
+                private readonly HashSet<string> _updateFields;
+
+                public SetVisitor(
+                    SQLServerUpdateVisitor visitor,
+                    ITableInfo tableInfo,
+                    HashSet<string> updateFields
+                )
+                    : base(visitor)
+                {
+                    _visitor = visitor;
+                    _tableInfo = tableInfo;
+                    _updateFields = updateFields;
+                }
+
+                protected override void Member(MemberInfo memberInfo, Expression node)
+                {
+                    if (!_updateFields.Add(memberInfo.Name))
+                    {
+                        throw new DSyntaxErrorException($"字段“{memberInfo.Name}”重复指定!");
+                    }
+
+                    if (_tableInfo.ReadOnlys.Contains(memberInfo.Name))
+                    {
+                        throw new DSyntaxErrorException($"“{memberInfo.Name}”是只读字段!");
+                    }
+
+                    if (_tableInfo.Fields.TryGetValue(memberInfo.Name, out string field))
+                    {
+                        Writer.Write(field);
+
+                        Writer.Write(" = ");
+
+                        base.Member(memberInfo, node);
+                    }
+                    else
+                    {
+                        throw new DSyntaxErrorException($"“{memberInfo.Name}”不是有效的数据库字段!");
+                    }
+                }
+
+                protected override void Lambda<T>(Expression<T> node)
+                {
+                    _visitor.PreparingParameter(node);
+
+                    base.Lambda(node);
+                }
+            }
+            #endregion
+        }
+
+        private class PostgreSQLUpdateVisitor : ScriptVisitor
+        {
+            private readonly ExecutorVisitor _visitor;
+            private readonly Expression _bodySetter;
+
+            /// <inheritdoc/>
+            public PostgreSQLUpdateVisitor(ExecutorVisitor visitor, Expression bodySetter)
+                : base(visitor, ConditionType.Where, false)
+            {
+                _visitor = visitor;
+                _bodySetter = bodySetter;
+            }
+
+            /// <inheritdoc/>
+            protected override void LinqCore(MethodCallExpression node)
+            {
+                switch (node.Method.Name)
+                {
+                    case nameof(QueryableExtentions.Update):
+
+                        Visit(node.Method.IsStatic ? node.Arguments[0] : node.Object);
+
+                        break;
+
+                    default:
+
+                        base.LinqCore(node);
+
+                        break;
+                }
+            }
+
+            protected override void DataSourceMode()
+            {
+                Writer.Keyword(SqlKeyword.UPDATE);
+            }
+
+            protected override void Constant(IQueryable value)
+            {
+                var tableInfo = Table();
+
+                base.Constant(value);
+
+                Writer.Keyword(SqlKeyword.SET);
+
+                var updateFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                using (var visitor = new SetVisitor(this, tableInfo, updateFields))
+                {
+                    visitor.Visit(_bodySetter);
+                }
+
+                if (updateFields.Count == 0)
+                {
+                    throw new DSyntaxErrorException("请指定更新字段！");
+                }
+
+                if (tableInfo.Versions.Count > 0)
+                {
+                    foreach (var (name, version) in tableInfo.Versions)
+                    {
+                        if (version == VersionKind.None || updateFields.Contains(name))
+                        {
+                            continue;
+                        }
+
+                        if (tableInfo.ReadOnlys.Contains(name))
+                        {
+                            continue;
+                        }
+
+                        if (!tableInfo.Fields.TryGetValue(name, out var field))
+                        {
+                            continue;
+                        }
+
+                        Writer.Delimiter();
+
+                        Writer.Name(name);
+
+                        Writer.Write(" = ");
+
+                        switch (version)
+                        {
+                            case VersionKind.Increment:
+
+                                Writer.Name(name);
+
+                                Writer.Operator(SqlOperator.Add);
+
+                                Writer.Constant(1);
+
+                                break;
+                            case VersionKind.Ticks:
+                                Writer.Constant(DateTime.Now.Ticks);
+
+                                break;
+                            case VersionKind.Now:
+                                switch (Engine)
+                                {
+                                    case DatabaseEngine.MySQL:
+                                    case DatabaseEngine.PostgreSQL:
+                                        Writer.Write("NOW()");
+                                        break;
+                                    case DatabaseEngine.SqlServer:
+                                    case DatabaseEngine.Sybase:
+                                        Writer.Write("GETDATE()");
+                                        break;
+                                    default:
+                                        Writer.Constant(DateTime.Now);
+                                        break;
+                                }
+
+                                break;
+                            case VersionKind.Timestamp:
+                                Writer.Constant(DateTime.UtcNow - DateTime.UnixEpoch);
+
+                                break;
+                            default:
+                                throw new NotSupportedException(
+                                    $"不支持“{tableInfo.Name}”表字段“{field}”版本“{version}”处理！"
+                                );
+                        }
+                    }
+                }
+            }
+
+            protected override void Backflow(
+                ExpressionVisitor visitor,
+                MethodCallExpression node
+            ) => _visitor.Backflow(visitor, node);
+
+            #region 内嵌类。
+            private class SetVisitor : BaseVisitor
+            {
+                private readonly PostgreSQLUpdateVisitor _visitor;
+                private readonly ITableInfo _tableInfo;
+                private readonly HashSet<string> _updateFields;
+
+                public SetVisitor(
+                    PostgreSQLUpdateVisitor visitor,
+                    ITableInfo tableInfo,
+                    HashSet<string> updateFields
+                )
+                    : base(visitor)
+                {
+                    _visitor = visitor;
+                    _tableInfo = tableInfo;
+                    _updateFields = updateFields;
+                }
+
+                protected override void Member(MemberInfo memberInfo, Expression node)
+                {
+                    if (!_updateFields.Add(memberInfo.Name))
+                    {
+                        throw new DSyntaxErrorException($"字段“{memberInfo.Name}”重复指定!");
+                    }
+
+                    if (_tableInfo.ReadOnlys.Contains(memberInfo.Name))
+                    {
+                        throw new DSyntaxErrorException($"“{memberInfo.Name}”是只读字段!");
+                    }
+
+                    if (_tableInfo.Fields.TryGetValue(memberInfo.Name, out string field))
+                    {
+                        Writer.Write(field);
+
+                        Writer.Write(" = ");
+
+                        base.Member(memberInfo, node);
+                    }
+                    else
+                    {
+                        throw new DSyntaxErrorException($"“{memberInfo.Name}”不是有效的数据库字段!");
+                    }
+                }
+
+                protected override void Lambda<T>(Expression<T> node)
+                {
+                    _visitor.PreparingParameter(node);
+
+                    base.Lambda(node);
+                }
+            }
+            #endregion
+        }
+
+        private class OracleUpdateVisitor : ScriptVisitor
+        {
+            private readonly ExecutorVisitor _visitor;
+            private readonly Expression _bodySetter;
+
+            /// <inheritdoc/>
+            public OracleUpdateVisitor(ExecutorVisitor visitor, Expression bodySetter)
+                : base(visitor, ConditionType.Where, false)
+            {
+                _visitor = visitor;
+                _bodySetter = bodySetter;
+            }
+
+            /// <inheritdoc/>
+            protected override void LinqCore(MethodCallExpression node)
+            {
+                switch (node.Method.Name)
+                {
+                    case nameof(QueryableExtentions.Update):
+
+                        Writer.Keyword(SqlKeyword.UPDATE);
+
+                        Writer.OpenBrace();
+
+                        Visit(node.Method.IsStatic ? node.Arguments[0] : node.Object);
+
+                        Writer.CloseBrace();
+
+                        var tableInfo = Table();
+
+                        Writer.Keyword(SqlKeyword.SET);
+
+                        var updateFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                        using (var visitor = new SetVisitor(this, tableInfo, updateFields))
+                        {
+                            visitor.Visit(_bodySetter);
+                        }
+
+                        if (updateFields.Count == 0)
+                        {
+                            throw new DSyntaxErrorException("请指定更新字段！");
+                        }
+
+                        if (tableInfo.Versions.Count > 0)
+                        {
+                            foreach (var (name, version) in tableInfo.Versions)
+                            {
+                                if (version == VersionKind.None || updateFields.Contains(name))
+                                {
+                                    continue;
+                                }
+
+                                if (tableInfo.ReadOnlys.Contains(name))
+                                {
+                                    continue;
+                                }
+
+                                if (!tableInfo.Fields.TryGetValue(name, out var field))
+                                {
+                                    continue;
+                                }
+
+                                Writer.Delimiter();
+
+                                Writer.Name(name);
+
+                                Writer.Write(" = ");
+
+                                switch (version)
+                                {
+                                    case VersionKind.Increment:
+
+                                        Writer.Name(name);
+
+                                        Writer.Operator(SqlOperator.Add);
+
+                                        Writer.Constant(1);
+
+                                        break;
+                                    case VersionKind.Ticks:
+                                        Writer.Constant(DateTime.Now.Ticks);
+
+                                        break;
+                                    case VersionKind.Now:
+                                        switch (Engine)
+                                        {
+                                            case DatabaseEngine.MySQL:
+                                            case DatabaseEngine.PostgreSQL:
+                                                Writer.Write("NOW()");
+                                                break;
+                                            case DatabaseEngine.SqlServer:
+                                            case DatabaseEngine.Sybase:
+                                                Writer.Write("GETDATE()");
+                                                break;
+                                            default:
+                                                Writer.Constant(DateTime.Now);
+                                                break;
+                                        }
+
+                                        break;
+                                    case VersionKind.Timestamp:
+                                        Writer.Constant(DateTime.UtcNow - DateTime.UnixEpoch);
+
+                                        break;
+                                    default:
+                                        throw new NotSupportedException(
+                                            $"不支持“{tableInfo.Name}”表字段“{field}”版本“{version}”处理！"
+                                        );
+                                }
+                            }
+                        }
+
+                        break;
+
+                    default:
+
+                        base.LinqCore(node);
+
+                        break;
+                }
+            }
+
+            protected override void DataSourceMode()
+            {
+                Writer.Keyword(SqlKeyword.UPDATE);
+            }
+
+            protected override void Constant(IQueryable value)
+            {
+                Writer.Keyword(SqlKeyword.SELECT);
+
+                Select(value.Expression);
+
+                DataSourceMode();
+
+                Name();
+
+                TableAs();
+            }
+
+            protected override void Backflow(
+                ExpressionVisitor visitor,
+                MethodCallExpression node
+            ) => _visitor.Backflow(visitor, node);
+
+            #region 内嵌类。
+            private class SetVisitor : BaseVisitor
+            {
+                private readonly OracleUpdateVisitor _visitor;
+                private readonly ITableInfo _tableInfo;
+                private readonly HashSet<string> _updateFields;
+
+                public SetVisitor(
+                    OracleUpdateVisitor visitor,
+                    ITableInfo tableInfo,
+                    HashSet<string> updateFields
+                )
+                    : base(visitor)
+                {
+                    _visitor = visitor;
+                    _tableInfo = tableInfo;
+                    _updateFields = updateFields;
+                }
+
+                protected override void Member(MemberInfo memberInfo, Expression node)
+                {
+                    if (!_updateFields.Add(memberInfo.Name))
+                    {
+                        throw new DSyntaxErrorException($"字段“{memberInfo.Name}”重复指定!");
+                    }
+
+                    if (_tableInfo.ReadOnlys.Contains(memberInfo.Name))
+                    {
+                        throw new DSyntaxErrorException($"“{memberInfo.Name}”是只读字段!");
+                    }
+
+                    if (_tableInfo.Fields.TryGetValue(memberInfo.Name, out string field))
+                    {
+                        Writer.Write(field);
+
+                        Writer.Write(" = ");
+
+                        base.Member(memberInfo, node);
+                    }
+                    else
+                    {
+                        throw new DSyntaxErrorException($"“{memberInfo.Name}”不是有效的数据库字段!");
+                    }
+                }
+
+                protected override void Lambda<T>(Expression<T> node)
+                {
+                    _visitor.PreparingParameter(node);
+
+                    base.Lambda(node);
+                }
+            }
+            #endregion
+        }
+
         private class InsertVisitor : ScriptVisitor
         {
+            private bool _ignoreConflict;
+
             private readonly ExecutorVisitor _visitor;
 
             /// <inheritdoc/>
@@ -686,10 +1142,27 @@ namespace Inkslab.Linq
                             Writer.WhiteSpace();
                         }
 
+                        if (_ignoreConflict)
+                        {
+                            Writer.Write(" ON CONFLICT DO NOTHING");
+                        }
+
                         break;
                     case nameof(QueryableExtentions.Ignore):
 
-                        Writer.Keyword(SqlKeyword.IGNORE);
+                        if (Engine == DatabaseEngine.SQLite)
+                        {
+                            Writer.Keyword(SqlKeyword.OR);
+                        }
+
+                        if (Engine == DatabaseEngine.PostgreSQL)
+                        {
+                            _ignoreConflict = true;
+                        }
+                        else
+                        {
+                            Writer.Keyword(SqlKeyword.IGNORE);
+                        }
 
                         base.Visit(node.Arguments[0]);
 

@@ -16,12 +16,12 @@ namespace Inkslab.Linq.Expressions
         /// <summary>
         /// 去重。
         /// </summary>
-        private bool isDistinct = false;
+        private bool _isDistinct = false;
 
         /// <summary>
         /// 分组。
         /// </summary>
-        private bool isGrouping = false;
+        private bool _isGrouping = false;
 
         private readonly SelectVisitor _visitor;
 
@@ -55,7 +55,7 @@ namespace Inkslab.Linq.Expressions
 
                         domain.Flyback();
 
-                        if (isDistinct)
+                        if (_isDistinct)
                         {
                             Writer.Keyword(SqlKeyword.DISTINCT);
                         }
@@ -92,7 +92,7 @@ namespace Inkslab.Linq.Expressions
             {
                 case nameof(Queryable.Select):
 
-                    if (isDistinct)
+                    if (_isDistinct)
                     {
                         Writer.Keyword(SqlKeyword.DISTINCT);
                     }
@@ -111,7 +111,7 @@ namespace Inkslab.Linq.Expressions
                     break;
                 case nameof(Queryable.Distinct):
 
-                    isDistinct = true;
+                    _isDistinct = true;
 
                     Visit(node.Arguments[0]);
 
@@ -125,7 +125,7 @@ namespace Inkslab.Linq.Expressions
                     throw new DSyntaxErrorException($"在聚合查询中，聚合函数“{name}”不被识别!");
                 default:
 
-                    if (isGrouping || (isGrouping = node.IsGrouping(true)))
+                    if (_isGrouping || (_isGrouping = node.IsGrouping(true)))
                     {
                         base.LinqCore(node);
                     }

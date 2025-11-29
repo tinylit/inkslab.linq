@@ -17,8 +17,8 @@ namespace Inkslab.Linq.Expressions
         /// <summary>
         /// 忽略可空类型。
         /// </summary>
-        private bool ignoreNull = false;
-        private bool isConditionBalance = true;
+        private bool _ignoreNull = false;
+        private bool _isConditionBalance = true;
 
         private readonly bool _isGroupHaving;
 
@@ -40,14 +40,14 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override void Constant(object value)
         {
-            if (ignoreNull && value is null)
+            if (_ignoreNull && value is null)
             {
             }
             else
             {
                 base.Constant(value);
 
-                if (isConditionBalance)
+                if (_isConditionBalance)
                 {
                     Writer.Operator(SqlOperator.IsTrue);
                 }
@@ -58,14 +58,14 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override void Variable(string name, object value)
         {
-            if (ignoreNull && value is null)
+            if (_ignoreNull && value is null)
             {
             }
             else
             {
                 base.Variable(name, value);
 
-                if (isConditionBalance)
+                if (_isConditionBalance)
                 {
                     Writer.Operator(SqlOperator.IsTrue);
                 }
@@ -77,7 +77,7 @@ namespace Inkslab.Linq.Expressions
         {
             base.Member(node);
 
-            if (isConditionBalance)
+            if (_isConditionBalance)
             {
                 Writer.Operator(SqlOperator.IsTrue);
             }
@@ -88,7 +88,7 @@ namespace Inkslab.Linq.Expressions
         {
             base.Member(memberInfo, node);
 
-            if (isConditionBalance)
+            if (_isConditionBalance)
             {
                 Writer.Operator(SqlOperator.IsTrue);
             }
@@ -99,7 +99,7 @@ namespace Inkslab.Linq.Expressions
         {
             base.Member(schema, field, name);
 
-            if (isConditionBalance)
+            if (_isConditionBalance)
             {
                 Writer.Operator(SqlOperator.IsTrue);
             }
@@ -108,13 +108,13 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override void MemberHasValue(Expression node)
         {
-            if (isConditionBalance)
+            if (_isConditionBalance)
             {
-                isConditionBalance = false;
+                _isConditionBalance = false;
 
                 base.MemberHasValue(node);
 
-                isConditionBalance = true;
+                _isConditionBalance = true;
             }
             else
             {
@@ -125,8 +125,8 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override void MethodCall(MethodCallExpression node)
         {
-            ignoreNull &= false;
-            isConditionBalance &= false;
+            _ignoreNull &= false;
+            _isConditionBalance &= false;
 
             var declaringType = node.Method.DeclaringType;
 
@@ -336,16 +336,16 @@ namespace Inkslab.Linq.Expressions
                 case ExpressionType.GreaterThanOrEqual when IsConvertToNull(left) ^ IsConvertToNull(right):
 
                     //? 重置对称条件。
-                    isConditionBalance &= false;
+                    _isConditionBalance &= false;
 
                     //? 忽略数据库非可空类型的字段与 NULL 的比较表达式。
                     using (var domain = Writer.Domain())
                     {
-                        ignoreNull = true;
+                        _ignoreNull = true;
 
                         Visit(right);
 
-                        ignoreNull = false;
+                        _ignoreNull = false;
 
                         if (domain.IsEmpty)
                         {
@@ -356,11 +356,11 @@ namespace Inkslab.Linq.Expressions
 
                         int length = Writer.Length;
 
-                        ignoreNull = true;
+                        _ignoreNull = true;
 
                         Visit(left);
 
-                        ignoreNull = false;
+                        _ignoreNull = false;
 
                         if (Writer.Length == length)
                         {
@@ -376,25 +376,25 @@ namespace Inkslab.Linq.Expressions
                 case ExpressionType.NotEqual:
 
                     //? 重置对称条件。
-                    isConditionBalance &= false;
+                    _isConditionBalance &= false;
 
                     bool writeNull = false;
 
                     using (var domain = Writer.Domain())
                     {
-                        ignoreNull = true;
+                        _ignoreNull = true;
 
                         Visit(right);
 
-                        ignoreNull = false;
+                        _ignoreNull = false;
 
                         if (domain.IsEmpty)
                         {
-                            ignoreNull = true;
+                            _ignoreNull = true;
 
                             Visit(left);
 
-                            ignoreNull = false;
+                            _ignoreNull = false;
 
                             if (domain.IsEmpty)
                             {
@@ -409,11 +409,11 @@ namespace Inkslab.Linq.Expressions
 
                             int length = Writer.Length;
 
-                            ignoreNull = true;
+                            _ignoreNull = true;
 
                             Visit(left);
 
-                            ignoreNull = false;
+                            _ignoreNull = false;
 
                             if (Writer.Length > length)
                             {
@@ -445,7 +445,7 @@ namespace Inkslab.Linq.Expressions
                 case ExpressionType.GreaterThanOrEqual:
 
                     //? 重置对称条件。
-                    isConditionBalance &= false;
+                    _isConditionBalance &= false;
 
                     Visit(left);
 
@@ -460,9 +460,9 @@ namespace Inkslab.Linq.Expressions
 
 
                     //? 外存。
-                    var conditionBalanceFlag = isConditionBalance;
+                    var conditionBalanceFlag = _isConditionBalance;
 
-                    isConditionBalance &= false;
+                    _isConditionBalance &= false;
 
                     using (var domain = Writer.Domain())
                     {
@@ -513,7 +513,7 @@ namespace Inkslab.Linq.Expressions
                 case ExpressionType.LeftShift:
                 case ExpressionType.RightShift:
 
-                    isConditionBalance &= false;
+                    _isConditionBalance &= false;
 
                     bool isStringConcat =
                         expressionType == ExpressionType.Add
@@ -575,7 +575,7 @@ namespace Inkslab.Linq.Expressions
                 case ExpressionType.Power:
 
                     //? 重置对称条件。
-                    isConditionBalance &= false;
+                    _isConditionBalance &= false;
 
                     using (var domain = Writer.Domain())
                     {
@@ -617,11 +617,11 @@ namespace Inkslab.Linq.Expressions
 
                     using (var domain = Writer.Domain())
                     {
-                        isConditionBalance = RequiresConditionalEscape();
+                        _isConditionBalance = RequiresConditionalEscape();
 
                         Condition(left);
 
-                        isConditionBalance = false;
+                        _isConditionBalance = false;
 
                         if (domain.IsEmpty)
                         {
@@ -637,11 +637,11 @@ namespace Inkslab.Linq.Expressions
                             using (var domainSub = Writer.Domain())
                             {
 
-                                isConditionBalance = RequiresConditionalEscape();
+                                _isConditionBalance = RequiresConditionalEscape();
 
                                 Condition(right);
 
-                                isConditionBalance = false;
+                                _isConditionBalance = false;
 
                                 if (domainSub.IsEmpty)
                                 {
@@ -689,11 +689,11 @@ namespace Inkslab.Linq.Expressions
 
                     using (var domain = Writer.Domain())
                     {
-                        ignoreNull = true;
+                        _ignoreNull = true;
 
                         Visit(left);
 
-                        ignoreNull = false;
+                        _ignoreNull = false;
 
                         if (domain.IsEmpty)
                         {
@@ -735,16 +735,15 @@ namespace Inkslab.Linq.Expressions
                     }
 
                     break;
-                case DatabaseEngine.Access:
                 default:
 
                     using (var domain = Writer.Domain())
                     {
-                        ignoreNull = true;
+                        _ignoreNull = true;
 
                         Visit(left);
 
-                        ignoreNull = false;
+                        _ignoreNull = false;
 
                         if (domain.IsEmpty)
                         {

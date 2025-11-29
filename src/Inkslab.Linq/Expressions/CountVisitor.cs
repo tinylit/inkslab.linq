@@ -15,12 +15,12 @@ namespace Inkslab.Linq.Expressions
         /// <summary>
         /// 生成 SELECT。
         /// </summary>
-        private bool buildSelect = true;
+        private bool _buildSelect = true;
 
         /// <summary>
         /// 去重。
         /// </summary>
-        private bool isDistinct = false;
+        private bool _isDistinct = false;
 
 
         private readonly SelectVisitor _visitor;
@@ -46,7 +46,7 @@ namespace Inkslab.Linq.Expressions
 
                 domain.Flyback();
 
-                if (buildSelect)
+                if (_buildSelect)
                 {
                     Writer.Write('*');
 
@@ -64,9 +64,9 @@ namespace Inkslab.Linq.Expressions
             {
                 case nameof(Queryable.Select):
 
-                    buildSelect = false;
+                    _buildSelect = false;
 
-                    if (isDistinct)
+                    if (_isDistinct)
                     {
                         Writer.Keyword(SqlKeyword.DISTINCT);
                     }
@@ -85,7 +85,7 @@ namespace Inkslab.Linq.Expressions
                     break;
                 case nameof(Queryable.Distinct):
 
-                    isDistinct = true;
+                    _isDistinct = true;
 
                     Visit(node.Arguments[0]);
 
@@ -101,7 +101,7 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override void Select(Expression node)
         {
-            if (isDistinct)
+            if (_isDistinct)
             {
                 using (var visitor = new SelectListVisitor(this))
                 {

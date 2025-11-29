@@ -110,6 +110,16 @@ namespace System
         /// <returns></returns>
         public static bool IsEnumerable(this Type type) => type.IsInterface && type.IsGenericType && type.GetGenericTypeDefinition() == _enumerable_T_Type;
 
+        private static readonly Type[] _simpleTypes = new Type[]
+        {
+            Types.String,
+            Types.JsonArray,
+            Types.JsonObject,
+            Types.JsonDocument,
+            Types.JsonPayload,
+            Types.JsonbPayload
+        };
+
         /// <summary>
         /// 细胞类型（最小类型单元）。
         /// </summary>
@@ -122,12 +132,22 @@ namespace System
                 return false;
             }
 
-            if (type == Types.Version)
+            if (type.IsEnum)
             {
                 return true;
             }
 
-            return (Nullable.GetUnderlyingType(type) ?? type).IsSimple();
+            if (type.IsValueType)
+            {
+                return (Nullable.GetUnderlyingType(type) ?? type).IsSimple();
+            }
+
+            if (_simpleTypes.Contains(type))
+            {
+                return true;
+            }
+
+            return type.FullName is "Newtonsoft.Json.Linq.JObject" or "Newtonsoft.Json.Linq.JArray";
         }
     }
 }

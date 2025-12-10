@@ -75,6 +75,10 @@ namespace Inkslab.Linq.Expressions
             {
                 ByString(node);
             }
+            else if (declaringType == Types.JsonbPayload || declaringType == Types.JsonPayload)
+            {
+                Visit(node.Object);
+            }
             else if (declaringType == Types.DateTime)
             {
                 ByDateTime(node);
@@ -719,7 +723,7 @@ namespace Inkslab.Linq.Expressions
                     Writer.CloseBrace();
                     break;
                 case DatabaseEngine.PostgreSQL:
-                
+
                     Visit(node.Object);
 
                     Writer.Operator(SqlOperator.Add);

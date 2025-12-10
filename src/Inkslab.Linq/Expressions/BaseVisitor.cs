@@ -423,6 +423,86 @@ namespace Inkslab.Linq.Expressions
 
             switch (node.Method.Name)
             {
+                case nameof(ToString) when node.Arguments.Count == 0:
+
+                    if (node.Object.Type == Types.JsonbPayload || node.Object.Type == Types.JsonPayload)
+                    {
+                        Visit(node.Object); //? 支持直接调用 ToString 方法。
+
+                        break;
+                    }
+
+                    switch (Engine)
+                    {
+                        case DatabaseEngine.SQLite:
+                        case DatabaseEngine.PostgreSQL:
+                            Writer.Write("CAST");
+                            Writer.OpenBrace();
+
+                            Visit(node.Object);
+
+                            Writer.Write("AS TEXT");
+                            Writer.CloseBrace();
+
+                            break;
+                        case DatabaseEngine.MySQL:
+                            Writer.Write("CAST");
+                            Writer.OpenBrace();
+
+                            Visit(node.Object);
+
+                            Writer.Write("AS CHAR");
+                            Writer.CloseBrace();
+
+                            break;
+                        case DatabaseEngine.SqlServer:
+                            Writer.Write("CAST");
+                            Writer.OpenBrace();
+
+                            Visit(node.Object);
+
+                            Writer.Write("AS NVARCHAR(MAX)");
+                            Writer.CloseBrace();
+
+                            break;
+                        case DatabaseEngine.Oracle:
+                            Writer.Write("TO_CHAR");
+                            Writer.OpenBrace();
+
+                            Visit(node.Object);
+
+                            Writer.CloseBrace();
+
+                            break;
+                        case DatabaseEngine.DB2:
+                            Writer.Write("CAST");
+                            Writer.OpenBrace();
+
+                            Visit(node.Object);
+
+                            Writer.Write("AS VARCHAR(32672)");
+                            Writer.CloseBrace();
+
+                            break;
+                        case DatabaseEngine.Sybase:
+                            Writer.Write("CONVERT");
+                            Writer.OpenBrace();
+
+                            Writer.Write("VARCHAR");
+                            Writer.Delimiter();
+
+                            Visit(node.Object);
+
+                            Writer.CloseBrace();
+
+                            break;
+                        default:
+                            throw new NotSupportedException(
+                                $"不支持数据库引擎“{Engine}”的 ToString() 方法转换！"
+                            );
+                    }
+
+                    break;
                 case nameof(Queryable.Join):
 
                     MethodCall(node);
@@ -1064,7 +1144,7 @@ namespace Inkslab.Linq.Expressions
             else if (node.Type == Types.JsonPayload)
             {
                 Visit(node.Arguments[0]);
-                
+
                 if (Engine == DatabaseEngine.PostgreSQL)
                 {
                     Writer.Write("::json");

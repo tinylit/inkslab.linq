@@ -14,6 +14,7 @@ namespace PostgreSQL.Tests
     {
         private readonly IRepository<UserContentsOfJsonbPayload> _repositoryOfJsonbPayload;
         private readonly IRepository<DeliverySnt> _repositoryOfDeliverySnt;
+        private readonly IQueryable<DeliverySnt> _queryableOfDeliverySnt;
         private readonly IQueryable<UserContentsOfJsonbPayload> _queryableOfJsonbPayload;
         private readonly IRepository<User> _repositoryOfUser;
         private readonly IQueryable<User> _queryableOfUser;
@@ -21,12 +22,14 @@ namespace PostgreSQL.Tests
         public RepositoryTests(
             IRepository<UserContentsOfJsonbPayload> repositoryOfJsonbPayload,
             IRepository<DeliverySnt> repositoryOfDeliverySnt,
+            IQueryable<DeliverySnt> queryableOfDeliverySnt,
             IQueryable<UserContentsOfJsonbPayload> queryableOfJsonbPayload,
             IRepository<User> repositoryOfUser,
             IQueryable<User> queryableOfUser)
         {
             _repositoryOfJsonbPayload = repositoryOfJsonbPayload;
             _repositoryOfDeliverySnt = repositoryOfDeliverySnt;
+            _queryableOfDeliverySnt = queryableOfDeliverySnt;
             _queryableOfJsonbPayload = queryableOfJsonbPayload;
             _repositoryOfUser = repositoryOfUser;
             _queryableOfUser = queryableOfUser;
@@ -112,6 +115,17 @@ namespace PostgreSQL.Tests
                 {
                     RequestContent = "{\"Code\":200,\"Message\":\"Success\"}"
                 });
+        }
+
+        [Fact]
+        public async Task TestDeliverySntQueryAsync()
+        {
+            var result = await _queryableOfDeliverySnt
+                .DataSharding("202512")
+                .Where(x => x.Id == 6900000000000000000)
+                .OrderBy(x => x.Id)
+                .Select(x => x.RequestContent.ToString())
+                .FirstOrDefaultAsync();
         }
     }
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -845,6 +846,20 @@ namespace Inkslab.Linq
                         Writer.Write(" = ");
 
                         base.Member(memberInfo, node);
+
+                        if (node.NodeType is ExpressionType.Convert or ExpressionType.ConvertChecked)
+                        {
+                            var lookupDbType = LookupDb.For(node.Type);
+
+                            if (lookupDbType.IsJsonbType())
+                            {
+                                Writer.Write("::jsonb");
+                            }
+                            else if (lookupDbType.IsJsonType())
+                            {
+                                Writer.Write("::json");
+                            }
+                        }
                     }
                     else
                     {
@@ -1238,6 +1253,20 @@ namespace Inkslab.Linq
                         }
 
                         base.Member(memberInfo, node);
+
+                        if (node.NodeType is ExpressionType.Convert or ExpressionType.ConvertChecked)
+                        {
+                            var lookupDbType = LookupDb.For(node.Type);
+
+                            if (lookupDbType.IsJsonbType())
+                            {
+                                Writer.Write("::jsonb");
+                            }
+                            else if (lookupDbType.IsJsonType())
+                            {
+                                Writer.Write("::json");
+                            }
+                        }
                     }
                     else
                     {

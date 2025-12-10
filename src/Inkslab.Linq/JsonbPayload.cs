@@ -26,15 +26,6 @@ namespace Inkslab.Linq
         }
 
         /// <summary>
-        /// 隐式转换。
-        /// </summary>
-        /// <param name="payload">字符串有效负载。</param>
-        public static implicit operator string(JsonbPayload payload)
-        {
-            return payload.ToString();
-        }
-
-        /// <summary>
         /// 获取 JSON 字符串。
         /// </summary>
         /// <returns>JSON 字符串。</returns>

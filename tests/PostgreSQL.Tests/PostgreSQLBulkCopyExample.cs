@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using Npgsql;
 using Inkslab.Linq.PostgreSQL;
 using Xunit;
-using System.Text.Json;
+using Inkslab.Linq;
 
 namespace PostgreSQL.Tests
 {
@@ -98,7 +98,7 @@ namespace PostgreSQL.Tests
             var dataTable = new DataTable("user_contents");
 
             // 定义列结构
-            dataTable.Columns.Add("content", typeof(JsonDocument));
+            dataTable.Columns.Add("content", typeof(JsonbPayload));
 
             // 添加测试数据
             var random = new Random();
@@ -107,7 +107,7 @@ namespace PostgreSQL.Tests
             for (int i = 1; i <= 1000; i++)
             {
                 dataTable.Rows.Add(
-                    JsonDocument.Parse($@"{{
+                    new JsonbPayload($@"{{
                         ""id"": {i},
                         ""name"": ""用户{i:D4}"",
                         ""age"": {random.Next(18, 65)},
@@ -267,7 +267,7 @@ namespace PostgreSQL.Tests
             var dataTable = new DataTable("user_contents");
 
             // 定义列结构
-            dataTable.Columns.Add("content", typeof(JsonDocument));
+            dataTable.Columns.Add("content", typeof(JsonbPayload));
 
             // 添加测试数据
             var random = new Random();
@@ -276,7 +276,7 @@ namespace PostgreSQL.Tests
             for (int i = 1; i <= 1000; i++)
             {
                 dataTable.Rows.Add(
-                    JsonDocument.Parse($@"{{
+                    new JsonbPayload($@"{{
                         ""id"": {i},
                         ""name"": ""用户{i:D4}"",
                         ""age"": {random.Next(18, 65)},

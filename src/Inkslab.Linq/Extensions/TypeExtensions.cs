@@ -113,9 +113,6 @@ namespace System
         private static readonly Type[] _simpleTypes = new Type[]
         {
             Types.String,
-            Types.JsonArray,
-            Types.JsonObject,
-            Types.JsonDocument,
             Types.JsonPayload,
             Types.JsonbPayload
         };

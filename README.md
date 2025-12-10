@@ -710,45 +710,15 @@ Inkslab.Linq 为 PostgreSQL 提供了完整的 JSON/JSONB 数据类型支持，�
 
 框架支持以下 JSON 类型的自动转换和处理：
 
-1. **`JsonDocument`** - .NET System.Text.Json 标准类型，用于只读JSON解析
-2. **`JObject`** - Newtonsoft.Json 类型，提供强大的JSON操作能力
-3. **`JsonPayload`** - 框架内置类型，用于存储原始JSON字符串
-4. **`JsonbPayload`** - 框架内置类型，专门用于PostgreSQL JSONB类型
+1. **`JsonPayload`** - 框架内置类型，用于存储原始JSON字符串
+2. **`JsonbPayload`** - 框架内置类型，专门用于PostgreSQL JSONB类型
 
 #### 实体定义
 
 ```csharp
 using System.ComponentModel.DataAnnotations;
-using System.Text.Json;
 using Inkslab.Linq;
 using Inkslab.Linq.Annotations;
-using Newtonsoft.Json.Linq;
-
-// 使用 JsonDocument（只读）
-[Table("user_contents")]
-public class UserContentsOfJsonDocument
-{
-    [Key]
-    [Field("id")]
-    [DatabaseGenerated]
-    public int Id { get; set; }
-
-    [Field("content")]
-    public JsonDocument Content { get; set; }
-}
-
-// 使用 JObject（可编辑）
-[Table("user_contents")]
-public class UserContentsOfJObject
-{
-    [Key]
-    [Field("id")]
-    [DatabaseGenerated]
-    public int Id { get; set; }
-
-    [Field("content")]
-    public JObject Content { get; set; }
-}
 
 // 使用 JsonbPayload（推荐用于 JSONB）
 [Table("user_contents")]
@@ -769,43 +739,15 @@ public class UserContentsOfJsonbPayload
 ```csharp
 public class UserService
 {
-    private readonly IRepository<UserContentsOfJsonDocument> _repositoryOfJsonDocument;
-    private readonly IRepository<UserContentsOfJObject> _repositoryOfJObject;
     private readonly IRepository<UserContentsOfJsonbPayload> _repositoryOfJsonbPayload;
     private readonly IDatabase _database;
 
     public UserService(
-        IRepository<UserContentsOfJsonDocument> repositoryOfJsonDocument,
-        IRepository<UserContentsOfJObject> repositoryOfJObject,
         IRepository<UserContentsOfJsonbPayload> repositoryOfJsonbPayload,
         IDatabase database)
     {
-        _repositoryOfJsonDocument = repositoryOfJsonDocument;
-        _repositoryOfJObject = repositoryOfJObject;
         _repositoryOfJsonbPayload = repositoryOfJsonbPayload;
         _database = database;
-    }
-
-    // 使用 JsonDocument 插入
-    public async Task InsertWithJsonDocumentAsync()
-    {
-        var data = new UserContentsOfJsonDocument
-        {
-            Content = JsonDocument.Parse("{\"name\":\"inkslab\",\"age\":18}")
-        };
-        
-        await _repositoryOfJsonDocument.Into(data).ExecuteAsync();
-    }
-
-    // 使用 JObject 插入
-    public async Task InsertWithJObjectAsync()
-    {
-        var data = new UserContentsOfJObject
-        {
-            Content = JObject.Parse("{\"name\":\"inkslab\",\"age\":20}")
-        };
-        
-        await _repositoryOfJObject.Into(data).ExecuteAsync();
     }
 
     // 使用 JsonbPayload 插入
@@ -866,17 +808,15 @@ public async Task QueryJsonDataAsync()
 
     // 使用原生 SQL 查询 JSON 字段
     string sql = "SELECT * FROM \"user_contents\" WHERE id = @id";
-    var result = await _database.FirstOrDefaultAsync<UserContentsOfJsonDocument>(sql, new { id = 1 });
+    var result = await _database.FirstOrDefaultAsync<UserContentsOfJsonbPayload>(sql, new { id = 1 });
 }
 ```
 
 #### 注意事项
 
 1. **自动类型转换**：框架会自动识别 JSON 参数并应用 `::json` 或 `::jsonb` 强制转换
-2. **JsonDocument 性能**：对于只读场景，`JsonDocument`、`JsonObject`、`JsonArray` 性能最优，内存占用最低
-3. **JObject 灵活性**：需要修改 JSON 内容时使用 `JObject`、`JArray`
-4. **JsonPayload 推荐**：对于 PostgreSQL JSON 字段，推荐使用 `JsonPayload`
-5. **JsonbPayload 推荐**：对于 PostgreSQL JSONB 字段，推荐使用 `JsonbPayload`
+2. **JsonPayload 推荐**：对于 PostgreSQL JSON 字段，推荐使用 `JsonPayload`
+3. **JsonbPayload 推荐**：对于 PostgreSQL JSONB 字段，推荐使用 `JsonbPayload`
 
 ### 6. PostgreSQL 批量操作
 
@@ -950,7 +890,7 @@ public async Task BulkInsertJsonDataAsync()
     var dataTable = new DataTable("user_contents");
 
     // 定义列结构
-    dataTable.Columns.Add("content", typeof(JsonDocument));
+    dataTable.Columns.Add("content", typeof(JsonbPayload));
 
     // 添加 JSON 数据
     var random = new Random();
@@ -959,7 +899,7 @@ public async Task BulkInsertJsonDataAsync()
     for (int i = 1; i <= 1000; i++)
     {
         dataTable.Rows.Add(
-            JsonDocument.Parse($@"{{
+            new JsonbPayload($@"{{
                 ""id"": {i},
                 ""name"": ""用户{i:D4}"",
                 ""age"": {random.Next(18, 65)},

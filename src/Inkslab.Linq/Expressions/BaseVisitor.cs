@@ -200,7 +200,7 @@ namespace Inkslab.Linq.Expressions
         /// <returns>是否是常规变量。</returns>
         protected virtual bool IsPlainVariable(Expression node) => IsPlainVariable(node, false);
 
-        private static readonly Lfu<Expression, bool> _lfu = new Lfu<Expression, bool>(1000, ExpressionEqualityComparer.Instance, IsPlainVariableNS);
+        private static readonly Lfu<Expression, bool> _lfu = new Lfu<Expression, bool>(10000, ExpressionEqualityComparer.Instance, IsPlainVariableNS);
 
         private static bool IsPlainVariableNS(Expression node)
         {
@@ -1051,6 +1051,24 @@ namespace Inkslab.Linq.Expressions
             else if (node.Type == Types.Version)
             {
                 Version(node);
+            }
+            else if (node.Type == Types.JsonbPayload)
+            {
+                Visit(node.Arguments[0]);
+
+                if (Engine == DatabaseEngine.PostgreSQL)
+                {
+                    Writer.Write("::jsonb");
+                }
+            }
+            else if (node.Type == Types.JsonPayload)
+            {
+                Visit(node.Arguments[0]);
+                
+                if (Engine == DatabaseEngine.PostgreSQL)
+                {
+                    Writer.Write("::json");
+                }
             }
             else if (node.Type.IsCell())
             {

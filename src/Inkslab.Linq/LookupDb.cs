@@ -2,8 +2,6 @@
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
-using System.Text.Json;
-using System.Text.Json.Nodes;
 using System.Linq.Expressions;
 using System.Text.RegularExpressions;
 
@@ -53,11 +51,6 @@ namespace Inkslab.Linq
                 [typeof(DateTime)] = DbType.DateTime,
                 [typeof(DateTimeOffset)] = DbType.DateTimeOffset,
                 [typeof(TimeSpan)] = DbType.Time,
-#if !NET_Traditional
-                [typeof(JsonArray)] = JsonbDbType,
-                [typeof(JsonObject)] = JsonbDbType,
-                [typeof(JsonDocument)] = JsonbDbType,
-#endif
                 [typeof(JsonPayload)] = JsonDbType,
                 [typeof(JsonbPayload)] = JsonbDbType,
                 [typeof(byte[])] = DbType.Binary,
@@ -90,11 +83,6 @@ namespace Inkslab.Linq
             if (dataType.FullName == "System.Data.Linq.Binary")
             {
                 return DbType.Binary;
-            }
-
-            if (dataType.FullName is "Newtonsoft.Json.Linq.JObject" or "Newtonsoft.Json.Linq.JArray")
-            {
-                return JsonbDbType;
             }
 
             return DbType.Object;
@@ -250,15 +238,6 @@ namespace Inkslab.Linq
                 case Version v:
                     return v.ToString();
 
-                case JsonObject jo:
-                    return jo.ToJsonString();
-
-                case JsonArray ja:
-                    return ja.ToJsonString();
-
-                case JsonDocument jd:
-                    return jd.RootElement.GetRawText();
-
                 case JsonPayload jp:
                     return jp.ToString();
 
@@ -266,11 +245,6 @@ namespace Inkslab.Linq
                     return jbp.ToString();
                     
                 default:
-                    // 对于 Newtonsoft 类型，使用 valueType.FullName 做后备判断以避免直接依赖第三方类型
-                    if (valueType?.FullName is "Newtonsoft.Json.Linq.JObject" or "Newtonsoft.Json.Linq.JArray")
-                    {
-                        return value.ToString();
-                    }
 
                     return value;
             }

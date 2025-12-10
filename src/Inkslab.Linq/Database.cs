@@ -8,7 +8,6 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -473,12 +472,40 @@ namespace Inkslab.Linq
                     return Format(jsonbPayload.ToString(), throwError);
                 case JsonPayload jsonPayload:
                     return Format(jsonPayload.ToString(), throwError);
-                case System.Text.Json.Nodes.JsonObject jsonObject:
-                    return Format(jsonObject.ToJsonString(), throwError);
-                case JsonDocument jsonDocument:
-                    return Format(jsonDocument.RootElement.GetRawText(), throwError);
-                case System.Text.Json.Nodes.JsonArray jsonArray:
-                    return Format(jsonArray.ToJsonString(), throwError);
+                case IEnumerable objects:
+                    if (throwError)
+                    {
+                        throw new InvalidOperationException("不支持集合参数！");
+                    }
+
+                    var sb = new StringBuilder();
+
+                    sb.Append('(');
+
+                    bool first = true;
+
+                    foreach (var item in objects)
+                    {
+                        if (first)
+                        {
+                            first = false;
+                        }
+                        else
+                        {
+                            sb.Append(',');
+                        }
+
+                        sb.Append(Format(item, true));
+                    }
+
+                    if (first)
+                    {
+                        sb.Append("SELECT null WHERE 1=0");
+                    }
+
+                    sb.Append(')');
+
+                    return sb.ToString();
                 default:
                     var type = value.GetType();
 
@@ -490,43 +517,6 @@ namespace Inkslab.Linq
                     if (type.FullName is "Newtonsoft.Json.Linq.JObject" or "Newtonsoft.Json.Linq.JArray")
                     {
                         return Format(value.ToString(), throwError);
-                    }
-
-                    if (value is IEnumerable objects)
-                    {
-                        if (throwError)
-                        {
-                            throw new InvalidOperationException("不支持集合参数！");
-                        }
-
-                        var sb = new StringBuilder();
-
-                        sb.Append('(');
-
-                        bool first = true;
-
-                        foreach (var item in objects)
-                        {
-                            if (first)
-                            {
-                                first = false;
-                            }
-                            else
-                            {
-                                sb.Append(',');
-                            }
-
-                            sb.Append(Format(item, true));
-                        }
-
-                        if (first)
-                        {
-                            sb.Append("SELECT null WHERE 1=0");
-                        }
-
-                        sb.Append(')');
-
-                        return sb.ToString();
                     }
 
                     return Format(value.ToString(), throwError);

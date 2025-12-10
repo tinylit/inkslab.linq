@@ -19,7 +19,7 @@ namespace PostgreSQL.Tests
         {
             string sql = "SELECT * FROM \"user_contents\" LIMIT 1";
 
-            var result = await _database.FirstOrDefaultAsync<UserContentsOfJObject>(sql);
+            var result = await _database.FirstOrDefaultAsync<UserContentsOfJsonbPayload>(sql);
         }
 
         [Fact]
@@ -27,7 +27,7 @@ namespace PostgreSQL.Tests
         {
             string sql = "SELECT * FROM \"user_contents\" WHERE id = @id";
 
-            var result = await _database.FirstOrDefaultAsync<UserContentsOfJsonDocument>(sql, new { id = 1 });
+            var result = await _database.FirstOrDefaultAsync<UserContentsOfJsonbPayload>(sql, new { id = 1 });
         }
 
         [Fact]

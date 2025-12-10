@@ -4,9 +4,6 @@ using System.Threading.Tasks;
 using System.Text;
 using System;
 using Npgsql;
-using System.Text.Json;
-using System.Collections.Generic;
-using System.Diagnostics;
 
 namespace Inkslab.Linq.PostgreSQL
 {
@@ -192,13 +189,6 @@ namespace Inkslab.Linq.PostgreSQL
         /// <param name="dataType">数据类型</param>
         private static void WriteValue(NpgsqlBinaryImporter writer, object value, Type dataType)
         {
-            if (value is JsonDocument jsonDocument)
-            {
-                writer.Write(jsonDocument.RootElement.GetRawText(), NpgsqlTypes.NpgsqlDbType.Jsonb);
-
-                return;
-            }
-
             if (value is JsonbPayload jsonbPayload)
             {
                 writer.Write(jsonbPayload.ToString(), NpgsqlTypes.NpgsqlDbType.Jsonb);
@@ -209,13 +199,6 @@ namespace Inkslab.Linq.PostgreSQL
             if (value is JsonPayload jsonPayload)
             {
                 writer.Write(jsonPayload.ToString(), NpgsqlTypes.NpgsqlDbType.Json);
-
-                return;
-            }
-
-            if (dataType.FullName is "Newtonsoft.Json.Linq.JObject" or "Newtonsoft.Json.Linq.JArray")
-            {
-                writer.Write(value.ToString(), NpgsqlTypes.NpgsqlDbType.Jsonb);
 
                 return;
             }
@@ -301,13 +284,6 @@ namespace Inkslab.Linq.PostgreSQL
         /// <param name="cancellationToken">取消令牌</param>
         private static async Task WriteValueAsync(NpgsqlBinaryImporter writer, object value, Type dataType, CancellationToken cancellationToken)
         {
-            if (value is JsonDocument jsonDocument)
-            {
-                await writer.WriteAsync(jsonDocument.RootElement.GetRawText(), NpgsqlTypes.NpgsqlDbType.Jsonb, cancellationToken);
-
-                return;
-            }
-
             if (value is JsonbPayload jsonbPayload)
             {
                 await writer.WriteAsync(jsonbPayload.ToString(), NpgsqlTypes.NpgsqlDbType.Jsonb, cancellationToken);
@@ -318,13 +294,6 @@ namespace Inkslab.Linq.PostgreSQL
             if (value is JsonPayload jsonPayload)
             {
                 await writer.WriteAsync(jsonPayload.ToString(), NpgsqlTypes.NpgsqlDbType.Json, cancellationToken);
-
-                return;
-            }
-
-            if (dataType.FullName is "Newtonsoft.Json.Linq.JObject" or "Newtonsoft.Json.Linq.JArray")
-            {
-                await writer.WriteAsync(value.ToString(), NpgsqlTypes.NpgsqlDbType.Jsonb, cancellationToken);
 
                 return;
             }
@@ -602,13 +571,7 @@ namespace Inkslab.Linq.PostgreSQL
                             sb.Append('@')
                                 .Append(paramName);
 
-                            if (value is JsonDocument jsonDoc)
-                            {
-                                sb.Append("::jsonb");
-
-                                LookupDb.AddParameterAuto(command, DatabaseEngine.PostgreSQL, paramName, jsonDoc.RootElement.GetRawText());
-                            }
-                            else if (value is JsonbPayload jsonbPayload)
+                            if (value is JsonbPayload jsonbPayload)
                             {
                                 sb.Append("::jsonb");
 
@@ -619,12 +582,6 @@ namespace Inkslab.Linq.PostgreSQL
                                 sb.Append("::json");
 
                                 LookupDb.AddParameterAuto(command, DatabaseEngine.PostgreSQL, paramName, jsonPayload.ToString());
-                            }
-                            else if (column.DataType.FullName is "Newtonsoft.Json.Linq.JObject" or "Newtonsoft.Json.Linq.JArray")
-                            {
-                                sb.Append("::jsonb");
-
-                                LookupDb.AddParameterAuto(command, DatabaseEngine.PostgreSQL, paramName, value.ToString());
                             }
                             else
                             {

@@ -7,7 +7,6 @@ using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Inkslab.Linq.Exceptions;
@@ -1805,25 +1804,12 @@ namespace Inkslab.Linq
                     );
                 }
 
-                if (propertyType.IsAssignableFrom(Types.JsonDocument))
-                {
-                    var jsonVar = Variable(Types.String);
-
-                    return Block(propertyType, new ParameterExpression[] { jsonVar },
-                        Assign(jsonVar, Call(dbVar, _typeMap[Types.String], iVar)),
-                        Condition(Equal(jsonVar, Constant(null, Types.String)),
-                            Constant(null, propertyType),
-                            Call(Types.JsonDocument.GetMethod("Parse", BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly, null, new Type[] { Types.String, typeof(JsonDocumentOptions) }, null), jsonVar, Default(typeof(JsonDocumentOptions)))
-                        )
-                    );
-                }
-
                 if (!_typeMap.TryGetValue(propertyType, out MethodInfo originalFn))
                 {
                     var typeArg = Variable(typeof(Type));
 
-                    return Block(new ParameterExpression[] { typeArg }, 
-                        Assign(typeArg, Call(dbVar, _getFieldType, iVar)), 
+                    return Block(new ParameterExpression[] { typeArg },
+                        Assign(typeArg, Call(dbVar, _getFieldType, iVar)),
                         ToSolveByTransform(propertyType, dbVar, iVar, typeArg)
                     );
                 }

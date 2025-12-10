@@ -1,67 +1,35 @@
+using System;
 using System.Linq;
-using System.Text.Json;
 using System.Threading.Tasks;
 using Inkslab.Linq;
-using Newtonsoft.Json.Linq;
 using Xunit;
 
 namespace PostgreSQL.Tests
 {
+
     /// <summary>
     /// 查询测试。
     /// </summary>
     public class RepositoryTests
     {
-        private readonly IRepository<UserContentsOfJsonDocument> _repositoryOfJsonDocument;
-        private readonly IRepository<UserContentsOfJObject> _repositoryOfJObject;
         private readonly IRepository<UserContentsOfJsonbPayload> _repositoryOfJsonbPayload;
-        private readonly IQueryable<UserContentsOfJsonDocument> _queryableOfJsonDocument;
-        private readonly IQueryable<UserContentsOfJObject> _queryableOfJObject;
+        private readonly IRepository<DeliverySnt> _repositoryOfDeliverySnt;
         private readonly IQueryable<UserContentsOfJsonbPayload> _queryableOfJsonbPayload;
         private readonly IRepository<User> _repositoryOfUser;
         private readonly IQueryable<User> _queryableOfUser;
 
-        public RepositoryTests(IRepository<UserContentsOfJsonDocument> repositoryOfJsonDocument,
-            IRepository<UserContentsOfJObject> repositoryOfJObject,
+        public RepositoryTests(
             IRepository<UserContentsOfJsonbPayload> repositoryOfJsonbPayload,
-            IQueryable<UserContentsOfJsonDocument> queryableOfJsonDocument,
-            IQueryable<UserContentsOfJObject> queryableOfJObject,
+            IRepository<DeliverySnt> repositoryOfDeliverySnt,
             IQueryable<UserContentsOfJsonbPayload> queryableOfJsonbPayload,
             IRepository<User> repositoryOfUser,
             IQueryable<User> queryableOfUser)
         {
-            _repositoryOfJsonDocument = repositoryOfJsonDocument;
-            _repositoryOfJObject = repositoryOfJObject;
             _repositoryOfJsonbPayload = repositoryOfJsonbPayload;
-            _queryableOfJsonDocument = queryableOfJsonDocument;
-            _queryableOfJObject = queryableOfJObject;
+            _repositoryOfDeliverySnt = repositoryOfDeliverySnt;
             _queryableOfJsonbPayload = queryableOfJsonbPayload;
             _repositoryOfUser = repositoryOfUser;
             _queryableOfUser = queryableOfUser;
-        }
-
-        [Fact]
-        public async Task TestJsonDocumentAsync()
-        {
-            await _repositoryOfJsonDocument.Into(new UserContentsOfJsonDocument
-            {
-                Content = JsonDocument.Parse("{\"name\":\"inkslab\",\"age\":18}")
-            })
-            .ExecuteAsync();
-
-            var result = await _queryableOfJsonDocument.OrderByDescending(x => x.Id).FirstOrDefaultAsync();
-        }
-
-        [Fact]
-        public async Task TestJObjectAsync()
-        {
-            await _repositoryOfJObject.Into(new UserContentsOfJObject
-            {
-                Content = JObject.Parse("{\"name\":\"inkslab\",\"age\":20}")
-            })
-            .ExecuteAsync();
-
-            var result = await _queryableOfJObject.OrderByDescending(x => x.Id).FirstOrDefaultAsync();
         }
 
         [Fact]
@@ -69,7 +37,7 @@ namespace PostgreSQL.Tests
         {
             await _repositoryOfJsonbPayload.Into(new UserContentsOfJsonbPayload
             {
-                Content = new JsonbPayload("{\"name\":\"inkslab\",\"age\":35}")
+                Content = "{\"name\":\"inkslab\",\"age\":35}"
             })
             .ExecuteAsync();
 
@@ -114,6 +82,36 @@ namespace PostgreSQL.Tests
         public async Task TestDeleteAllAsync()
         {
             await _repositoryOfUser.DeleteAsync();
+        }
+
+        [Fact]
+        public async Task TestDeliverySntAsync()
+        {
+            DeliverySnt deliverySnt = new()
+            {
+                DeliveryId = 1000001,
+                DataSourceId = 1000001,
+                RequestContent = "{\"Id\": 1000000001, \"Sex\": 1, \"Name\": \"string\", \"Address\": {\"City\": \"string\", \"Street\": \"string\"}}",
+                ResponseContent = string.Empty,
+                Added = DateTime.Now
+            };
+
+            await _repositoryOfDeliverySnt
+                .DataSharding("202512")
+                .Into(deliverySnt)
+                .ExecuteAsync();
+        }
+
+        [Fact]
+        public async Task TestDeliverySntUpdateAsync()
+        {
+            var result = await _repositoryOfDeliverySnt
+                .DataSharding("202512")
+                .Where(x => x.Id == 6900000000000000000)
+                .UpdateAsync(x => new DeliverySnt
+                {
+                    RequestContent = "{\"Code\":200,\"Message\":\"Success\"}"
+                });
         }
     }
 }

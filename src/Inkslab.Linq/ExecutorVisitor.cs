@@ -372,7 +372,7 @@ namespace Inkslab.Linq
 
                         ParameterSchema();
 
-                        Writer.Name(name);
+                        Writer.Name(field);
 
                         Writer.Write(" = ");
 
@@ -382,7 +382,7 @@ namespace Inkslab.Linq
 
                                 ParameterSchema();
 
-                                Writer.Name(name);
+                                Writer.Name(field);
 
                                 Writer.Operator(SqlOperator.Add);
 
@@ -562,7 +562,7 @@ namespace Inkslab.Linq
 
                         ParameterSchema();
 
-                        Writer.Name(name);
+                        Writer.Name(field);
 
                         Writer.Write(" = ");
 
@@ -572,7 +572,7 @@ namespace Inkslab.Linq
 
                                 ParameterSchema();
 
-                                Writer.Name(name);
+                                Writer.Name(field);
 
                                 Writer.Operator(SqlOperator.Add);
 
@@ -753,7 +753,7 @@ namespace Inkslab.Linq
 
                         Writer.Delimiter();
 
-                        Writer.Name(name);
+                        Writer.Name(field);
 
                         Writer.Write(" = ");
 
@@ -761,7 +761,7 @@ namespace Inkslab.Linq
                         {
                             case VersionKind.Increment:
 
-                                Writer.Name(name);
+                                Writer.Name(field);
 
                                 Writer.Operator(SqlOperator.Add);
 
@@ -927,7 +927,7 @@ namespace Inkslab.Linq
 
                                 Writer.Delimiter();
 
-                                Writer.Name(name);
+                                Writer.Name(field);
 
                                 Writer.Write(" = ");
 
@@ -935,7 +935,7 @@ namespace Inkslab.Linq
                                 {
                                     case VersionKind.Increment:
 
-                                        Writer.Name(name);
+                                        Writer.Name(field);
 
                                         Writer.Operator(SqlOperator.Add);
 

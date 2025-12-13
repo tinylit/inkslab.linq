@@ -197,6 +197,11 @@ namespace Inkslab.Linq.Expressions
 
         private static bool IsPlainVariableNS(Expression node)
         {
+            if(node is null)
+            {
+                return true;
+            }
+
             if (node.NodeType == ExpressionType.Parameter)
             {
                 return false;
@@ -210,27 +215,6 @@ namespace Inkslab.Linq.Expressions
                     if (member.Expression is null)
                     {
                         return true;
-                    }
-
-                    switch (member.Member)
-                    {
-                        case FieldInfo fieldInfo:
-                            if (fieldInfo.IsStatic)
-                            {
-                                return true;
-                            }
-
-                            break;
-
-                        default:
-                            var declaringType = member.Member.DeclaringType;
-
-                            if (declaringType.IsSealed && declaringType.IsAbstract) //? 静态类。
-                            {
-                                return true;
-                            }
-
-                            break;
                     }
 
                     return IsPlainVariableNS(member.Expression);
@@ -290,6 +274,11 @@ namespace Inkslab.Linq.Expressions
         /// <returns>是否是常规变量。</returns>
         protected virtual bool IsPlainVariable(Expression node, bool depthVerification = true)
         {
+            if (node is null)
+            {
+                return true;
+            }
+
             if (node.NodeType == ExpressionType.Parameter)
             {
                 return false;
@@ -297,33 +286,12 @@ namespace Inkslab.Linq.Expressions
 
             switch (node)
             {
-                case ConstantExpression constant:
-                    return constant.Value is not IQueryable;
-                case MemberExpression member when member.Expression is null:
+                case ConstantExpression:
+                    return true;
+                case MemberExpression member:
                     if (member.Expression is null)
                     {
                         return true;
-                    }
-
-                    switch (member.Member)
-                    {
-                        case FieldInfo fieldInfo:
-                            if (fieldInfo.IsStatic)
-                            {
-                                return true;
-                            }
-
-                            break;
-
-                        default:
-                            var declaringType = member.Member.DeclaringType;
-
-                            if (declaringType.IsSealed && declaringType.IsAbstract) //? 静态类。
-                            {
-                                return true;
-                            }
-
-                            break;
                     }
 
                     return IsPlainVariable(member.Expression, depthVerification);
@@ -674,7 +642,7 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override sealed Expression VisitMember(MemberExpression node)
         {
-            if (node.Expression is null || node.Expression.NodeType == ExpressionType.Constant)
+            if (IsPlainVariable(node.Expression, false))
             {
                 var value = node.GetValueFromExpression();
 
@@ -1000,17 +968,40 @@ namespace Inkslab.Linq.Expressions
                     Writer.CloseBrace();
                     break;
                 case nameof(DateTime.Ticks):
+                    // PostgreSQL: ticks = 621355968000000000 + (EXTRACT(EPOCH FROM (node AT TIME ZONE 'UTC')) * 10000000) + (EXTRACT(MICROSECONDS FROM node) * 10)
+                    Writer.OpenBrace();
+                    Writer.Constant(621355968000000000L);
+                    Writer.Operator(SqlOperator.Add);
+
+                    Writer.OpenBrace();
                     Writer.Write("EXTRACT");
                     Writer.OpenBrace();
                     Writer.Write("EPOCH");
                     Writer.Keyword(SqlKeyword.FROM);
                     Writer.OpenBrace();
                     Visit(node);
-                    Writer.Operator(SqlOperator.Subtract);
-                    Writer.Write("TIMESTAMP '0001-01-01 00:00:00'");
+                    Writer.Write(" AT TIME ZONE 'UTC'");
                     Writer.CloseBrace();
                     Writer.CloseBrace();
-                    Writer.Write("::BIGINT * 10000000");
+                    Writer.Operator(SqlOperator.Multiply);
+                    Writer.Constant(10000000L);
+                    Writer.CloseBrace();
+
+                    Writer.Operator(SqlOperator.Add);
+
+                    Writer.OpenBrace();
+                    Writer.Write("EXTRACT");
+                    Writer.OpenBrace();
+                    Writer.Write("MICROSECONDS");
+                    Writer.Keyword(SqlKeyword.FROM);
+                    Visit(node);
+                    Writer.CloseBrace();
+                    Writer.Operator(SqlOperator.Multiply);
+                    Writer.Constant(10L);
+                    Writer.CloseBrace();
+
+                    Writer.CloseBrace();
+                    Writer.Write("::BIGINT");
                     break;
                 case nameof(DateTime.TimeOfDay):
                     Writer.Write("CAST");
@@ -1254,16 +1245,47 @@ namespace Inkslab.Linq.Expressions
                     Writer.CloseBrace();
                     break;
                 case nameof(DateTime.Ticks):
+                    // SQLite: 使用 unixepoch 和毫秒组合计算，避免 JULIANDAY 浮点精度损失
+                    // Ticks = (Unix秒 + 62135596800) * 10000000 + 毫秒部分 * 10000
                     Writer.OpenBrace();
-                    Writer.Write("JULIANDAY");
                     Writer.OpenBrace();
+                    Writer.OpenBrace();
+                    Writer.Write("CAST");
+                    Writer.OpenBrace();
+                    Writer.Write("STRFTIME");
+                    Writer.OpenBrace();
+                    Writer.Write("'%s'");
+                    Writer.Delimiter();
                     Visit(node);
                     Writer.CloseBrace();
-                    Writer.Operator(SqlOperator.Subtract);
-                    Writer.Constant(1721425.5);
+                    Writer.Write(" AS INTEGER");
+                    Writer.CloseBrace();
+                    Writer.Operator(SqlOperator.Add);
+                    Writer.Constant(62135596800L);
                     Writer.CloseBrace();
                     Writer.Operator(SqlOperator.Multiply);
-                    Writer.Constant(864000000000L);
+                    Writer.Constant(10000000L);
+                    Writer.CloseBrace();
+                    Writer.Operator(SqlOperator.Add);
+                    Writer.OpenBrace();
+                    Writer.Write("CAST");
+                    Writer.OpenBrace();
+                    Writer.OpenBrace();
+                    Writer.Write("STRFTIME");
+                    Writer.OpenBrace();
+                    Writer.Write("'%f'");
+                    Writer.Delimiter();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    Writer.Operator(SqlOperator.Multiply);
+                    Writer.Constant(1000);
+                    Writer.CloseBrace();
+                    Writer.Write(" % 1000 AS INTEGER");
+                    Writer.CloseBrace();
+                    Writer.Operator(SqlOperator.Multiply);
+                    Writer.Constant(10000L);
+                    Writer.CloseBrace();
+                    Writer.CloseBrace();
                     break;
                 case nameof(DateTime.TimeOfDay):
                     Writer.Write("TIME");
@@ -1383,8 +1405,13 @@ namespace Inkslab.Linq.Expressions
                     Writer.CloseBrace();
                     break;
                 case nameof(DateTime.Ticks):
+                    // Oracle: 计算完整天数 * 每天 ticks + 当天秒数 * 每秒 ticks + 小数秒 * ticks/秒
+                    Writer.OpenBrace();
+                    Writer.OpenBrace();
+                    Writer.Write("TRUNC");
                     Writer.OpenBrace();
                     Visit(node);
+                    Writer.CloseBrace();
                     Writer.Operator(SqlOperator.Subtract);
                     Writer.Write("TO_DATE");
                     Writer.OpenBrace();
@@ -1394,9 +1421,27 @@ namespace Inkslab.Linq.Expressions
                     Writer.CloseBrace();
                     Writer.CloseBrace();
                     Writer.Operator(SqlOperator.Multiply);
+                    Writer.Constant(864000000000L);
+                    Writer.CloseBrace();
+                    Writer.Operator(SqlOperator.Add);
+                    Writer.OpenBrace();
+                    Writer.Write("FLOOR");
+                    Writer.OpenBrace();
+                    Writer.Write("TO_NUMBER");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.Operator(SqlOperator.Subtract);
+                    Writer.Write("TRUNC");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    Writer.CloseBrace();
+                    Writer.Operator(SqlOperator.Multiply);
                     Writer.Constant(86400);
                     Writer.Operator(SqlOperator.Multiply);
                     Writer.Constant(10000000);
+                    Writer.CloseBrace();
+                    Writer.CloseBrace();
                     break;
                 case nameof(DateTime.TimeOfDay):
                     Writer.Write("TO_CHAR");
@@ -1483,6 +1528,8 @@ namespace Inkslab.Linq.Expressions
                     Writer.CloseBrace();
                     break;
                 case nameof(DateTime.Ticks):
+                    // DB2: 天数 * 每天ticks + 秒数 * 每秒ticks + 微秒 * 10
+                    Writer.OpenBrace();
                     Writer.OpenBrace();
                     Writer.OpenBrace();
                     Writer.Write("DAYS");
@@ -1508,6 +1555,16 @@ namespace Inkslab.Linq.Expressions
                     Writer.CloseBrace();
                     Writer.Operator(SqlOperator.Multiply);
                     Writer.Constant(10000000);
+                    Writer.CloseBrace();
+                    Writer.CloseBrace();
+                    Writer.Operator(SqlOperator.Add);
+                    Writer.OpenBrace();
+                    Writer.Write("MICROSECOND");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    Writer.Operator(SqlOperator.Multiply);
+                    Writer.Constant(10);
                     Writer.CloseBrace();
                     break;
                 case nameof(DateTime.TimeOfDay):

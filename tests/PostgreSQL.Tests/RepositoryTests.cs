@@ -113,7 +113,8 @@ namespace PostgreSQL.Tests
                 .Where(x => x.Id == 6900000000000000000)
                 .UpdateAsync(x => new DeliverySnt
                 {
-                    RequestContent = "{\"Code\":200,\"Message\":\"Success\"}"
+                    RequestContent = "{\"Code\":200,\"Message\":\"Success\"}",
+                    Duration = DateTime.Now.Ticks
                 });
         }
 

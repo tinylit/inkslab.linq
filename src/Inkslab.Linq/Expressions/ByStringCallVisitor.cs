@@ -248,47 +248,17 @@ namespace Inkslab.Linq.Expressions
 
                         Writer.Write(text); //? 截取字符串主体。
 
-                        var startPairt = node.Arguments[0];
+                        Writer.Delimiter();
 
-                        if (Engine == DatabaseEngine.PostgreSQL)
-                        {
-                            Writer.Write("FROM ");
-                        }
-                        else
-                        {
-                            Writer.Delimiter();
-                        }
-
-                        if (IsPlainVariable(startPairt))
-                        {
-                            Writer.Constant(startPairt.GetValueFromExpression<int>() + 1);
-                        }
-                        else
-                        {
-                            Visit(startPairt);
-                        }
+                        Visit(node.Arguments[0]); //? 起始位置。
+                        Writer.Operator(SqlOperator.Add);
+                        Writer.Constant(1);
 
                         if (node.Arguments.Count > 1)
                         {
-                            if (Engine == DatabaseEngine.PostgreSQL)
-                            {
-                                Writer.Write(" FOR ");
-                            }
-                            else
-                            {
-                                Writer.Delimiter();
-                            }
+                            Writer.Delimiter();
 
-                            var lengthPairt = node.Arguments[1];
-
-                            if (IsPlainVariable(lengthPairt))
-                            {
-                                Writer.Constant(lengthPairt.GetValueFromExpression<int>());
-                            }
-                            else
-                            {
-                                Visit(lengthPairt);
-                            }
+                            Visit(node.Arguments[1]);
                         }
 
                         domain.Flyback();
@@ -362,27 +332,36 @@ namespace Inkslab.Linq.Expressions
                     break;
                 case nameof(string.Trim) when node.Arguments.Count == 0:
 
-                    if (Engine == DatabaseEngine.PostgreSQL)
+                    switch (Engine)
                     {
-                        Writer.Write("TRIM");
-                        Writer.OpenBrace();
-                        Writer.Write("BOTH FROM ");
-                    }
-                    else
-                    {
-                        Writer.Write("LTRIM");
-                        Writer.OpenBrace();
+                        case DatabaseEngine.PostgreSQL:
+                            Writer.Write("TRIM");
+                            Writer.OpenBrace();
+                            Writer.Write("BOTH FROM ");
+                            break;
+                        case DatabaseEngine.DB2:
+                        case DatabaseEngine.MySQL:
+                        case DatabaseEngine.Oracle:
+                        case DatabaseEngine.SQLite:
+                            Writer.Write("TRIM");
+                            Writer.OpenBrace();
+                            break;
+                        case DatabaseEngine.SqlServer:
+                        case DatabaseEngine.Sybase:
+                        default:
+                            Writer.Write("LTRIM");
+                            Writer.OpenBrace();
 
-                        Writer.Write("RTRIM");
-                        Writer.OpenBrace();
+                            Writer.Write("RTRIM");
+                            Writer.OpenBrace();
+                            break;
                     }
-
 
                     Visit(node.Object);
 
                     Writer.CloseBrace();
 
-                    if (Engine == DatabaseEngine.PostgreSQL)
+                    if (Engine is DatabaseEngine.PostgreSQL or DatabaseEngine.Oracle or DatabaseEngine.MySQL or DatabaseEngine.DB2 or DatabaseEngine.SQLite)
                     {
                         break;
                     }

@@ -644,7 +644,7 @@ namespace Inkslab.Linq.Expressions
 
                     break;
 
-                case nameof(QueryableExtentions.WhereIf) when IsPlainVariable(node.Arguments[1]):
+                case nameof(QueryableExtentions.WhereIf) when IsPlainVariable(node.Arguments[1], true):
 
                     var conditionIsValid = node.Arguments[1].GetValueFromExpression<bool>();
 

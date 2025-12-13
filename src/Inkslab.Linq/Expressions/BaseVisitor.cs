@@ -193,13 +193,6 @@ namespace Inkslab.Linq.Expressions
         /// <param name="node">节点。</param>
         protected virtual void StartupCore(MethodCallExpression node) => MethodCall(node);
 
-        /// <summary>
-        /// 是普通变量。
-        /// </summary>
-        /// <param name="node">The expression to visit.</param>
-        /// <returns>是否是常规变量。</returns>
-        protected virtual bool IsPlainVariable(Expression node) => IsPlainVariable(node, false);
-
         private static readonly Lfu<Expression, bool> _lfu = new Lfu<Expression, bool>(10000, ExpressionEqualityComparer.Instance, IsPlainVariableNS);
 
         private static bool IsPlainVariableNS(Expression node)
@@ -425,7 +418,7 @@ namespace Inkslab.Linq.Expressions
             {
                 case nameof(ToString) when node.Arguments.Count == 0:
 
-                    if (node.Object.Type == Types.JsonbPayload || node.Object.Type == Types.JsonPayload)
+                    if (node.Object.Type == Types.String || node.Object.Type == Types.JsonbPayload || node.Object.Type == Types.JsonPayload)
                     {
                         Visit(node.Object); //? 支持直接调用 ToString 方法。
 
@@ -436,63 +429,41 @@ namespace Inkslab.Linq.Expressions
                     {
                         case DatabaseEngine.SQLite:
                         case DatabaseEngine.PostgreSQL:
-                            Writer.Write("CAST");
+                        case DatabaseEngine.Oracle:
+                        case DatabaseEngine.DB2:
+                            // 使用字符串拼接（||）与空字符串进行隐式转换，避免显式转换导致的编码/排序规则问题。
+
                             Writer.OpenBrace();
 
                             Visit(node.Object);
 
-                            Writer.Write(" AS TEXT");
+                            Writer.Write(" || ");
+                            Writer.Write("''");
+
                             Writer.CloseBrace();
 
                             break;
                         case DatabaseEngine.MySQL:
-                            Writer.Write("CAST");
+                            // 使用 CONCAT 与空字符串拼接来隐式转换，避免显式 CAST 导致的字符集与排序规则冲突。
+                            Writer.Write("CONCAT");
                             Writer.OpenBrace();
 
                             Visit(node.Object);
 
-                            Writer.Write(" AS CHAR");
+                            Writer.Delimiter();
+                            Writer.Write("''");
+
                             Writer.CloseBrace();
 
                             break;
                         case DatabaseEngine.SqlServer:
-                            Writer.Write("CAST");
-                            Writer.OpenBrace();
-
-                            Visit(node.Object);
-
-                            Writer.Write(" AS NVARCHAR(MAX)");
-                            Writer.CloseBrace();
-
-                            break;
-                        case DatabaseEngine.Oracle:
-                            Writer.Write("TO_CHAR");
-                            Writer.OpenBrace();
-
-                            Visit(node.Object);
-
-                            Writer.CloseBrace();
-
-                            break;
-                        case DatabaseEngine.DB2:
-                            Writer.Write("CAST");
-                            Writer.OpenBrace();
-
-                            Visit(node.Object);
-
-                            Writer.Write(" AS VARCHAR(32672)");
-                            Writer.CloseBrace();
-
-                            break;
                         case DatabaseEngine.Sybase:
-                            Writer.Write("CONVERT");
+                            // 使用 + 操作符与空字符串拼接进行隐式转换，避免显式转换导致的类型强制问题。
                             Writer.OpenBrace();
-
-                            Writer.Write("VARCHAR");
-                            Writer.Delimiter();
-
                             Visit(node.Object);
 
+                            Writer.Write(" + ");
+                            Writer.Write("''");
                             Writer.CloseBrace();
 
                             break;
@@ -763,19 +734,19 @@ namespace Inkslab.Linq.Expressions
             {
                 VisitParameter(parameterExpression);
             }
-/*             else if (IsPlainVariable(node, true))
-            {
-                var constant = node.GetValueFromExpression();
+            /*             else if (IsPlainVariable(node, true))
+                        {
+                            var constant = node.GetValueFromExpression();
 
-                if (constant is IQueryable queryable)
-                {
-                    Visit(queryable.Expression);
-                }
-                else
-                {
-                    Variable(node.Member.Name.ToCamelCase(), constant);
-                }
-            } */
+                            if (constant is IQueryable queryable)
+                            {
+                                Visit(queryable.Expression);
+                            }
+                            else
+                            {
+                                Variable(node.Member.Name.ToCamelCase(), constant);
+                            }
+                        } */
             else
             {
                 Member(node);
@@ -925,6 +896,12 @@ namespace Inkslab.Linq.Expressions
                     Writer.Operator(SqlOperator.Multiply);
                     Writer.Constant(10);
                     break;
+                case nameof(DateTime.TimeOfDay):
+                    Writer.Write("TIME");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
                 default:
                     throw new NotSupportedException($"不支持“{name}”日期片段计算!");
             }
@@ -1035,6 +1012,13 @@ namespace Inkslab.Linq.Expressions
                     Writer.CloseBrace();
                     Writer.Write("::BIGINT * 10000000");
                     break;
+                case nameof(DateTime.TimeOfDay):
+                    Writer.Write("CAST");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.Write(" AS TIME");
+                    Writer.CloseBrace();
+                    break;
                 default:
                     throw new NotSupportedException($"不支持“{name}”日期片段计算!");
             }
@@ -1131,6 +1115,13 @@ namespace Inkslab.Linq.Expressions
                     Writer.CloseBrace();
                     Writer.Operator(SqlOperator.Multiply);
                     Writer.Constant(10);
+                    break;
+                case nameof(DateTime.TimeOfDay):
+                    Writer.Write("CAST");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.Write(" AS time");
+                    Writer.CloseBrace();
                     break;
                 default:
                     throw new NotSupportedException($"不支持“{name}”日期片段计算!");
@@ -1274,6 +1265,12 @@ namespace Inkslab.Linq.Expressions
                     Writer.Operator(SqlOperator.Multiply);
                     Writer.Constant(864000000000L);
                     break;
+                case nameof(DateTime.TimeOfDay):
+                    Writer.Write("TIME");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
                 default:
                     throw new NotSupportedException($"不支持“{name}”日期片段计算!");
             }
@@ -1401,6 +1398,14 @@ namespace Inkslab.Linq.Expressions
                     Writer.Operator(SqlOperator.Multiply);
                     Writer.Constant(10000000);
                     break;
+                case nameof(DateTime.TimeOfDay):
+                    Writer.Write("TO_CHAR");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.Delimiter();
+                    Writer.Write("'HH24:MI:SS'");
+                    Writer.CloseBrace();
+                    break;
                 default:
                     throw new NotSupportedException($"不支持“{name}”日期片段计算!");
             }
@@ -1503,6 +1508,12 @@ namespace Inkslab.Linq.Expressions
                     Writer.CloseBrace();
                     Writer.Operator(SqlOperator.Multiply);
                     Writer.Constant(10000000);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.TimeOfDay):
+                    Writer.Write("TIME");
+                    Writer.OpenBrace();
+                    Visit(node);
                     Writer.CloseBrace();
                     break;
                 default:
@@ -1610,6 +1621,16 @@ namespace Inkslab.Linq.Expressions
                     Writer.CloseBrace();
                     Writer.Operator(SqlOperator.Multiply);
                     Writer.Constant(10);
+                    break;
+                case nameof(DateTime.TimeOfDay):
+                    Writer.Write("CONVERT");
+                    Writer.OpenBrace();
+                    Writer.Write("VARCHAR(8)");
+                    Writer.Delimiter();
+                    Visit(node);
+                    Writer.Delimiter();
+                    Writer.Constant(108);
+                    Writer.CloseBrace();
                     break;
                 default:
                     throw new NotSupportedException($"不支持“{name}”日期片段计算!");

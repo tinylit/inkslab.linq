@@ -3,12 +3,59 @@
 一个高性能的 .NET LINQ 扩展库，提供强大的数据库查询能力和事务管理功能。
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.2.49-green.svg)](.nupkgs/)
+[![Version](https://img.shields.io/badge/version-1.2.54-green.svg)](.nupkgs/)
 [![.NET](https://img.shields.io/badge/.NET-6.0%20%7C%20Standard%202.1-purple.svg)](Directory.Build.props)
 [![GitHub](https://img.shields.io/github/license/tinylit/inkslab.linq.svg)](LICENSE)
 [![GitHub issues](https://img.shields.io/github/issues-raw/tinylit/inkslab.linq)](../../issues)
 
-## 🚀 快速开始
+## � 最近更新 (v1.2.54)
+
+### ✨ 新增功能
+
+#### 1. 空节点处理逻辑增强
+- 添加了对空节点（null nodes）的处理逻辑，提升代码健壮性
+- 优化了条件判断和节点处理流程
+
+#### 2. IsPlainVariable 方法优化
+- 为 `IsPlainVariable` 方法添加了默认参数值
+- 简化了调用方式，提高开发效率
+
+#### 3. 字符串处理与条件判断优化
+- 优化了字符串处理和条件判断逻辑
+- 简化了代码复杂度，增强代码可读性
+
+#### 4. MySQL 连接字符串 UTF8MB4 支持
+- 调整 MySQL 连接字符串以完全支持 `utf8mb4` 字符集
+- 移除不必要的代码，优化连接性能
+- **注意**：如果使用中文或其他多字节字符，请确保数据库和表使用 `utf8mb4` 字符集
+
+#### 5. ToString() 方法支持
+- 新增 `ToString()` 方法支持，改进 LINQ 查询中的字符串转换
+- 支持对象字段直接转换为字符串表示
+
+### 🔧 重要变更
+
+#### PostgreSQL 批量操作增强
+- **异步写入方法完善**：`WriteValueAsync` 方法新增对 `JsonPayload` 和 `JsonbPayload` 类型的完整支持
+- **类型映射改进**：增强了 `TypeCode` 到 PostgreSQL 数据类型的映射规则
+  - `UInt64` → `Numeric` 的转换需注意精度（需进行 decimal 显式转换）
+  - `Byte`/`SByte` → `Smallint` 的转换
+  - `UInt16` → `Integer` 的转换
+- **标识符转义**：完善了特殊字符处理，支持表名和列名中的特殊字符自动转义
+
+#### 事务连接管理
+- `TransactionLink` 代理类支持更完善的事务处理
+- 自动开启已关闭的连接以确保事务可用
+- 批量复制在事务上下文中正确执行
+
+#### JSON/JSONB 数据类型
+- 完整支持 `JsonPayload` 和 `JsonbPayload` 在批量操作中的使用
+- 在 LINQ 查询中支持 JSON 文档、JSON 对象、JSON 数组的插入和更新
+- 移除了 `PostgreSQL ENUM` 的强约束，提供更灵活的数据存储方式
+
+---
+
+## �🚀 快速开始
 
 ### 安装
 
@@ -702,7 +749,237 @@ var concatResult = await activeUsers.Concat(inactiveUsers)
     .ToListAsync();
 ```
 
-### 5. PostgreSQL JSON 数据类型支持
+### 5. DateTime 日期时间处理
+
+框架为各数据库提供了全面的日期时间成员访问支持，自动转换 C# DateTime 属性为对应的 SQL 函数调用。
+
+#### 支持的日期时间成员
+
+框架支持以下 DateTime 成员的 LINQ 查询：
+
+```csharp
+public class DateTimeMembers
+{
+    public DateTime Date { get; set; }          // 日期部分（去掉时间）
+    public int Year { get; set; }               // 年份
+    public int Month { get; set; }              // 月份
+    public int Day { get; set; }                // 日期
+    public int Hour { get; set; }               // 小时
+    public int Minute { get; set; }             // 分钟
+    public int Second { get; set; }             // 秒
+    public int Millisecond { get; set; }        // 毫秒
+    public DayOfWeek DayOfWeek { get; set; }    // 星期几
+    public int DayOfYear { get; set; }          // 年中第几天
+    public long Ticks { get; set; }             // 从 0001-01-01 00:00:00 至今的 100 纳秒单位数
+    public TimeSpan TimeOfDay { get; set; }     // 一天中的时间部分
+}
+```
+
+#### 使用示例
+
+```csharp
+public async Task QueryByDateTimeAsync()
+{
+    var now = DateTime.Now;
+    var startOfYear = new DateTime(DateTime.Now.Year, 1, 1);
+
+    // 按年份分组
+    var byYear = await _users
+        .Where(x => x.CreatedAt.Year == DateTime.Now.Year)
+        .OrderByDescending(x => x.CreatedAt)
+        .ToListAsync();
+
+    // 按月份筛选
+    var thisMonth = await _users
+        .Where(x => x.CreatedAt.Month == 12 && x.CreatedAt.Day > 10)
+        .ToListAsync();
+
+    // 按时间范围筛选（只比较日期部分）
+    var todayUsers = await _users
+        .Where(x => x.CreatedAt.Date == DateTime.Now.Date)
+        .OrderBy(x => x.CreatedAt.Hour)
+        .ToListAsync();
+
+    // 按小时分组统计
+    var byHour = await _users
+        .GroupBy(x => x.CreatedAt.Hour)
+        .Select(g => new
+        {
+            Hour = g.Key,
+            Count = g.Count(),
+            Users = g.ToList()
+        })
+        .ToListAsync();
+
+    // 按星期几统计
+    var byDayOfWeek = await _users
+        .GroupBy(x => x.CreatedAt.DayOfWeek)
+        .Select(g => new
+        {
+            DayOfWeek = g.Key,
+            Count = g.Count()
+        })
+        .OrderBy(x => x.DayOfWeek)
+        .ToListAsync();
+}
+```
+
+#### 各数据库的实现细节
+
+##### MySQL 日期处理
+```csharp
+// MySQL 使用以下函数：
+// Year(date)      - YEAR 函数
+// Month(date)     - MONTH 函数
+// Day(date)       - DAY 函数
+// Date(date)      - DATE 函数（提取日期部分）
+// Hour(date)      - HOUR 函数
+// Minute(date)    - MINUTE 函数
+// Second(date)    - SECOND 函数
+// TimeOfDay(date) - TIME 函数
+// DayOfWeek(date) - DAYOFWEEK 函数（1=周日，7=周六）
+// DayOfYear(date) - DAYOFYEAR 函数
+// Ticks(date)     - TIMESTAMPDIFF(MICROSECOND, '0001-01-01', date) * 10
+```
+
+##### PostgreSQL 日期处理
+```csharp
+// PostgreSQL 使用以下函数：
+// Year(date)      - EXTRACT(YEAR FROM date)
+// Month(date)     - EXTRACT(MONTH FROM date)
+// Day(date)       - EXTRACT(DAY FROM date)
+// Date(date)      - CAST(DATE_TRUNC('day', date) AS DATE)
+// Hour(date)      - EXTRACT(HOUR FROM date)
+// Minute(date)    - EXTRACT(MINUTE FROM date)
+// Second(date)    - EXTRACT(SECOND FROM date)
+// TimeOfDay(date) - date::TIME
+// DayOfWeek(date) - EXTRACT(DOW FROM date)（0=周日，6=周六）
+// DayOfYear(date) - EXTRACT(DOY FROM date)
+// Millisecond(date) - EXTRACT(MILLISECONDS FROM date)::INTEGER % 1000
+// Ticks(date)     - 参见下文"Ticks 精度问题"
+```
+
+##### SQL Server 日期处理
+```csharp
+// SQL Server 使用 DATEPART 和 DATEDIFF 函数：
+// Year(date)      - DATEPART(YEAR, date)
+// Month(date)     - DATEPART(MONTH, date)
+// Day(date)       - DATEPART(DAY, date)
+// Date(date)      - CAST(date AS DATE)
+// Hour(date)      - DATEPART(HOUR, date)
+// Minute(date)    - DATEPART(MINUTE, date)
+// Second(date)    - DATEPART(SECOND, date)
+// Millisecond(date) - DATEPART(MILLISECOND, date)
+// TimeOfDay(date) - CAST(date AS TIME)
+// DayOfWeek(date) - DATEPART(WEEKDAY, date)（1=周日，7=周六）
+// DayOfYear(date) - DATEPART(DAYOFYEAR, date)
+```
+
+#### DateTime.Ticks 精度问题 ⚠️
+
+**DateTime.Ticks 是 .NET 中最容易出现精度问题的属性**。框架在不同数据库中的实现方式各不相同，需要特别注意：
+
+##### PostgreSQL Ticks 计算
+
+PostgreSQL 中 Ticks 的计算公式：
+```sql
+EXTRACT(EPOCH FROM date AT TIME ZONE 'UTC') * 10000000 + 
+EXTRACT(MICROSECONDS FROM date) * 10 + 
+621355968000000000
+```
+
+**精度问题：**
+- PostgreSQL `EPOCH` 是以秒为单位的浮点数，精度为微秒级
+- 转换后可能存在舍入误差，特别是在微秒位置
+- 不同的时区处理可能导致计算结果偏差
+
+##### MySQL Ticks 计算
+
+MySQL 中 Ticks 的计算公式：
+```sql
+TIMESTAMPDIFF(MICROSECOND, '0001-01-01', date) * 10
+```
+
+**精度问题：**
+- MySQL `TIMESTAMPDIFF` 返回的是微秒差值（INTEGER）
+- 乘以 10 得到 100 纳秒单位（Ticks）
+- 日期超出 MySQL 支持范围时会返回错误结果
+- MySQL 的日期范围：'1000-01-01' 至 '9999-12-31'，但 .NET DateTime 范围是 0001-01-01 至 9999-12-31
+
+##### SQL Server Ticks 计算
+
+SQL Server 中 Ticks 的计算公式：
+```sql
+DATEDIFF(NANOSECOND, '1900-01-01', date) / 100
+```
+
+**精度问题：**
+- SQL Server `DATEDIFF` 支持纳秒级精度（精确到 100 纳秒）
+- SQL Server 内部时间精度最高为 100 纳秒
+- 转换时可能因 SQL Server 本身的精度限制而丢失信息
+
+#### 使用建议
+
+```csharp
+// ✅ 推荐做法
+public async Task SafeDateTimeUsageAsync()
+{
+    // 1. 使用日期部分而非 Ticks
+    var todayUsers = await _users
+        .Where(x => x.CreatedAt.Date == DateTime.Now.Date)
+        .ToListAsync();
+
+    // 2. 使用年、月、日、小时等具体成员
+    var recentUsers = await _users
+        .Where(x => x.CreatedAt.Year == 2024 && x.CreatedAt.Month == 12)
+        .ToListAsync();
+
+    // 3. 日期范围查询使用 Date 类型
+    var startDate = new DateTime(2024, 1, 1);
+    var endDate = new DateTime(2024, 12, 31);
+    var yearData = await _users
+        .Where(x => x.CreatedAt.Date >= startDate.Date 
+            && x.CreatedAt.Date <= endDate.Date)
+        .ToListAsync();
+}
+
+// ⚠️ 需要谨慎的做法
+public async Task CarefulDateTimeUsageAsync()
+{
+    // 不要直接比较 Ticks，可能因精度问题产生意外结果
+    // 错误示例：
+    // var users = _users.Where(x => x.CreatedAt.Ticks > someValue).ToListAsync();
+
+    // 改为比较日期时间本身：
+    var referenceTime = DateTime.Now.AddHours(-1);
+    var users = await _users
+        .Where(x => x.CreatedAt > referenceTime)
+        .ToListAsync();
+
+    // 或者在应用层进行 Ticks 比较后验证
+    var result = await _users
+        .Where(x => x.CreatedAt.Year == 2024)
+        .ToListAsync();
+    
+    var filtered = result
+        .Where(x => x.CreatedAt.Ticks > someTicksValue)
+        .ToList();
+}
+```
+
+#### 精度对比表
+
+| 数据库 | 最高精度 | Ticks 计算来源 | 潜在问题 |
+|------|--------|-------------|--------|
+| SQL Server | 100 纳秒 | DATEDIFF(NANOSECOND) / 100 | 精度较好，但受 SQL Server 限制 |
+| PostgreSQL | 1 微秒 | EXTRACT(EPOCH) + EXTRACT(MICROSECONDS) | 浮点舍入，时区处理复杂 |
+| MySQL | 1 微秒 | TIMESTAMPDIFF(MICROSECOND) * 10 | 日期范围限制，溢出风险 |
+| SQLite | 毫秒级 | 基于 julianday() 函数 | 精度较低，可能丢失微秒信息 |
+| Oracle | 1 微秒 | 基于 SYSTIMESTAMP 运算 | 复杂计算，舍入误差 |
+
+---
+
+### 6. PostgreSQL JSON 数据类型支持
 
 Inkslab.Linq 为 PostgreSQL 提供了完整的 JSON/JSONB 数据类型支持，支持多种 JSON 表示方式，摒弃了 **`PostgreSQL ENUM`** 强约束。
 
@@ -817,8 +1094,45 @@ public async Task QueryJsonDataAsync()
 1. **自动类型转换**：框架会自动识别 JSON 参数并应用 `::json` 或 `::jsonb` 强制转换
 2. **JsonPayload 推荐**：对于 PostgreSQL JSON 字段，推荐使用 `JsonPayload`
 3. **JsonbPayload 推荐**：对于 PostgreSQL JSONB 字段，推荐使用 `JsonbPayload`
+4. **批量操作支持**：在 `WriteToServerAsync` 中，框架现已完整支持 JSON/JSONB 数据的异步写入
 
-### 6. PostgreSQL 批量操作
+#### LINQ 查询中使用 JSON
+
+```csharp
+// 插入 JSON 数据（通过 LINQ）
+public async Task InsertJsonViaLinqAsync()
+{
+    var jsonData = new UserContentsOfJsonbPayload
+    {
+        Content = new JsonbPayload("{\"name\":\"test\",\"age\":25}")
+    };
+    
+    await _repositoryOfJsonbPayload.Into(jsonData).ExecuteAsync();
+}
+
+// 更新 JSON 数据
+public async Task UpdateJsonDataAsync(int id, JsonbPayload newContent)
+{
+    await _repositoryOfJsonbPayload
+        .Where(x => x.Id == id)
+        .UpdateAsync(x => new UserContentsOfJsonbPayload
+        {
+            Content = newContent
+        });
+}
+
+// 查询并处理 JSON 数据
+public async Task<List<UserContentsOfJsonbPayload>> QueryJsonDataAsync()
+{
+    return await _queryableOfJsonbPayload
+        .Where(x => x.Id > 100)
+        .OrderByDescending(x => x.Id)
+        .Take(100)
+        .ToListAsync();
+}
+```
+
+### 7. PostgreSQL 批量操作
 
 PostgreSQL 通过 `COPY` 命令支持高效的批量数据导入，框架提供了便捷的批量操作接口。
 
@@ -969,7 +1283,7 @@ public async Task HandleSpecialCharactersAsync()
 - **事务处理**：大型批量操作建议在事务内执行，便于失败时回滚
 - **性能指标**：框架支持获取插入速率（行/秒）用于性能监控
 
-### 7. 存储过程调用
+### 8. 存储过程调用
 
 框架支持调用带有输入参数、输出参数和返回值的存储过程。
 
@@ -1126,11 +1440,11 @@ public class DynamicParameter
 
 | 包名 | 版本 | 描述 |
 |------|------|------|
-| Inkslab.Linq | 1.2.46 | 核心库，提供基础抽象和接口 |
-| Inkslab.Linq.SqlServer | 1.2.46 | SQL Server 数据库支持 |
-| Inkslab.Linq.MySql | 1.2.46 | MySQL 数据库支持 |
-| Inkslab.Linq.PostgreSQL | 1.2.46 | PostgreSQL 数据库支持，包含 JSON/JSONB 和批量操作 |
-| Inkslab.Transactions | 1.2.46 | 事务管理组件 |
+| Inkslab.Linq | 1.2.54 | 核心库，提供基础抽象和接口 |
+| Inkslab.Linq.SqlServer | 1.2.54 | SQL Server 数据库支持 |
+| Inkslab.Linq.MySql | 1.2.54 | MySQL 数据库支持 |
+| Inkslab.Linq.PostgreSQL | 1.2.54 | PostgreSQL 数据库支持，包含 JSON/JSONB 和批量操作 |
+| Inkslab.Transactions | 1.2.54 | 事务管理组件 |
 
 ### 包依赖关系
 
@@ -1143,25 +1457,49 @@ public class DynamicParameter
   
   <ItemGroup>
     <!-- 核心包 -->
-    <PackageReference Include="Inkslab.Linq" Version="1.2.46" />
+    <PackageReference Include="Inkslab.Linq" Version="1.2.54" />
     
     <!-- 根据需要选择数据库支持（可选择其中一个或多个） -->
     <!-- SQL Server 支持 -->
-    <PackageReference Include="Inkslab.Linq.SqlServer" Version="1.2.46" />
+    <PackageReference Include="Inkslab.Linq.SqlServer" Version="1.2.54" />
     
     <!-- MySQL 支持 -->
-    <PackageReference Include="Inkslab.Linq.MySql" Version="1.2.46" />
+    <PackageReference Include="Inkslab.Linq.MySql" Version="1.2.54" />
     <PackageReference Include="MySqlConnector" Version="2.4.0" />
     
     <!-- PostgreSQL 支持（包含 JSON/JSONB 和 COPY 批量操作） -->
-    <PackageReference Include="Inkslab.Linq.PostgreSQL" Version="1.2.46" />
-    <PackageReference Include="Npgsql" Version="8.0.0" />
+    <PackageReference Include="Inkslab.Linq.PostgreSQL" Version="1.2.54" />
+    <PackageReference Include="Npgsql" Version="8.0.8" />
     
     <!-- 事务支持 -->
-    <PackageReference Include="Inkslab.Transactions" Version="1.2.46" />
+    <PackageReference Include="Inkslab.Transactions" Version="1.2.54" />
   </ItemGroup>
 </Project>
 ```
+
+## ⚠️ 重要注意事项
+
+#### PostgreSQL 用户注意事项
+- `UInt64` 值转换为 `Numeric` 类型时，可能涉及精度问题
+- **建议**：在处理超大整数时，使用 `decimal` 类型而非 `ulong` 类型
+- 表名或列名包含特殊字符时，框架会自动进行引号包裹和转义
+
+#### 事务处理建议
+- `TransactionUnit` 会自动开启已关闭的数据库连接
+- **建议**：在大型批量操作中使用事务，确保数据一致性
+
+### 类型转换注意事项
+
+框架内置的类型转换通过表达式树动态编译，使用 LFU 缓存优化性能：
+
+| 转换场景 | 推荐做法 | 风险防控 |
+|---------|--------|--------|
+| 无符号→有符号 | 考虑 `MaxValue` 范围 | 使用 `checked` 防止溢出 |
+| 高精度→低精度 | 使用 `decimal` 中间值 | 考虑精度丢失 |
+| 空值处理 | 总是检查 `HasValue` | 避免隐式转换 |
+| 字符串→数值 | 用 `TryParse` 验证 | 不要依赖强制转换 |
+
+---
 
 ## 🛠️ 开发环境
 

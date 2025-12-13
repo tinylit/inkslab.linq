@@ -288,7 +288,7 @@ namespace Inkslab.Linq.Expressions
         /// <param name="node">The expression to visit.</param>
         /// <param name="depthVerification">深度验证。</param>
         /// <returns>是否是常规变量。</returns>
-        protected virtual bool IsPlainVariable(Expression node, bool depthVerification)
+        protected virtual bool IsPlainVariable(Expression node, bool depthVerification = true)
         {
             if (node.NodeType == ExpressionType.Parameter)
             {

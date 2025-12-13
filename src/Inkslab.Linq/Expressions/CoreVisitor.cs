@@ -101,13 +101,6 @@ namespace Inkslab.Linq.Expressions
 
                 Visit(queryable?.Expression);
             }
-            else if ((node.Method.IsStatic ? node.Type.IsSimple() : declaringType.IsSimple()) && IsPlainVariable(node, true))
-            {
-                //? 直接使用变量。
-                var value = node.GetValueFromExpression();
-
-                Writer.Constant(value);
-            }
             else
             {
                 throw new NotSupportedException(NotSupportedErrorMsg(node));

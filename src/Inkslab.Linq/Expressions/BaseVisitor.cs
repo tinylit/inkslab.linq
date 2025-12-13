@@ -306,7 +306,7 @@ namespace Inkslab.Linq.Expressions
             {
                 case ConstantExpression constant:
                     return constant.Value is not IQueryable;
-                case MemberExpression member:
+                case MemberExpression member when member.Expression is null:
                     if (member.Expression is null)
                     {
                         return true;
@@ -441,7 +441,7 @@ namespace Inkslab.Linq.Expressions
 
                             Visit(node.Object);
 
-                            Writer.Write("AS TEXT");
+                            Writer.Write(" AS TEXT");
                             Writer.CloseBrace();
 
                             break;
@@ -451,7 +451,7 @@ namespace Inkslab.Linq.Expressions
 
                             Visit(node.Object);
 
-                            Writer.Write("AS CHAR");
+                            Writer.Write(" AS CHAR");
                             Writer.CloseBrace();
 
                             break;
@@ -461,7 +461,7 @@ namespace Inkslab.Linq.Expressions
 
                             Visit(node.Object);
 
-                            Writer.Write("AS NVARCHAR(MAX)");
+                            Writer.Write(" AS NVARCHAR(MAX)");
                             Writer.CloseBrace();
 
                             break;
@@ -480,7 +480,7 @@ namespace Inkslab.Linq.Expressions
 
                             Visit(node.Object);
 
-                            Writer.Write("AS VARCHAR(32672)");
+                            Writer.Write(" AS VARCHAR(32672)");
                             Writer.CloseBrace();
 
                             break;
@@ -700,160 +700,10 @@ namespace Inkslab.Linq.Expressions
             return node;
         }
 
-        /// <summary>
-        /// MySQL
-        /// </summary>
-        private void MySql(string name, Expression node)
-        {
-            switch (name)
-            {
-                case nameof(DateTime.Date):
-                    Writer.Write("DATE");
-                    break;
-                case nameof(DateTime.Second):
-                    Writer.Write("SECOND");
-                    break;
-                case nameof(DateTime.Minute):
-                    Writer.Write("MINUTE");
-                    break;
-                case nameof(DateTime.Hour):
-                    Writer.Write("HOUR");
-                    break;
-                case nameof(DateTime.DayOfWeek):
-                    Writer.Write("DAYOFWEEK");
-                    break;
-                case nameof(DateTime.DayOfYear):
-                    Writer.Write("DAYOFYEAR");
-                    break;
-                default:
-                    throw new NotSupportedException($"不支持“{name}”日期片段计算!");
-            }
-
-            Writer.OpenBrace();
-            Visit(node);
-            Writer.CloseBrace();
-        }
-
-        private void PostgreSQL(string name, Expression node)
-        {
-            if (name == nameof(DateTime.Date))
-            {
-                Writer.Write("CAST");
-                Writer.OpenBrace();
-                Writer.Write("DATE_TRUNC");
-                Writer.OpenBrace();
-                Writer.Write("'day'");
-                Writer.Delimiter();
-
-                Visit(node);
-
-                Writer.CloseBrace();
-
-                Writer.Write("AS DATE");
-
-                Writer.CloseBrace();
-
-                return;
-            }
-
-            Writer.Write("EXTRACT");
-
-            Writer.OpenBrace();
-
-            switch (name)
-            {
-                case nameof(DateTime.Year):
-                    Writer.Write("YEAR");
-                    break;
-                case nameof(DateTime.Month):
-                    Writer.Write("MONTH");
-                    break;
-                case nameof(DateTime.Day):
-                    Writer.Write("DAY");
-                    break;
-                case nameof(DateTime.Hour):
-                    Writer.Write("HOUR");
-                    break;
-                case nameof(DateTime.Minute):
-                    Writer.Write("MINUTE");
-                    break;
-                case nameof(DateTime.Second):
-                    Writer.Write("SECOND");
-                    break;
-                case nameof(DateTime.DayOfWeek):
-                    Writer.Write("DOW");
-                    break;
-                case nameof(DateTime.DayOfYear):
-                    Writer.Write("DOY");
-                    break;
-                default:
-                    throw new NotSupportedException($"不支持“{name}”日期片段计算!");
-            }
-
-            Visit(node);
-
-            Writer.Keyword(SqlKeyword.FROM);
-
-            Writer.CloseBrace();
-        }
-
-        /// <summary>
-        /// SqlServer
-        /// </summary>
-        private void SqlServer(string name, Expression node)
-        {
-            if (name == nameof(DateTime.Date))
-            {
-
-                Writer.Write("CAST");
-                Writer.OpenBrace();
-
-                Visit(node);
-
-                Writer.Write("AS DATE");
-                Writer.CloseBrace();
-
-                return;
-            }
-
-            Writer.Write("DATEPART");
-            Writer.OpenBrace();
-
-            switch (name)
-            {
-                case nameof(DateTime.Millisecond):
-                    Writer.Write("ms");
-                    break;
-                case nameof(DateTime.Second):
-                    Writer.Write("ss");
-                    break;
-                case nameof(DateTime.Minute):
-                    Writer.Write("mi");
-                    break;
-                case nameof(DateTime.Hour):
-                    Writer.Write("hh");
-                    break;
-                case nameof(DateTime.DayOfWeek):
-                    Writer.Write("dw");
-                    break;
-                case nameof(DateTime.DayOfYear):
-                    Writer.Write("dy");
-                    break;
-                default:
-                    throw new NotSupportedException($"不支持“{name}”日期片段计算!");
-            }
-
-            Writer.Delimiter();
-
-            Visit(node);
-
-            Writer.CloseBrace();
-        }
-
         /// <inheritdoc/>
         protected override sealed Expression VisitMember(MemberExpression node)
         {
-            if (node.Expression is null)
+            if (node.Expression is null || node.Expression.NodeType == ExpressionType.Constant)
             {
                 var value = node.GetValueFromExpression();
 
@@ -905,7 +755,15 @@ namespace Inkslab.Linq.Expressions
             {
                 DateTimeMember(node);
             }
-            else if (IsPlainVariable(node, true))
+            else if (node.Type.IsCell())
+            {
+                Member(node);
+            }
+            else if (TryGetSourceParameter(node, out ParameterExpression parameterExpression))
+            {
+                VisitParameter(parameterExpression);
+            }
+/*             else if (IsPlainVariable(node, true))
             {
                 var constant = node.GetValueFromExpression();
 
@@ -917,15 +775,7 @@ namespace Inkslab.Linq.Expressions
                 {
                     Variable(node.Member.Name.ToCamelCase(), constant);
                 }
-            }
-            else if (node.Type.IsCell())
-            {
-                Member(node);
-            }
-            else if (TryGetSourceParameter(node, out ParameterExpression parameterExpression))
-            {
-                VisitParameter(parameterExpression);
-            }
+            } */
             else
             {
                 Member(node);
@@ -957,54 +807,815 @@ namespace Inkslab.Linq.Expressions
         /// <param name="node">节点。</param>
         protected virtual void DateTimeMember(MemberExpression node)
         {
-            if (Engine == DatabaseEngine.PostgreSQL)
+            switch (Engine)
             {
-                PostgreSQL(node.Member.Name, node.Expression);
-
-                return;
-            }
-
-            switch (node.Member.Name)
-            {
-                case nameof(DateTime.Day):
-                    Writer.Write("DAY");
-                    Writer.OpenBrace();
-                    Visit(node.Expression);
-                    Writer.CloseBrace();
+                case DatabaseEngine.SQLite:
+                    SQLite(node.Member.Name, node.Expression);
                     break;
-                case nameof(DateTime.Month):
-                    Writer.Write("MOUTH");
+                case DatabaseEngine.Oracle:
+                    Oracle(node.Member.Name, node.Expression);
+                    break;
+                case DatabaseEngine.DB2:
+                    DB2(node.Member.Name, node.Expression);
+                    break;
+                case DatabaseEngine.Sybase:
+                    Sybase(node.Member.Name, node.Expression);
+                    break;
+                case DatabaseEngine.SqlServer:
+                    SqlServer(node.Member.Name, node.Expression);
+                    break;
+                case DatabaseEngine.PostgreSQL:
+                    PostgreSQL(node.Member.Name, node.Expression);
+                    break;
+                case DatabaseEngine.MySQL:
+                    MySql(node.Member.Name, node.Expression);
+                    break;
+                default:
+                    throw new NotSupportedException(
+                        $"不支持数据库引擎“{Engine}”的日期片段计算!"
+                    );
+            }
+        }
+
+        #region DatabaseEngine DateTime Members
+
+        /// <summary>
+        /// MySQL
+        /// </summary>
+        private void MySql(string name, Expression node)
+        {
+            switch (name)
+            {
+                case nameof(DateTime.Date):
+                    Writer.Write("DATE");
                     Writer.OpenBrace();
-                    Visit(node.Expression);
+                    Visit(node);
                     Writer.CloseBrace();
                     break;
                 case nameof(DateTime.Year):
                     Writer.Write("YEAR");
                     Writer.OpenBrace();
-                    Visit(node.Expression);
+                    Visit(node);
                     Writer.CloseBrace();
                     break;
-                case nameof(DateTime.Date) when Engine == DatabaseEngine.MySQL:
-                case nameof(DateTime.Second) when Engine == DatabaseEngine.MySQL:
-                case nameof(DateTime.Minute) when Engine == DatabaseEngine.MySQL:
-                case nameof(DateTime.Hour) when Engine == DatabaseEngine.MySQL:
-                case nameof(DateTime.DayOfWeek) when Engine == DatabaseEngine.MySQL:
-                case nameof(DateTime.DayOfYear) when Engine == DatabaseEngine.MySQL:
-                    MySql(node.Member.Name, node.Expression);
+                case nameof(DateTime.Month):
+                    Writer.Write("MONTH");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.CloseBrace();
                     break;
-                case nameof(DateTime.Date) when Engine == DatabaseEngine.SqlServer:
-                case nameof(DateTime.Millisecond) when Engine == DatabaseEngine.SqlServer:
-                case nameof(DateTime.Second) when Engine == DatabaseEngine.SqlServer:
-                case nameof(DateTime.Minute) when Engine == DatabaseEngine.SqlServer:
-                case nameof(DateTime.Hour) when Engine == DatabaseEngine.SqlServer:
-                case nameof(DateTime.DayOfWeek) when Engine == DatabaseEngine.SqlServer:
-                case nameof(DateTime.DayOfYear) when Engine == DatabaseEngine.SqlServer:
-                    SqlServer(node.Member.Name, node.Expression);
+                case nameof(DateTime.Day):
+                    Writer.Write("DAY");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Hour):
+                    Writer.Write("HOUR");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Minute):
+                    Writer.Write("MINUTE");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Second):
+                    Writer.Write("SECOND");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Millisecond):
+                    Writer.Write("FLOOR");
+                    Writer.OpenBrace();
+                    Writer.Write("EXTRACT");
+                    Writer.OpenBrace();
+                    Writer.Write("MICROSECOND");
+                    Writer.Keyword(SqlKeyword.FROM);
+                    Visit(node);
+                    Writer.CloseBrace();
+                    Writer.Operator(SqlOperator.Divide);
+                    Writer.Constant(1000);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.DayOfWeek):
+                    Writer.Write("DAYOFWEEK");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.DayOfYear):
+                    Writer.Write("DAYOFYEAR");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Ticks):
+                    Writer.Write("TIMESTAMPDIFF");
+                    Writer.OpenBrace();
+                    Writer.Write("MICROSECOND");
+                    Writer.Delimiter();
+                    Writer.Write("'0001-01-01'");
+                    Writer.Delimiter();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    Writer.Operator(SqlOperator.Multiply);
+                    Writer.Constant(10);
                     break;
                 default:
-                    throw new NotSupportedException($"不支持“{node.Member.Name}”日期片段计算!");
+                    throw new NotSupportedException($"不支持“{name}”日期片段计算!");
             }
         }
+
+        /// <summary>
+        /// PostgreSQL
+        /// </summary>
+        private void PostgreSQL(string name, Expression node)
+        {
+            switch (name)
+            {
+                case nameof(DateTime.Date):
+                    Writer.Write("CAST");
+                    Writer.OpenBrace();
+                    Writer.Write("DATE_TRUNC");
+                    Writer.OpenBrace();
+                    Writer.Write("'day'");
+                    Writer.Delimiter();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    Writer.Write(" AS DATE");
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Year):
+                    Writer.Write("EXTRACT");
+                    Writer.OpenBrace();
+                    Writer.Write("YEAR");
+                    Writer.Keyword(SqlKeyword.FROM);
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Month):
+                    Writer.Write("EXTRACT");
+                    Writer.OpenBrace();
+                    Writer.Write("MONTH");
+                    Writer.Keyword(SqlKeyword.FROM);
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Day):
+                    Writer.Write("EXTRACT");
+                    Writer.OpenBrace();
+                    Writer.Write("DAY");
+                    Writer.Keyword(SqlKeyword.FROM);
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Hour):
+                    Writer.Write("EXTRACT");
+                    Writer.OpenBrace();
+                    Writer.Write("HOUR");
+                    Writer.Keyword(SqlKeyword.FROM);
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Minute):
+                    Writer.Write("EXTRACT");
+                    Writer.OpenBrace();
+                    Writer.Write("MINUTE");
+                    Writer.Keyword(SqlKeyword.FROM);
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Second):
+                    Writer.Write("EXTRACT");
+                    Writer.OpenBrace();
+                    Writer.Write("SECOND");
+                    Writer.Keyword(SqlKeyword.FROM);
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Millisecond):
+                    Writer.Write("EXTRACT");
+                    Writer.OpenBrace();
+                    Writer.Write("MILLISECONDS");
+                    Writer.Keyword(SqlKeyword.FROM);
+                    Visit(node);
+                    Writer.CloseBrace();
+                    Writer.Write("::INTEGER % 1000");
+                    break;
+                case nameof(DateTime.DayOfWeek):
+                    Writer.Write("EXTRACT");
+                    Writer.OpenBrace();
+                    Writer.Write("DOW");
+                    Writer.Keyword(SqlKeyword.FROM);
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.DayOfYear):
+                    Writer.Write("EXTRACT");
+                    Writer.OpenBrace();
+                    Writer.Write("DOY");
+                    Writer.Keyword(SqlKeyword.FROM);
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Ticks):
+                    Writer.Write("EXTRACT");
+                    Writer.OpenBrace();
+                    Writer.Write("EPOCH");
+                    Writer.Keyword(SqlKeyword.FROM);
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.Operator(SqlOperator.Subtract);
+                    Writer.Write("TIMESTAMP '0001-01-01 00:00:00'");
+                    Writer.CloseBrace();
+                    Writer.CloseBrace();
+                    Writer.Write("::BIGINT * 10000000");
+                    break;
+                default:
+                    throw new NotSupportedException($"不支持“{name}”日期片段计算!");
+            }
+        }
+
+        /// <summary>
+        /// SqlServer
+        /// </summary>
+        private void SqlServer(string name, Expression node)
+        {
+            switch (name)
+            {
+                case nameof(DateTime.Date):
+                    Writer.Write("CAST");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.Write(" AS DATE");
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Year):
+                    Writer.Write("YEAR");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Month):
+                    Writer.Write("MONTH");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Day):
+                    Writer.Write("DAY");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Hour):
+                    Writer.Write("DATEPART");
+                    Writer.OpenBrace();
+                    Writer.Write("hour");
+                    Writer.Delimiter();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Minute):
+                    Writer.Write("DATEPART");
+                    Writer.OpenBrace();
+                    Writer.Write("minute");
+                    Writer.Delimiter();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Second):
+                    Writer.Write("DATEPART");
+                    Writer.OpenBrace();
+                    Writer.Write("second");
+                    Writer.Delimiter();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Millisecond):
+                    Writer.Write("DATEPART");
+                    Writer.OpenBrace();
+                    Writer.Write("millisecond");
+                    Writer.Delimiter();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.DayOfWeek):
+                    Writer.Write("DATEPART");
+                    Writer.OpenBrace();
+                    Writer.Write("weekday");
+                    Writer.Delimiter();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.DayOfYear):
+                    Writer.Write("DATEPART");
+                    Writer.OpenBrace();
+                    Writer.Write("dayofyear");
+                    Writer.Delimiter();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Ticks):
+                    Writer.Write("DATEDIFF_BIG");
+                    Writer.OpenBrace();
+                    Writer.Write("MICROSECOND");
+                    Writer.Delimiter();
+                    Writer.Constant("'0001-01-01'");
+                    Writer.Delimiter();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    Writer.Operator(SqlOperator.Multiply);
+                    Writer.Constant(10);
+                    break;
+                default:
+                    throw new NotSupportedException($"不支持“{name}”日期片段计算!");
+            }
+        }
+
+        /// <summary>
+        /// SQLite
+        /// </summary>
+        private void SQLite(string name, Expression node)
+        {
+            switch (name)
+            {
+                case nameof(DateTime.Date):
+                    Writer.Write("DATE");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Year):
+                    Writer.Write("CAST");
+                    Writer.OpenBrace();
+                    Writer.Write("STRFTIME");
+                    Writer.OpenBrace();
+                    Writer.Write("'%Y'");
+                    Writer.Delimiter();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    Writer.Write(" AS INTEGER");
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Month):
+                    Writer.Write("CAST");
+                    Writer.OpenBrace();
+                    Writer.Write("STRFTIME");
+                    Writer.OpenBrace();
+                    Writer.Write("'%m'");
+                    Writer.Delimiter();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    Writer.Write(" AS INTEGER");
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Day):
+                    Writer.Write("CAST");
+                    Writer.OpenBrace();
+                    Writer.Write("STRFTIME");
+                    Writer.OpenBrace();
+                    Writer.Write("'%d'");
+                    Writer.Delimiter();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    Writer.Write(" AS INTEGER");
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Hour):
+                    Writer.Write("CAST");
+                    Writer.OpenBrace();
+                    Writer.Write("STRFTIME");
+                    Writer.OpenBrace();
+                    Writer.Write("'%H'");
+                    Writer.Delimiter();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    Writer.Write(" AS INTEGER");
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Minute):
+                    Writer.Write("CAST");
+                    Writer.OpenBrace();
+                    Writer.Write("STRFTIME");
+                    Writer.OpenBrace();
+                    Writer.Write("'%M'");
+                    Writer.Delimiter();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    Writer.Write(" AS INTEGER");
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Second):
+                    Writer.Write("CAST");
+                    Writer.OpenBrace();
+                    Writer.Write("STRFTIME");
+                    Writer.OpenBrace();
+                    Writer.Write("'%S'");
+                    Writer.Delimiter();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    Writer.Write(" AS INTEGER");
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Millisecond):
+                    Writer.Write("CAST");
+                    Writer.OpenBrace();
+                    Writer.OpenBrace();
+                    Writer.Write("STRFTIME");
+                    Writer.OpenBrace();
+                    Writer.Write("'%f'");
+                    Writer.Delimiter();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    Writer.Operator(SqlOperator.Multiply);
+                    Writer.Constant(1000);
+                    Writer.CloseBrace();
+                    Writer.Write(" % 1000 AS INTEGER");
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.DayOfWeek):
+                    Writer.Write("CAST");
+                    Writer.OpenBrace();
+                    Writer.Write("STRFTIME");
+                    Writer.OpenBrace();
+                    Writer.Write("'%w'");
+                    Writer.Delimiter();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    Writer.Write(" AS INTEGER");
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.DayOfYear):
+                    Writer.Write("CAST");
+                    Writer.OpenBrace();
+                    Writer.Write("STRFTIME");
+                    Writer.OpenBrace();
+                    Writer.Write("'%j'");
+                    Writer.Delimiter();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    Writer.Write(" AS INTEGER");
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Ticks):
+                    Writer.OpenBrace();
+                    Writer.Write("JULIANDAY");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    Writer.Operator(SqlOperator.Subtract);
+                    Writer.Constant(1721425.5);
+                    Writer.CloseBrace();
+                    Writer.Operator(SqlOperator.Multiply);
+                    Writer.Constant(864000000000L);
+                    break;
+                default:
+                    throw new NotSupportedException($"不支持“{name}”日期片段计算!");
+            }
+        }
+
+        /// <summary>
+        /// Oracle
+        /// </summary>
+        private void Oracle(string name, Expression node)
+        {
+            switch (name)
+            {
+                case nameof(DateTime.Date):
+                    Writer.Write("TRUNC");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Year):
+                    Writer.Write("EXTRACT");
+                    Writer.OpenBrace();
+                    Writer.Write("YEAR");
+                    Writer.Keyword(SqlKeyword.FROM);
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Month):
+                    Writer.Write("EXTRACT");
+                    Writer.OpenBrace();
+                    Writer.Write("MONTH");
+                    Writer.Keyword(SqlKeyword.FROM);
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Day):
+                    Writer.Write("EXTRACT");
+                    Writer.OpenBrace();
+                    Writer.Write("DAY");
+                    Writer.Keyword(SqlKeyword.FROM);
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Hour):
+                    Writer.Write("EXTRACT");
+                    Writer.OpenBrace();
+                    Writer.Write("HOUR");
+                    Writer.Keyword(SqlKeyword.FROM);
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Minute):
+                    Writer.Write("EXTRACT");
+                    Writer.OpenBrace();
+                    Writer.Write("MINUTE");
+                    Writer.Keyword(SqlKeyword.FROM);
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Second):
+                    Writer.Write("FLOOR");
+                    Writer.OpenBrace();
+                    Writer.Write("EXTRACT");
+                    Writer.OpenBrace();
+                    Writer.Write("SECOND");
+                    Writer.Keyword(SqlKeyword.FROM);
+                    Visit(node);
+                    Writer.CloseBrace();
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Millisecond):
+                    Writer.Write("FLOOR");
+                    Writer.OpenBrace();
+                    Writer.Write("MOD");
+                    Writer.OpenBrace();
+                    Writer.Write("EXTRACT");
+                    Writer.OpenBrace();
+                    Writer.Write("SECOND");
+                    Writer.Keyword(SqlKeyword.FROM);
+                    Visit(node);
+                    Writer.CloseBrace();
+                    Writer.Operator(SqlOperator.Multiply);
+                    Writer.Constant(1000);
+                    Writer.Delimiter();
+                    Writer.Constant(1000);
+                    Writer.CloseBrace();
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.DayOfWeek):
+                    Writer.Write("TO_NUMBER");
+                    Writer.OpenBrace();
+                    Writer.Write("TO_CHAR");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.Delimiter();
+                    Writer.Write("'D'");
+                    Writer.CloseBrace();
+                    Writer.CloseBrace();
+                    Writer.Operator(SqlOperator.Subtract);
+                    Writer.Constant(1);
+                    break;
+                case nameof(DateTime.DayOfYear):
+                    Writer.Write("TO_NUMBER");
+                    Writer.OpenBrace();
+                    Writer.Write("TO_CHAR");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.Delimiter();
+                    Writer.Write("'DDD'");
+                    Writer.CloseBrace();
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Ticks):
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.Operator(SqlOperator.Subtract);
+                    Writer.Write("TO_DATE");
+                    Writer.OpenBrace();
+                    Writer.Write("'0001-01-01'");
+                    Writer.Delimiter();
+                    Writer.Write("'YYYY-MM-DD'");
+                    Writer.CloseBrace();
+                    Writer.CloseBrace();
+                    Writer.Operator(SqlOperator.Multiply);
+                    Writer.Constant(86400);
+                    Writer.Operator(SqlOperator.Multiply);
+                    Writer.Constant(10000000);
+                    break;
+                default:
+                    throw new NotSupportedException($"不支持“{name}”日期片段计算!");
+            }
+        }
+
+        /// <summary>
+        /// DB2
+        /// </summary>
+        private void DB2(string name, Expression node)
+        {
+            switch (name)
+            {
+                case nameof(DateTime.Date):
+                    Writer.Write("DATE");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Year):
+                    Writer.Write("YEAR");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Month):
+                    Writer.Write("MONTH");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Day):
+                    Writer.Write("DAY");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Hour):
+                    Writer.Write("HOUR");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Minute):
+                    Writer.Write("MINUTE");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Second):
+                    Writer.Write("SECOND");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Millisecond):
+                    Writer.Write("MICROSECOND");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    Writer.Operator(SqlOperator.Divide);
+                    Writer.Constant(1000);
+                    break;
+                case nameof(DateTime.DayOfWeek):
+                    Writer.Write("DAYOFWEEK");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    Writer.Operator(SqlOperator.Subtract);
+                    Writer.Constant(1);
+                    break;
+                case nameof(DateTime.DayOfYear):
+                    Writer.Write("DAYOFYEAR");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Ticks):
+                    Writer.OpenBrace();
+                    Writer.OpenBrace();
+                    Writer.Write("DAYS");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    Writer.Operator(SqlOperator.Subtract);
+                    Writer.Write("DAYS");
+                    Writer.OpenBrace();
+                    Writer.Write("'0001-01-01'");
+                    Writer.CloseBrace();
+                    Writer.CloseBrace();
+                    Writer.Operator(SqlOperator.Multiply);
+                    Writer.Constant(86400);
+                    Writer.Operator(SqlOperator.Multiply);
+                    Writer.Constant(10000000);
+                    Writer.CloseBrace();
+                    Writer.Operator(SqlOperator.Add);
+                    Writer.OpenBrace();
+                    Writer.Write("MIDNIGHT_SECONDS");
+                    Writer.OpenBrace();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    Writer.Operator(SqlOperator.Multiply);
+                    Writer.Constant(10000000);
+                    Writer.CloseBrace();
+                    break;
+                default:
+                    throw new NotSupportedException($"不支持“{name}”日期片段计算!");
+            }
+        }
+
+        /// <summary>
+        /// Sybase
+        /// </summary>
+        private void Sybase(string name, Expression node)
+        {
+            switch (name)
+            {
+                case nameof(DateTime.Date):
+                    Writer.Write("CONVERT");
+                    Writer.OpenBrace();
+                    Writer.Write("DATE");
+                    Writer.Delimiter();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Year):
+                    Writer.Write("DATEPART");
+                    Writer.OpenBrace();
+                    Writer.Write("year");
+                    Writer.Delimiter();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Month):
+                    Writer.Write("DATEPART");
+                    Writer.OpenBrace();
+                    Writer.Write("month");
+                    Writer.Delimiter();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Day):
+                    Writer.Write("DATEPART");
+                    Writer.OpenBrace();
+                    Writer.Write("day");
+                    Writer.Delimiter();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Hour):
+                    Writer.Write("DATEPART");
+                    Writer.OpenBrace();
+                    Writer.Write("hour");
+                    Writer.Delimiter();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Minute):
+                    Writer.Write("DATEPART");
+                    Writer.OpenBrace();
+                    Writer.Write("minute");
+                    Writer.Delimiter();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Second):
+                    Writer.Write("DATEPART");
+                    Writer.OpenBrace();
+                    Writer.Write("second");
+                    Writer.Delimiter();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Millisecond):
+                    Writer.Write("DATEPART");
+                    Writer.OpenBrace();
+                    Writer.Write("millisecond");
+                    Writer.Delimiter();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.DayOfWeek):
+                    Writer.Write("DATEPART");
+                    Writer.OpenBrace();
+                    Writer.Write("weekday");
+                    Writer.Delimiter();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    Writer.Operator(SqlOperator.Subtract);
+                    Writer.Constant(1);
+                    break;
+                case nameof(DateTime.DayOfYear):
+                    Writer.Write("DATEPART");
+                    Writer.OpenBrace();
+                    Writer.Write("dayofyear");
+                    Writer.Delimiter();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    break;
+                case nameof(DateTime.Ticks):
+                    Writer.Write("DATEDIFF");
+                    Writer.OpenBrace();
+                    Writer.Write("us");
+                    Writer.Delimiter();
+                    Writer.Write("'0001-01-01'");
+                    Writer.Delimiter();
+                    Visit(node);
+                    Writer.CloseBrace();
+                    Writer.Operator(SqlOperator.Multiply);
+                    Writer.Constant(10);
+                    break;
+                default:
+                    throw new NotSupportedException($"不支持“{name}”日期片段计算!");
+            }
+        }
+        #endregion
 
         /// <inheritdoc/>
         protected override sealed MemberAssignment VisitMemberAssignment(MemberAssignment node)

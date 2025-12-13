@@ -213,41 +213,21 @@ namespace Inkslab.Linq
             }
 
             // 使用 switch pattern 匹配以提高分支预测与可读性
-            switch (value)
+            return value switch
             {
-                case DateTime dt when dt.Kind != DateTimeKind.Utc && databaseEngine == DatabaseEngine.PostgreSQL: // PostgreSQL 要求 UTC 时间
-                    return DateTime.SpecifyKind(dt, DateTimeKind.Utc);
-
-                case Guid guid when databaseEngine == DatabaseEngine.MySQL:
-                    // MySQL 通常使用 CHAR(36) 或 BINARY(16) 存储 GUID
-                    // 返回字符串格式；如果需要二进制请改为 guid.ToByteArray()
-                    return guid.ToString();
-
-                case Guid guid when databaseEngine == DatabaseEngine.Oracle:
-                    return guid.ToByteArray();
-
-                case bool b when databaseEngine == DatabaseEngine.SQLite:
-                    return b ? 1 : 0;
-
-                case TimeSpan ts when databaseEngine == DatabaseEngine.SQLite:
-                    return ts.Ticks; // 或使用 ts.ToString()
-
-                case bool b when databaseEngine == DatabaseEngine.Oracle:
-                    return b ? 1 : 0;
-
-                case Version v:
-                    return v.ToString();
-
-                case JsonPayload jp:
-                    return jp.ToString();
-
-                case JsonbPayload jbp:
-                    return jbp.ToString();
-                    
-                default:
-
-                    return value;
-            }
+                // PostgreSQL 要求 UTC 时间
+                DateTime dt when dt.Kind != DateTimeKind.Utc && databaseEngine == DatabaseEngine.PostgreSQL => dt.ToUniversalTime(), // 转为 UTC 时间
+                DateTimeOffset dto when databaseEngine == DatabaseEngine.PostgreSQL => dto.ToUniversalTime(), // 转为 UTC 时间
+                Guid guid when databaseEngine == DatabaseEngine.MySQL => guid.ToString(),// MySQL 通常使用 CHAR(36) 或 BINARY(16) 存储 GUID                                                                                         
+                Guid guid when databaseEngine == DatabaseEngine.Oracle => guid.ToByteArray(),// 返回字符串格式；如果需要二进制请改为 guid.ToByteArray()
+                bool b when databaseEngine == DatabaseEngine.SQLite => b ? 1 : 0,
+                TimeSpan ts when databaseEngine == DatabaseEngine.SQLite => ts.Ticks,// 或使用 ts.ToString()
+                bool b when databaseEngine == DatabaseEngine.Oracle => b ? 1 : 0,
+                Version v => v.ToString(),
+                JsonPayload jp => jp.ToString(),
+                JsonbPayload jbp => jbp.ToString(),
+                _ => value,
+            };
         }
     }
 }

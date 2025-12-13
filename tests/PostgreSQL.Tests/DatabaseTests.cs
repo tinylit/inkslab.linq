@@ -1,4 +1,5 @@
-﻿using System.Data;
+﻿using System;
+using System.Data;
 using System.Threading.Tasks;
 using Inkslab.Linq;
 using Xunit;
@@ -17,6 +18,10 @@ namespace PostgreSQL.Tests
         [Fact]
         public async Task SimpleTestAsync()
         {
+            var utc = DateTime.Now.ToUniversalTime();
+
+            var now = DateTime.SpecifyKind(DateTime.Now, DateTimeKind.Utc);
+
             string sql = "SELECT * FROM \"user_contents\" LIMIT 1";
 
             var result = await _database.FirstOrDefaultAsync<UserContentsOfJsonbPayload>(sql);

@@ -3,7 +3,7 @@
 一个高性能的 .NET LINQ 扩展库，提供强大的数据库查询能力和事务管理功能。
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.2.54-green.svg)](.nupkgs/)
+[![Version](https://img.shields.io/badge/version-1.2.55-green.svg)](.nupkgs/)
 [![.NET](https://img.shields.io/badge/.NET-6.0%20%7C%20Standard%202.1-purple.svg)](Directory.Build.props)
 [![GitHub](https://img.shields.io/github/license/tinylit/inkslab.linq.svg)](LICENSE)
 [![GitHub issues](https://img.shields.io/github/issues-raw/tinylit/inkslab.linq)](../../issues)

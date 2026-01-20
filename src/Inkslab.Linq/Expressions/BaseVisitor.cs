@@ -149,6 +149,25 @@ namespace Inkslab.Linq.Expressions
         /// <param name="node">节点。</param>
         protected virtual void Startup(MethodCallExpression node)
         {
+            PrepareTableInformation(node);
+
+            if (_hasBaseStartup)
+            {
+                StartupCore(node);
+            }
+            else
+            {
+                _hasBaseStartup = true;
+
+                Startup((Expression)node);
+            }
+        }
+
+        /// <summary>
+        /// 准备表信息。
+        /// </summary>
+        protected void PrepareTableInformation(MethodCallExpression node)
+        {
             var instanceArg = node.Method.IsStatic
                 ? node.Arguments[0]
                 : node.Object;
@@ -174,17 +193,6 @@ namespace Inkslab.Linq.Expressions
                     }
                     break;
             }
-
-            if (_hasBaseStartup)
-            {
-                StartupCore(node);
-            }
-            else
-            {
-                _hasBaseStartup = true;
-
-                Startup((Expression)node);
-            }
         }
 
         /// <summary>
@@ -197,7 +205,7 @@ namespace Inkslab.Linq.Expressions
 
         private static bool IsPlainVariableNS(Expression node)
         {
-            if(node is null)
+            if (node is null)
             {
                 return true;
             }
@@ -221,9 +229,7 @@ namespace Inkslab.Linq.Expressions
                 case MethodCallExpression method
                                     when method.Object is null || IsPlainVariableNS(method.Object):
                     return method.Arguments.Count == 0
-                        || method.Arguments.All(arg =>
-                            IsPlainVariableNS(arg)
-                        );
+                        || method.Arguments.All(IsPlainVariableNS);
                 case BinaryExpression binary:
                     return IsPlainVariableNS(binary.Left)
                         && IsPlainVariableNS(binary.Right);
@@ -231,9 +237,7 @@ namespace Inkslab.Linq.Expressions
                     return IsPlainVariableNS(lambda.Body);
                 case NewExpression newExpression when newExpression.Members.Count == 0:
                     return newExpression.Arguments.Count == 0
-                        || newExpression.Arguments.All(arg =>
-                            IsPlainVariableNS(arg)
-                        );
+                            || newExpression.Arguments.All(IsPlainVariableNS);
                 case MemberInitExpression memberInit
                                     when IsPlainVariableNS(memberInit.NewExpression):
                     foreach (var binding in memberInit.Bindings)
@@ -378,9 +382,11 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override sealed Expression VisitMethodCall(MethodCallExpression node)
         {
-            var instanceArg = node.Method.IsStatic
-                ? node.Arguments[0]
-                : node.Object;
+            /*             var instanceArg = node.Method.IsStatic
+                            ? node.Arguments[0]
+                            : node.Object; */
+
+            PrepareTableInformation(node);
 
             switch (node.Method.Name)
             {
@@ -465,21 +471,21 @@ namespace Inkslab.Linq.Expressions
                     }
 
                     break;
-                case nameof(Queryable.GroupJoin):
+                /*                 case nameof(Queryable.GroupJoin):
 
-                    //? 分析 JOIN 表。
-                    instanceArg = node.Arguments[1];
+                                    //? 分析 JOIN 表。
+                                    instanceArg = node.Arguments[1];
 
-                    goto default;
+                                    goto default; */
                 default:
-                    if (
-                        instanceArg.NodeType == ExpressionType.Constant
-                        && instanceArg is ConstantExpression constant
-                        && constant.Value is IQueryable queryable
-                    )
-                    {
-                        _tableInformation ??= TableAnalyzer.Table(queryable.ElementType);
-                    }
+                    /*                     if (
+                                            instanceArg.NodeType == ExpressionType.Constant
+                                            && instanceArg is ConstantExpression constant
+                                            && constant.Value is IQueryable queryable
+                                        )
+                                        {
+                                            _tableInformation ??= TableAnalyzer.Table(queryable.ElementType);
+                                        } */
 
                     if (
                         _adapter.Visitors.TryGetValue(node.Method, out IMethodVisitor methodVisitor)
@@ -2269,11 +2275,14 @@ namespace Inkslab.Linq.Expressions
         {
             bool commaFlag = false;
 
-            var tableInfo = Table();
-
             string schema = TryGetSourceParameter(node, out ParameterExpression parameterExpression)
                 ? parameterExpression.Name
                 : node.Name;
+
+            if (!TryGetSourceTableInfo(parameterExpression, out var tableInfo))
+            {
+                throw new DSyntaxErrorException($"未能分析到表名称！");
+            }
 
             foreach (var (name, field) in tableInfo.Fields)
             {

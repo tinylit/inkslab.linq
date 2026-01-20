@@ -227,5 +227,17 @@ namespace SqlServer.Tests
                     .Where(s => s.CustomerId == customerId && s.ActivityId == activityId && s.DivisionId == divisionId && terminalTypes.Contains(s.TerminalType))
                     .AnyAsync();
         }
+
+        [Fact]
+        public async Task Test3Async()
+        {
+            var now = DateTime.Now;
+            var activityIds = new List<long> { 7330139853482360915 };
+
+            var activities = await _activities
+                        .Where(s => activityIds.Contains(s.Id) && s.EndTime > now && !s.IsEnable)
+                        .OrderByDescending(s => s.Id)
+                        .ToListAsync();
+        }
     }
 }

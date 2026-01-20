@@ -240,7 +240,13 @@ namespace Inkslab.Linq
         public int WriteToServer(DataTable dt, int? commandTimeout = null) => _executor.WriteToServer(_databaseStrings, dt, commandTimeout);
 
         /// <inheritdoc/>
+        public int ExecuteMultiple(Action<IMultipleExecutor> multipleAction, int? commandTimeout = null) => _executor.ExecuteMultiple(_databaseStrings, multipleAction, commandTimeout);
+
+        /// <inheritdoc/>
         public Task<int> WriteToServerAsync(DataTable dt, int? commandTimeout = null, CancellationToken cancellationToken = default) => _executor.WriteToServerAsync(_databaseStrings, dt, commandTimeout, cancellationToken);
+
+        /// <inheritdoc/>
+        public Task<int> ExecuteMultipleAsync(Func<IAsyncMultipleExecutor, Task> multipleAction, int? commandTimeout = null, CancellationToken cancellationToken = default) => _executor.ExecuteMultipleAsync(_databaseStrings, multipleAction, commandTimeout, cancellationToken);
 
         private static CommandSql MakeCommandSql(string sql, Dictionary<string, object> dictionaries, int? commandTimeout = null)
         {

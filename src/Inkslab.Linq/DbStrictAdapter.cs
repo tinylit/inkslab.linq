@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 
@@ -16,8 +17,8 @@ namespace Inkslab.Linq
         public DbStrictAdapter(DatabaseEngine engine, IDbAdapter adapter)
         {
             Engine = engine;
-            Settings = adapter.Settings ?? throw new System.ArgumentNullException(nameof(adapter), nameof(adapter.Settings));
-            Visitors = adapter.Visitors ?? throw new System.ArgumentNullException(nameof(adapter), nameof(adapter.Visitors));
+            Settings = adapter.Settings ?? throw new ArgumentNullException(nameof(adapter), nameof(adapter.Settings));
+            Visitors = adapter.Visitors ?? throw new ArgumentNullException(nameof(adapter), nameof(adapter.Visitors));
         }
 
         /// <summary>

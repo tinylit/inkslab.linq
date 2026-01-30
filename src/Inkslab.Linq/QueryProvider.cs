@@ -17,8 +17,8 @@ namespace Inkslab.Linq
         {
             var queryProviderType = typeof(QueryProvider);
 
-            _createFn = queryProviderType.GetMethod(nameof(CreateQuery), 1, BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly, null, new Type[] { typeof(Expression) }, null);
-            _executeFn = queryProviderType.GetMethod(nameof(Execute), 1, BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly, null, new Type[] { typeof(Expression) }, null);
+            _createFn = queryProviderType.GetMethod(nameof(CreateQuery), 1, BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly, null, new[] { typeof(Expression) }, null);
+            _executeFn = queryProviderType.GetMethod(nameof(Execute), 1, BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly, null, new[] { typeof(Expression) }, null);
         }
 
         private readonly IRepositoryExecutor _executor;

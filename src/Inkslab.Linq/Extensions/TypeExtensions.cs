@@ -1,6 +1,6 @@
-﻿using Inkslab.Linq;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
+using Inkslab.Linq;
 
 #pragma warning disable IDE0130 // 命名空间与文件夹结构不匹配
 namespace System
@@ -53,7 +53,7 @@ namespace System
                     goto label_continue;
                 }
 
-                if (IsGrouping(typeArguments[0]))
+                if (typeArguments[0].IsGrouping())
                 {
                     return true;
                 }
@@ -110,8 +110,7 @@ namespace System
         /// <returns></returns>
         public static bool IsEnumerable(this Type type) => type.IsInterface && type.IsGenericType && type.GetGenericTypeDefinition() == _enumerable_T_Type;
 
-        private static readonly Type[] _simpleTypes = new Type[]
-        {
+        private static readonly Type[] _simpleTypes = {
             Types.String,
             Types.JsonPayload,
             Types.JsonbPayload

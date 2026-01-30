@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using Inkslab.Linq.Enums;
 
 namespace Inkslab.Linq.Expressions
 {
@@ -18,10 +19,10 @@ namespace Inkslab.Linq.Expressions
         private readonly Action _declaration;
         private readonly bool _isGroupHaving;
 
-        private volatile bool _haveWritten = false;
+        private volatile bool _haveWritten;
 
         /// <inheritdoc/>
-        public OrderByVisitor(SelectVisitor visitor, Action declaration, bool isDescending, bool isGroupHaving = false) : base(visitor, false)
+        public OrderByVisitor(SelectVisitor visitor, Action declaration, bool isDescending, bool isGroupHaving = false) : base(visitor)
         {
             _visitor = visitor;
             _isDescending = isDescending;
@@ -45,7 +46,7 @@ namespace Inkslab.Linq.Expressions
 
             if (_isDescending)
             {
-                Writer.Keyword(Enums.SqlKeyword.DESC);
+                Writer.Keyword(SqlKeyword.DESC);
             }
         }
 
@@ -60,7 +61,7 @@ namespace Inkslab.Linq.Expressions
 
             if (_isDescending)
             {
-                Writer.Keyword(Enums.SqlKeyword.DESC);
+                Writer.Keyword(SqlKeyword.DESC);
             }
 
             _haveWritten = false;
@@ -77,7 +78,7 @@ namespace Inkslab.Linq.Expressions
 
             if (_isDescending)
             {
-                Writer.Keyword(Enums.SqlKeyword.DESC);
+                Writer.Keyword(SqlKeyword.DESC);
             }
 
             _haveWritten = false;
@@ -97,7 +98,7 @@ namespace Inkslab.Linq.Expressions
 
             if (_isDescending)
             {
-                Writer.Keyword(Enums.SqlKeyword.DESC);
+                Writer.Keyword(SqlKeyword.DESC);
             }
 
             _haveWritten = false;
@@ -117,7 +118,7 @@ namespace Inkslab.Linq.Expressions
 
             if (_isDescending)
             {
-                Writer.Keyword(Enums.SqlKeyword.DESC);
+                Writer.Keyword(SqlKeyword.DESC);
             }
 
             _haveWritten = false;
@@ -137,7 +138,7 @@ namespace Inkslab.Linq.Expressions
 
             if (_isDescending)
             {
-                Writer.Keyword(Enums.SqlKeyword.DESC);
+                Writer.Keyword(SqlKeyword.DESC);
             }
 
             _haveWritten = false;
@@ -159,7 +160,7 @@ namespace Inkslab.Linq.Expressions
 
             if (_isDescending)
             {
-                Writer.Keyword(Enums.SqlKeyword.DESC);
+                Writer.Keyword(SqlKeyword.DESC);
             }
         }
 
@@ -531,7 +532,7 @@ namespace Inkslab.Linq.Expressions
 
                         if (_isDescending)
                         {
-                            Writer.Keyword(Enums.SqlKeyword.DESC);
+                            Writer.Keyword(SqlKeyword.DESC);
                         }
 
                         break;

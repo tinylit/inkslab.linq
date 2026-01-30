@@ -9,6 +9,6 @@ namespace Inkslab.Linq.Annotations
     /// <see cref="double"/>：获取 <see cref="DateTime.UtcNow"/> - <seealso cref="DateTime.UnixEpoch"/>。<br/>
     /// <see cref="DateTime"/>：获取 <see cref="DateTime.Now"/>。<br/>
     /// </summary>
-    [AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
+    [AttributeUsage(AttributeTargets.Property)]
     public sealed class VersionAttribute : Attribute { }
 }

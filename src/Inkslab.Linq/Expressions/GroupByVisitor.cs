@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq.Expressions;
 using System.Reflection;
+using Inkslab.Linq.Enums;
 
 namespace Inkslab.Linq.Expressions
 {
@@ -35,8 +36,8 @@ namespace Inkslab.Linq.Expressions
 
             _visitor.Visit(node.Arguments[0]);
 
-            Writer.Keyword(Enums.SqlKeyword.GROUP);
-            Writer.Keyword(Enums.SqlKeyword.BY);
+            Writer.Keyword(SqlKeyword.GROUP);
+            Writer.Keyword(SqlKeyword.BY);
 
             Visit(node.Arguments[1]);
 

@@ -1,5 +1,5 @@
-﻿using Inkslab.Linq.Options;
-using System;
+﻿using System;
+using Inkslab.Linq.Options;
 
 namespace Inkslab.Linq
 {

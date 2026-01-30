@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Threading;
@@ -53,7 +54,7 @@ namespace Inkslab.Linq
                 {
                     visitor.Startup(expression);
                 }
-                catch (System.Exception e)
+                catch (Exception e)
                 {
                     _logger.LogError(e, "执行器分析表达式异常！");
 
@@ -75,7 +76,7 @@ namespace Inkslab.Linq
                 {
                     visitor.Startup(expression);
                 }
-                catch (System.Exception e)
+                catch (Exception e)
                 {
                     _logger.LogError(e, "查询器分析表达式异常！");
 
@@ -97,7 +98,7 @@ namespace Inkslab.Linq
                 {
                     visitor.Startup(expression);
                 }
-                catch (System.Exception e)
+                catch (Exception e)
                 {
                     _logger.LogError(e, "查询器分析表达式异常！");
 
@@ -119,7 +120,7 @@ namespace Inkslab.Linq
                 {
                     visitor.Startup(expression);
                 }
-                catch (System.Exception e)
+                catch (Exception e)
                 {
                     _logger.LogError(e, "查询器分析表达式异常！");
 
@@ -141,7 +142,7 @@ namespace Inkslab.Linq
                 {
                     visitor.Startup(expression);
                 }
-                catch (System.Exception e)
+                catch (Exception e)
                 {
                     _logger.LogError(e, "查询器分析表达式异常！");
 

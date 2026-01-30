@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-
-namespace Inkslab.Linq
+﻿namespace Inkslab.Linq
 {
     /// <summary>
     /// 数据库矫正设置。

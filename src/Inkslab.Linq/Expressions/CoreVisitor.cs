@@ -1,12 +1,12 @@
-﻿using Inkslab.Linq.Enums;
-using Inkslab.Linq.Exceptions;
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
+using Inkslab.Linq.Enums;
+using Inkslab.Linq.Exceptions;
 
 namespace Inkslab.Linq.Expressions
 {
@@ -129,14 +129,14 @@ namespace Inkslab.Linq.Expressions
                     VisitWithConditionVisitor(node.Arguments[0], node.Arguments[1]);
                     break;
 
-                case nameof(Conditions.If) when node.Arguments.Count == 2 && IsPlainVariable(node.Arguments[0], true):
+                case nameof(Conditions.If) when node.Arguments.Count == 2 && IsPlainVariable(node.Arguments[0]):
                     if (node.Arguments[0].GetValueFromExpression<bool>())
                     {
                         Condition(node.Arguments[1]);
                     }
                     break;
 
-                case nameof(Conditions.Not) when node.Arguments.Count == 2 && IsPlainVariable(node.Arguments[0], true):
+                case nameof(Conditions.Not) when node.Arguments.Count == 2 && IsPlainVariable(node.Arguments[0]):
                     if (!node.Arguments[0].GetValueFromExpression<bool>())
                     {
                         Condition(node.Arguments[1]);
@@ -151,14 +151,14 @@ namespace Inkslab.Linq.Expressions
                     VisitIfDynamic(node.Arguments[0], node.Arguments[1], isIfBranch: false);
                     break;
 
-                case nameof(Conditions.If) when node.Arguments.Count == 3 && IsPlainVariable(node.Arguments[1], true):
+                case nameof(Conditions.If) when node.Arguments.Count == 3 && IsPlainVariable(node.Arguments[1]):
                     if (node.Arguments[1].GetValueFromExpression<bool>())
                     {
                         VisitWithConditionVisitor(node.Arguments[0], node.Arguments[2]);
                     }
                     break;
 
-                case nameof(Conditions.Not) when node.Arguments.Count == 3 && IsPlainVariable(node.Arguments[1], true):
+                case nameof(Conditions.Not) when node.Arguments.Count == 3 && IsPlainVariable(node.Arguments[1]):
                     if (!node.Arguments[1].GetValueFromExpression<bool>())
                     {
                         VisitWithConditionVisitor(node.Arguments[0], node.Arguments[2]);
@@ -173,7 +173,7 @@ namespace Inkslab.Linq.Expressions
                     VisitIfDynamicWithSource(node.Arguments[0], node.Arguments[1], node.Arguments[2], isIfBranch: false);
                     break;
 
-                case nameof(Conditions.Conditional) when node.Arguments.Count == 3 && IsPlainVariable(node.Arguments[0], true):
+                case nameof(Conditions.Conditional) when node.Arguments.Count == 3 && IsPlainVariable(node.Arguments[0]):
                     Condition(node.Arguments[node.Arguments[0].GetValueFromExpression<bool>() ? 1 : 2]);
                     break;
 
@@ -181,7 +181,7 @@ namespace Inkslab.Linq.Expressions
                     VisitConditionalDynamic(node.Arguments[0], node.Arguments[1], node.Arguments[2]);
                     break;
 
-                case nameof(Conditions.Conditional) when node.Arguments.Count == 4 && IsPlainVariable(node.Arguments[1], true):
+                case nameof(Conditions.Conditional) when node.Arguments.Count == 4 && IsPlainVariable(node.Arguments[1]):
                     VisitWithConditionVisitor(node.Arguments[0], node.Arguments[node.Arguments[1].GetValueFromExpression<bool>() ? 2 : 3]);
                     break;
 

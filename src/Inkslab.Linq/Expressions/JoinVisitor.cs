@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
+using Inkslab.Linq.Enums;
 using Inkslab.Linq.Exceptions;
 
 namespace Inkslab.Linq.Expressions
@@ -42,20 +43,20 @@ namespace Inkslab.Linq.Expressions
             switch (_joinType)
             {
                 case JoinType.INNER:
-                    Writer.Keyword(Enums.SqlKeyword.INNER);
+                    Writer.Keyword(SqlKeyword.INNER);
                     break;
                 case JoinType.LEFT:
-                    Writer.Keyword(Enums.SqlKeyword.LEFT);
+                    Writer.Keyword(SqlKeyword.LEFT);
                     break;
                 case JoinType.RIGHT:
-                    Writer.Keyword(Enums.SqlKeyword.RIGHT);
+                    Writer.Keyword(SqlKeyword.RIGHT);
                     break;
                 default:
-                    Writer.Keyword(Enums.SqlKeyword.CROSS);
+                    Writer.Keyword(SqlKeyword.CROSS);
                     break;
             }
 
-            Writer.Keyword(Enums.SqlKeyword.JOIN);
+            Writer.Keyword(SqlKeyword.JOIN);
         }
 
         ///<inheritdoc/>
@@ -351,7 +352,7 @@ namespace Inkslab.Linq.Expressions
 
         private class TransverterVisitor : BaseVisitor
         {
-            private bool readyComplete = false;
+            private bool readyComplete;
 
             private readonly JoinVisitor _visitor;
             private readonly ScriptVisitor _scriptVisitor;

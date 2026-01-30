@@ -52,7 +52,7 @@ namespace Inkslab.Linq
             _node = node;
         }
 
-        private IAsyncEnumerable<T> asyncEnumerable = null;
+        private IAsyncEnumerable<T> asyncEnumerable;
 
         /// <inheritdoc/>
         public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default)
@@ -69,7 +69,7 @@ namespace Inkslab.Linq
             return asyncEnumerable.GetAsyncEnumerator(cancellationToken);
         }
 
-        private IEnumerable<T> enumerable = null;
+        private IEnumerable<T> enumerable;
 
         /// <inheritdoc/>
         public IEnumerator<T> GetEnumerator()

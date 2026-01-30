@@ -1,5 +1,5 @@
-﻿using Inkslab.Linq.Expressions;
-using System.Linq.Expressions;
+﻿using System.Linq.Expressions;
+using Inkslab.Linq.Expressions;
 
 namespace Inkslab.Linq
 {

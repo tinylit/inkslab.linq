@@ -1,5 +1,6 @@
-using System.Linq.Expressions;
 using System.Diagnostics;
+using System.Linq.Expressions;
+using Inkslab.Linq.Enums;
 
 namespace Inkslab.Linq.Expressions
 {
@@ -29,20 +30,20 @@ namespace Inkslab.Linq.Expressions
                     }
                     else
                     {
-                        Writer.Keyword(Enums.SqlKeyword.THEN);
+                        Writer.Keyword(SqlKeyword.THEN);
 
                         Writer.True();
 
-                        Writer.Keyword(Enums.SqlKeyword.ELSE);
+                        Writer.Keyword(SqlKeyword.ELSE);
 
                         Writer.False();
 
-                        Writer.Keyword(Enums.SqlKeyword.END);
+                        Writer.Keyword(SqlKeyword.END);
 
                         domain.Flyback();
 
-                        Writer.Keyword(Enums.SqlKeyword.CASE);
-                        Writer.Keyword(Enums.SqlKeyword.WHEN);
+                        Writer.Keyword(SqlKeyword.CASE);
+                        Writer.Keyword(SqlKeyword.WHEN);
                     }
                 }
             }
@@ -60,7 +61,7 @@ namespace Inkslab.Linq.Expressions
                     }
                     else
                     {
-                        Writer.Keyword(Enums.SqlKeyword.NULL);
+                        Writer.Keyword(SqlKeyword.NULL);
                     }
                 }
             }

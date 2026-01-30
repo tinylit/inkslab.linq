@@ -5,7 +5,7 @@ namespace Inkslab.Linq.Annotations
     /// <summary>
     /// 表。
     /// </summary>
-    [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
+    [AttributeUsage(AttributeTargets.Class, Inherited = false)]
     public class TableAttribute : Attribute
     {
         /// <summary>

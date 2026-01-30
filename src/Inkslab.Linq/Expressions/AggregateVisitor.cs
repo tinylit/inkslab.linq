@@ -16,12 +16,12 @@ namespace Inkslab.Linq.Expressions
         /// <summary>
         /// 去重。
         /// </summary>
-        private bool _isDistinct = false;
+        private bool _isDistinct;
 
         /// <summary>
         /// 分组。
         /// </summary>
-        private bool _isGrouping = false;
+        private bool _isGrouping;
 
         private readonly SelectVisitor _visitor;
 

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
@@ -17,7 +18,7 @@ namespace Inkslab.Linq.Expressions
     {
         private bool _disposedValue;
 
-        private volatile bool _hasBaseStartup = false;
+        private volatile bool _hasBaseStartup;
 
         private readonly BaseVisitor _visitor;
         private readonly bool _isNewWriter;
@@ -27,12 +28,12 @@ namespace Inkslab.Linq.Expressions
         /// <summary>
         /// 数据分片。
         /// </summary>
-        private bool _dataSharding = false;
+        private bool _dataSharding;
 
         /// <summary>
         /// 数据分片。
         /// </summary>
-        private bool _dataShardingInvalid = false;
+        private bool _dataShardingInvalid;
 
         /// <summary>
         /// 分区键。
@@ -71,17 +72,13 @@ namespace Inkslab.Linq.Expressions
             Writer = CreateWriter(adapter.Settings);
         }
 
-        /// <inheritdoc />
-        protected BaseVisitor(BaseVisitor visitor)
-            : this(visitor, false) { }
-
         /// <summary>
         /// 子表达式。
         /// </summary>
         /// <param name="visitor">父表达式访问器。</param>
         /// <param name="isNewWriter">是否创建新的写入器。</param>
         /// <exception cref="ArgumentNullException">参数<see cref="_visitor"/>为 Null。</exception>
-        protected BaseVisitor(BaseVisitor visitor, bool isNewWriter)
+        protected BaseVisitor(BaseVisitor visitor, bool isNewWriter = false)
         {
             _visitor = visitor ?? throw new ArgumentNullException(nameof(visitor));
 
@@ -166,7 +163,7 @@ namespace Inkslab.Linq.Expressions
         /// <summary>
         /// 准备表信息。
         /// </summary>
-        protected void PrepareTableInformation(MethodCallExpression node)
+        private void PrepareTableInformation(MethodCallExpression node)
         {
             var instanceArg = node.Method.IsStatic
                 ? node.Arguments[0]
@@ -184,10 +181,8 @@ namespace Inkslab.Linq.Expressions
                     goto default;
                 default:
                     if (
-                        instanceArg.NodeType == ExpressionType.Constant
-                        && instanceArg is ConstantExpression constant
-                        && constant.Value is IQueryable queryable
-                    )
+                        instanceArg?.NodeType == ExpressionType.Constant
+                        && instanceArg is ConstantExpression { Value: IQueryable queryable })
                     {
                         _tableInformation ??= TableAnalyzer.Table(queryable.ElementType);
                     }
@@ -201,9 +196,9 @@ namespace Inkslab.Linq.Expressions
         /// <param name="node">节点。</param>
         protected virtual void StartupCore(MethodCallExpression node) => MethodCall(node);
 
-        private static readonly Lfu<Expression, bool> _lfu = new Lfu<Expression, bool>(10000, ExpressionEqualityComparer.Instance, IsPlainVariableNS);
+        private static readonly Lfu<Expression, bool> _lfu = new Lfu<Expression, bool>(10000, ExpressionEqualityComparer.Instance, IsPlainVariableNs);
 
-        private static bool IsPlainVariableNS(Expression node)
+        private static bool IsPlainVariableNs(Expression node)
         {
             if (node is null)
             {
@@ -225,26 +220,26 @@ namespace Inkslab.Linq.Expressions
                         return true;
                     }
 
-                    return IsPlainVariableNS(member.Expression);
+                    return IsPlainVariableNs(member.Expression);
                 case MethodCallExpression method
-                                    when method.Object is null || IsPlainVariableNS(method.Object):
+                                    when method.Object is null || IsPlainVariableNs(method.Object):
                     return method.Arguments.Count == 0
-                        || method.Arguments.All(IsPlainVariableNS);
+                        || method.Arguments.All(IsPlainVariableNs);
                 case BinaryExpression binary:
-                    return IsPlainVariableNS(binary.Left)
-                        && IsPlainVariableNS(binary.Right);
-                case LambdaExpression lambda when lambda.Parameters.Count == 0:
-                    return IsPlainVariableNS(lambda.Body);
+                    return IsPlainVariableNs(binary.Left)
+                        && IsPlainVariableNs(binary.Right);
+                case LambdaExpression { Parameters: { Count: 0 } } lambda:
+                    return IsPlainVariableNs(lambda.Body);
                 case NewExpression newExpression when newExpression.Members.Count == 0:
                     return newExpression.Arguments.Count == 0
-                            || newExpression.Arguments.All(IsPlainVariableNS);
+                            || newExpression.Arguments.All(IsPlainVariableNs);
                 case MemberInitExpression memberInit
-                                    when IsPlainVariableNS(memberInit.NewExpression):
+                                    when IsPlainVariableNs(memberInit.NewExpression):
                     foreach (var binding in memberInit.Bindings)
                     {
                         if (
                             binding is MemberAssignment assignment
-                            && IsPlainVariableNS(assignment.Expression)
+                            && IsPlainVariableNs(assignment.Expression)
                         )
                         {
                             continue;
@@ -254,17 +249,18 @@ namespace Inkslab.Linq.Expressions
                     }
                     return true;
                 case ConditionalExpression conditional
-                                    when IsPlainVariableNS(conditional.Test):
-                    return IsPlainVariableNS(conditional.IfTrue)
-                        && IsPlainVariableNS(conditional.IfFalse);
-                case UnaryExpression unary when unary.NodeType is ExpressionType.Quote
-                                        or ExpressionType.Convert
-                                        or ExpressionType.ConvertChecked
-                                        or ExpressionType.OnesComplement
-                                        or ExpressionType.IsTrue
-                                        or ExpressionType.IsFalse
-                                        or ExpressionType.Not:
-                    return IsPlainVariableNS(unary.Operand);
+                                    when IsPlainVariableNs(conditional.Test):
+                    return IsPlainVariableNs(conditional.IfTrue)
+                        && IsPlainVariableNs(conditional.IfFalse);
+                case UnaryExpression { NodeType: ExpressionType.Quote
+                    or ExpressionType.Convert
+                    or ExpressionType.ConvertChecked
+                    or ExpressionType.OnesComplement
+                    or ExpressionType.IsTrue
+                    or ExpressionType.IsFalse
+                    or ExpressionType.Not
+                } unary:
+                    return IsPlainVariableNs(unary.Operand);
                 default:
                     return false;
             }
@@ -372,7 +368,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override sealed Expression VisitInvocation(InvocationExpression node)
+        protected sealed override Expression VisitInvocation(InvocationExpression node)
         {
             Invocation(node);
 
@@ -380,13 +376,18 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override sealed Expression VisitMethodCall(MethodCallExpression node)
+        protected sealed override Expression VisitMethodCall(MethodCallExpression node)
         {
             PrepareTableInformation(node);
 
             switch (node.Method.Name)
             {
                 case nameof(ToString) when node.Arguments.Count == 0:
+
+                    if (node.Object is null)
+                    {
+                        throw new NotSupportedException("静态的 ToString 方法不支持转换！");
+                    }
 
                     if (node.Object.Type == Types.String || node.Object.Type == Types.JsonbPayload || node.Object.Type == Types.JsonPayload)
                     {
@@ -485,7 +486,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override sealed Expression VisitBinary(BinaryExpression node)
+        protected sealed override Expression VisitBinary(BinaryExpression node)
         {
             Binary(node);
 
@@ -493,7 +494,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override sealed Expression VisitConditional(ConditionalExpression node)
+        protected sealed override Expression VisitConditional(ConditionalExpression node)
         {
             Conditional(node);
 
@@ -501,7 +502,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override sealed Expression VisitBlock(BlockExpression node)
+        protected sealed override Expression VisitBlock(BlockExpression node)
         {
             Block(node);
 
@@ -509,7 +510,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override sealed CatchBlock VisitCatchBlock(CatchBlock node)
+        protected sealed override CatchBlock VisitCatchBlock(CatchBlock node)
         {
             CatchBlock(node);
 
@@ -517,14 +518,14 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override sealed Expression VisitConstant(ConstantExpression node)
+        protected sealed override Expression VisitConstant(ConstantExpression node)
         {
             if (node.Value is IQueryable queryable)
             {
                 _tableInformation ??= TableAnalyzer.Table(queryable.ElementType); //? 兼容 LEFT JOIN 导致的函数分析问题。
             }
-
-            _dataShardingInvalid &= false;
+            
+            _dataShardingInvalid = false;
 
             Constant(node);
 
@@ -532,7 +533,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override sealed Expression VisitDebugInfo(DebugInfoExpression node)
+        protected sealed override Expression VisitDebugInfo(DebugInfoExpression node)
         {
             DebugInfo(node);
 
@@ -540,7 +541,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override sealed Expression VisitDefault(DefaultExpression node)
+        protected sealed override Expression VisitDefault(DefaultExpression node)
         {
             if (node.Type.IsValueType)
             {
@@ -555,7 +556,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override sealed Expression VisitDynamic(DynamicExpression node)
+        protected sealed override Expression VisitDynamic(DynamicExpression node)
         {
             Dynamic(node);
 
@@ -563,7 +564,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override sealed ElementInit VisitElementInit(ElementInit node)
+        protected sealed override ElementInit VisitElementInit(ElementInit node)
         {
             ElementInit(node);
 
@@ -571,7 +572,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override sealed Expression VisitExtension(Expression node)
+        protected sealed override Expression VisitExtension(Expression node)
         {
             Extension(node);
 
@@ -579,7 +580,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override sealed Expression VisitGoto(GotoExpression node)
+        protected sealed override Expression VisitGoto(GotoExpression node)
         {
             Goto(node);
 
@@ -587,7 +588,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override sealed Expression VisitIndex(IndexExpression node)
+        protected sealed override Expression VisitIndex(IndexExpression node)
         {
             Index(node);
 
@@ -595,7 +596,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override sealed Expression VisitLabel(LabelExpression node)
+        protected sealed override Expression VisitLabel(LabelExpression node)
         {
             Label(node);
 
@@ -603,7 +604,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override sealed LabelTarget VisitLabelTarget(LabelTarget node)
+        protected sealed override LabelTarget VisitLabelTarget(LabelTarget node)
         {
             LabelTarget(node);
 
@@ -611,7 +612,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override sealed Expression VisitListInit(ListInitExpression node)
+        protected sealed override Expression VisitListInit(ListInitExpression node)
         {
             ListInit(node);
 
@@ -619,7 +620,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override sealed Expression VisitLoop(LoopExpression node)
+        protected sealed override Expression VisitLoop(LoopExpression node)
         {
             Loop(node);
 
@@ -627,7 +628,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override sealed Expression VisitMember(MemberExpression node)
+        protected sealed override Expression VisitMember(MemberExpression node)
         {
             if (IsPlainVariable(node.Expression, false))
             {
@@ -751,7 +752,7 @@ namespace Inkslab.Linq.Expressions
                     SqlServer(node.Member.Name, node.Expression);
                     break;
                 case DatabaseEngine.PostgreSQL:
-                    PostgreSQL(node.Member.Name, node.Expression);
+                    PostgreSql(node.Member.Name, node.Expression);
                     break;
                 case DatabaseEngine.MySQL:
                     MySql(node.Member.Name, node.Expression);
@@ -865,7 +866,7 @@ namespace Inkslab.Linq.Expressions
         /// <summary>
         /// PostgreSQL
         /// </summary>
-        private void PostgreSQL(string name, Expression node)
+        private void PostgreSql(string name, Expression node)
         {
             switch (name)
             {
@@ -1683,7 +1684,7 @@ namespace Inkslab.Linq.Expressions
         #endregion
 
         /// <inheritdoc/>
-        protected override sealed MemberAssignment VisitMemberAssignment(MemberAssignment node)
+        protected sealed override MemberAssignment VisitMemberAssignment(MemberAssignment node)
         {
             MemberAssignment(node);
 
@@ -1691,7 +1692,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override sealed MemberBinding VisitMemberBinding(MemberBinding node)
+        protected sealed override MemberBinding VisitMemberBinding(MemberBinding node)
         {
             MemberBinding(node);
 
@@ -1699,7 +1700,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override sealed Expression VisitMemberInit(MemberInitExpression node)
+        protected sealed override Expression VisitMemberInit(MemberInitExpression node)
         {
             if (node.Bindings.Count > 0)
             {
@@ -1743,7 +1744,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override sealed MemberListBinding VisitMemberListBinding(MemberListBinding node)
+        protected sealed override MemberListBinding VisitMemberListBinding(MemberListBinding node)
         {
             MemberListBinding(node);
 
@@ -1751,7 +1752,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override sealed MemberMemberBinding VisitMemberMemberBinding(
+        protected sealed override MemberMemberBinding VisitMemberMemberBinding(
             MemberMemberBinding node
         )
         {
@@ -1762,7 +1763,7 @@ namespace Inkslab.Linq.Expressions
 
         private void Version(
             int i,
-            System.Collections.ObjectModel.ReadOnlyCollection<Expression> arguments
+            ReadOnlyCollection<Expression> arguments
         )
         {
             if (i < 3)
@@ -1794,7 +1795,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override sealed Expression VisitNew(NewExpression node)
+        protected sealed override Expression VisitNew(NewExpression node)
         {
             if (node.Arguments.Count == 0)
             {
@@ -1881,7 +1882,7 @@ namespace Inkslab.Linq.Expressions
         protected virtual void Version(NewExpression node) => Version(0, node.Arguments);
 
         /// <inheritdoc/>
-        protected override sealed Expression VisitNewArray(NewArrayExpression node)
+        protected sealed override Expression VisitNewArray(NewArrayExpression node)
         {
             NewArray(node);
 
@@ -1889,7 +1890,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override sealed Expression VisitParameter(ParameterExpression node)
+        protected sealed override Expression VisitParameter(ParameterExpression node)
         {
             Parameter(node);
 
@@ -1897,7 +1898,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override sealed Expression VisitRuntimeVariables(RuntimeVariablesExpression node)
+        protected sealed override Expression VisitRuntimeVariables(RuntimeVariablesExpression node)
         {
             RuntimeVariables(node);
 
@@ -1905,7 +1906,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override sealed Expression VisitSwitch(SwitchExpression node)
+        protected sealed override Expression VisitSwitch(SwitchExpression node)
         {
             Switch(node);
 
@@ -1913,7 +1914,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override sealed SwitchCase VisitSwitchCase(SwitchCase node)
+        protected sealed override SwitchCase VisitSwitchCase(SwitchCase node)
         {
             SwitchCase(node);
 
@@ -1921,7 +1922,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override sealed Expression VisitTry(TryExpression node)
+        protected sealed override Expression VisitTry(TryExpression node)
         {
             Try(node);
 
@@ -1929,7 +1930,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override sealed Expression VisitTypeBinary(TypeBinaryExpression node)
+        protected sealed override Expression VisitTypeBinary(TypeBinaryExpression node)
         {
             TypeBinary(node);
 
@@ -1937,7 +1938,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override sealed Expression VisitUnary(UnaryExpression node)
+        protected sealed override Expression VisitUnary(UnaryExpression node)
         {
             if (node.NodeType == ExpressionType.Quote)
             {
@@ -2087,10 +2088,8 @@ namespace Inkslab.Linq.Expressions
             {
                 throw new NotSupportedException($"不支持依赖成员“{node.Member.Name}”的解析！");
             }
-            else
-            {
-                _visitor.Member(node);
-            }
+
+            _visitor.Member(node);
         }
 
         /// <summary>
@@ -2173,10 +2172,15 @@ namespace Inkslab.Linq.Expressions
         /// <param name="node">The expression to visit.</param>
         protected virtual void Block(BlockExpression node) => base.VisitBlock(node);
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// Visits the children of the <see cref="ConstantExpression"/>.
+        /// </summary>
         protected virtual void Constant(ConstantExpression node) => Constant(node.Value);
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// 常量。
+        /// </summary>
+        /// <param name="value">对象值</param>
         protected virtual void Constant(object value)
         {
             switch (value)
@@ -2199,7 +2203,11 @@ namespace Inkslab.Linq.Expressions
             }
         }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// 查询器常量。
+        /// </summary>
+        /// <param name="value">查询器常量</param>
+        /// <exception cref="NotSupportedException">不支持查询器常量！</exception>
         protected virtual void Constant(IQueryable value) =>
             throw new NotSupportedException("不支持查询器常量！");
 
@@ -2256,12 +2264,12 @@ namespace Inkslab.Linq.Expressions
         {
             if (!TryGetSourceParameter(node, out ParameterExpression parameter))
             {
-                throw new DSyntaxErrorException($"未能分析到表参数！");
+                throw new DSyntaxErrorException("未能分析到表参数！");
             }
 
             if (!TryGetSourceTableInfo(parameter, out var tableInfo))
             {
-                throw new DSyntaxErrorException($"未能分析到表名称！");
+                throw new DSyntaxErrorException("未能分析到表名称！");
             }
 
             bool commaFlag = false;
@@ -2538,7 +2546,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <summary>
-        /// Visits the children of the <see cref="Expression"/> and process it as a coalesce.
+        /// Visits the children of the <see cref="Expression"/> and process it as a coalesced.
         /// </summary>
         /// <param name="node">The expression to visit.</param>
         protected virtual void Coalesce(Expression node)
@@ -2582,10 +2590,8 @@ namespace Inkslab.Linq.Expressions
                 {
                     throw new InvalidOperationException($"分区表“{_tableInformation.Name}”的操作，必须指定分区键！");
                 }
-                else
-                {
-                    throw new InvalidOperationException($"普通表“{_tableInformation.Name}”不支持分区操作！");
-                }
+
+                throw new InvalidOperationException($"普通表“{_tableInformation.Name}”不支持分区操作！");
             }
 
             if (_dataSharding)
@@ -2609,9 +2615,8 @@ namespace Inkslab.Linq.Expressions
             }
 
             return _tableInformation
-                ?? _visitor?.Table(onlyMyself)
+                ?? _visitor?.Table()
                 ?? throw new DSyntaxErrorException("未能分析到表名称！");
-            ;
         }
 
         #endregion

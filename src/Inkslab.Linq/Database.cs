@@ -1,9 +1,9 @@
-﻿using Inkslab.Collections;
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
+using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -11,6 +11,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Inkslab.Collections;
 using static System.Linq.Expressions.Expression;
 
 namespace Inkslab.Linq
@@ -465,13 +466,13 @@ namespace Inkslab.Linq
                     return string.Concat("0x", BitConverter.ToString(bytes).Replace("-", ""));
                 case decimal decimalValue:
                     // Decimal - 使用不变文化格式，避免本地化问题
-                    return decimalValue.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    return decimalValue.ToString(CultureInfo.InvariantCulture);
                 case float floatValue:
                     // Float - 使用不变文化格式
-                    return floatValue.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    return floatValue.ToString(CultureInfo.InvariantCulture);
                 case double doubleValue:
                     // Double - 使用不变文化格式
-                    return doubleValue.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    return doubleValue.ToString(CultureInfo.InvariantCulture);
                 case DbParameter parameter:
                     return Format(parameter.Value, throwError);
                 case JsonbPayload jsonbPayload:
@@ -536,7 +537,7 @@ namespace Inkslab.Linq
         static Database()
         {
             _dictionaryType = typeof(Dictionary<string, object>);
-            _dictionaryAdd = _dictionaryType.GetMethod("Add", BindingFlags.Public | BindingFlags.Instance, null, new Type[] { Types.String, Types.Object }, null);
+            _dictionaryAdd = _dictionaryType.GetMethod("Add", BindingFlags.Public | BindingFlags.Instance, null, new[] { Types.String, Types.Object }, null);
         }
 
         private static readonly Lfu<Type, Func<object, Dictionary<string, object>>> _lru = new Lfu<Type, Func<object, Dictionary<string, object>>>(type =>
@@ -550,7 +551,7 @@ namespace Inkslab.Linq
             var expressions = new List<Expression>
             {
                 Assign(targetVar, Convert(parameterPar, type)),
-                Assign(dictionariesVar, New(_dictionaryType.GetConstructor(new Type[]{ typeof(int)}), Constant(propertyInfos.Length)))
+                Assign(dictionariesVar, New(_dictionaryType.GetConstructor(new[]{ typeof(int)}), Constant(propertyInfos.Length)))
             };
 
             foreach (var propertyInfo in type.GetProperties())
@@ -576,7 +577,7 @@ namespace Inkslab.Linq
 
             expressions.Add(dictionariesVar);
 
-            var lambdaExp = Lambda<Func<object, Dictionary<string, object>>>(Block(new ParameterExpression[2] { targetVar, dictionariesVar }, expressions), new ParameterExpression[1] { parameterPar });
+            var lambdaExp = Lambda<Func<object, Dictionary<string, object>>>(Block(new ParameterExpression[2] { targetVar, dictionariesVar }, expressions), parameterPar);
 
             return lambdaExp.Compile();
         });

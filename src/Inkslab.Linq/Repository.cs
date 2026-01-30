@@ -104,7 +104,7 @@ namespace Inkslab.Linq
             {
                 RepositoryType.Normal => _node,
                 RepositoryType.Ignore
-                    => Call(null, _ignoreFn, new Expression[1] { _repository.OperationNode() }),
+                    => Call(null, _ignoreFn, _repository.OperationNode()),
                 _ => _repository.OperationNode()
             };
 
@@ -269,7 +269,7 @@ namespace Inkslab.Linq
         /// </summary>
         /// <returns></returns>
         public int Delete() =>
-            _executor.Execute(Call(null, _deleteFn, new Expression[1] { OperationNode() }));
+            _executor.Execute(Call(null, _deleteFn, OperationNode()));
 
         /// <summary>
         /// 删除数据。
@@ -291,7 +291,7 @@ namespace Inkslab.Linq
         /// <returns></returns>
         public Task<int> DeleteAsync(CancellationToken cancellationToken = default) =>
             _executor.ExecuteAsync(
-                Call(null, _deleteFn, new Expression[1] { OperationNode() }),
+                Call(null, _deleteFn, OperationNode()),
                 cancellationToken
             );
 

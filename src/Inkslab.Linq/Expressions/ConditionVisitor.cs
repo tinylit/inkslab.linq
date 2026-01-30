@@ -17,7 +17,7 @@ namespace Inkslab.Linq.Expressions
         /// <summary>
         /// 忽略可空类型。
         /// </summary>
-        private bool _ignoreNull = false;
+        private bool _ignoreNull;
         private bool _isConditionBalance = true;
 
         private readonly bool _isGroupHaving;

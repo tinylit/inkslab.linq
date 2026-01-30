@@ -20,7 +20,7 @@ namespace Inkslab.Linq.Expressions
         /// <summary>
         /// 去重。
         /// </summary>
-        private bool _isDistinct = false;
+        private bool _isDistinct;
 
 
         private readonly SelectVisitor _visitor;
@@ -120,7 +120,7 @@ namespace Inkslab.Linq.Expressions
         #region 内嵌类
         private class CountSelectListVisitor : SelectListVisitor
         {
-            public CountSelectListVisitor(CoreVisitor visitor) : base(visitor, false)
+            public CountSelectListVisitor(CoreVisitor visitor) : base(visitor)
             {
 
             }

@@ -112,7 +112,7 @@ namespace Inkslab.Linq
                     }
                     else
                     {
-                        _commandTimeout = new int?(timeOut);
+                        _commandTimeout = timeOut;
                     }
 
                     visitor.Visit(node.Arguments[0]);
@@ -185,7 +185,7 @@ namespace Inkslab.Linq
 
             /// <inheritdoc/>
             public SQLServerDeleteVisitor(ExecutorVisitor visitor)
-                : base(visitor, ConditionType.Where, false)
+                : base(visitor, ConditionType.Where)
             {
                 _visitor = visitor;
             }
@@ -248,7 +248,7 @@ namespace Inkslab.Linq
 
             /// <inheritdoc/>
             public DeleteVisitor(ExecutorVisitor visitor)
-                : base(visitor, ConditionType.Where, false)
+                : base(visitor, ConditionType.Where)
             {
                 _visitor = visitor;
             }
@@ -300,7 +300,7 @@ namespace Inkslab.Linq
 
             /// <inheritdoc/>
             public MySQLUpdateVisitor(ExecutorVisitor visitor, Expression bodySetter)
-                : base(visitor, ConditionType.Where, false)
+                : base(visitor, ConditionType.Where)
             {
                 _visitor = visitor;
                 _bodySetter = bodySetter;
@@ -493,7 +493,7 @@ namespace Inkslab.Linq
 
             /// <inheritdoc/>
             public SQLServerUpdateVisitor(ExecutorVisitor visitor, Expression bodySetter)
-                : base(visitor, ConditionType.Where, false)
+                : base(visitor, ConditionType.Where)
             {
                 _visitor = visitor;
                 _bodySetter = bodySetter;
@@ -683,7 +683,7 @@ namespace Inkslab.Linq
 
             /// <inheritdoc/>
             public PostgreSQLUpdateVisitor(ExecutorVisitor visitor, Expression bodySetter)
-                : base(visitor, ConditionType.Where, false)
+                : base(visitor, ConditionType.Where)
             {
                 _visitor = visitor;
                 _bodySetter = bodySetter;
@@ -884,7 +884,7 @@ namespace Inkslab.Linq
 
             /// <inheritdoc/>
             public OracleUpdateVisitor(ExecutorVisitor visitor, Expression bodySetter)
-                : base(visitor, ConditionType.Where, false)
+                : base(visitor, ConditionType.Where)
             {
                 _visitor = visitor;
                 _bodySetter = bodySetter;
@@ -1086,7 +1086,7 @@ namespace Inkslab.Linq
 
             /// <inheritdoc/>
             public InsertVisitor(ExecutorVisitor visitor)
-                : base(visitor, ConditionType.Where, false)
+                : base(visitor, ConditionType.Where)
             {
                 _visitor = visitor;
             }
@@ -1232,7 +1232,7 @@ namespace Inkslab.Linq
                     ITableInfo tableInfo,
                     HashSet<string> insertFields
                 )
-                    : base(visitor, false)
+                    : base(visitor)
                 {
                     _tableInfo = tableInfo;
                     _insertFields = insertFields;

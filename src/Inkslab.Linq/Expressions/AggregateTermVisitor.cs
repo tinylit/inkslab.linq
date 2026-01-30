@@ -16,7 +16,7 @@ namespace Inkslab.Linq.Expressions
         /// <summary>
         /// 去重。
         /// </summary>
-        private bool _isDistinct = false;
+        private bool _isDistinct;
 
         /// <summary>
         /// 生成 SELECT。

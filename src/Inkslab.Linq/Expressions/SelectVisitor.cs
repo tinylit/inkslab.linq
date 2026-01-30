@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
@@ -17,7 +16,7 @@ namespace Inkslab.Linq.Expressions
         /// <summary>
         /// 逆序。
         /// </summary>
-        private bool _reversed = false;
+        private bool _reversed;
 
         private readonly bool _showAs;
 
@@ -29,7 +28,7 @@ namespace Inkslab.Linq.Expressions
         /// <summary>
         /// 父级是否条件反转。
         /// </summary>
-        private readonly bool _parentIsConditionReversal = false;
+        private readonly bool _parentIsConditionReversal;
 
         /// <inheritdoc/>
         protected SelectVisitor(DbStrictAdapter adapter) : base(adapter)

@@ -10,9 +10,9 @@ namespace Inkslab.Linq.Expressions
     /// </summary>
     public class ByStringCallVisitor : BaseVisitor
     {
-        private bool ignoreNull = false;
-        private bool ignoreEmptyString = false;
-        private bool ignoreWhiteSpace = false;
+        private bool ignoreNull;
+        private bool ignoreEmptyString;
+        private bool ignoreWhiteSpace;
 
         /// <inheritdoc/>
         public ByStringCallVisitor(BaseVisitor visitor) : base(visitor)
@@ -540,7 +540,6 @@ namespace Inkslab.Linq.Expressions
         {
             if (ignoreNull && value is null)
             {
-                return;
             }
             else if ((ignoreEmptyString || ignoreWhiteSpace)
                 && value is string text

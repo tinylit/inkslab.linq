@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Linq.Expressions;
+using Inkslab.Linq.Enums;
 using Inkslab.Linq.Exceptions;
 using Inkslab.Linq.Expressions;
 
@@ -36,7 +37,7 @@ namespace Inkslab.Linq
                 case nameof(Queryable.Any):
                 case nameof(Queryable.All):
 
-                    Writer.Keyword(Enums.SqlKeyword.SELECT);
+                    Writer.Keyword(SqlKeyword.SELECT);
 
                     if (Engine is DatabaseEngine.MySQL or DatabaseEngine.PostgreSQL)
                     {
@@ -45,20 +46,20 @@ namespace Inkslab.Linq
                         break;
                     }
 
-                    Writer.Keyword(Enums.SqlKeyword.CASE);
-                    Writer.Keyword(Enums.SqlKeyword.WHEN);
+                    Writer.Keyword(SqlKeyword.CASE);
+                    Writer.Keyword(SqlKeyword.WHEN);
 
                     base.LinqCore(node);
 
-                    Writer.Keyword(Enums.SqlKeyword.THEN);
+                    Writer.Keyword(SqlKeyword.THEN);
 
                     Writer.True();
 
-                    Writer.Keyword(Enums.SqlKeyword.ELSE);
+                    Writer.Keyword(SqlKeyword.ELSE);
 
                     Writer.False();
 
-                    Writer.Keyword(Enums.SqlKeyword.END);
+                    Writer.Keyword(SqlKeyword.END);
 
                     break;
                 case nameof(Queryable.First):

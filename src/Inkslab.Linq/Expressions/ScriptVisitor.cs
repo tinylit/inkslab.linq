@@ -1,11 +1,11 @@
 using System;
-using System.Linq.Expressions;
-using Inkslab.Linq.Enums;
-using System.Linq;
 using System.Collections.Generic;
-using System.Reflection;
-using Inkslab.Linq.Exceptions;
 using System.Diagnostics;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Reflection;
+using Inkslab.Linq.Enums;
+using Inkslab.Linq.Exceptions;
 
 namespace Inkslab.Linq.Expressions
 {
@@ -33,27 +33,27 @@ namespace Inkslab.Linq.Expressions
         /// <summary>
         /// 构建。
         /// </summary>
-        private bool _buildSelect = false;
+        private bool _buildSelect;
 
         /// <summary>
         /// 去重。
         /// </summary>
-        private bool _isDistinct = false;
+        private bool _isDistinct;
 
         /// <summary>
         /// 分组表达式。
         /// </summary>
-        private bool _isGrouping = false;
+        private bool _isGrouping;
 
         /// <summary>
         /// 是查询表达式。
         /// </summary>
-        private bool _isQueryable = false;
+        private bool _isQueryable;
 
         /// <summary>
         /// 聚合统计。
         /// </summary>
-        private bool _isAggregateCount = false;
+        private bool _isAggregateCount;
 
         /// <summary>
         /// 预热处理。
@@ -68,7 +68,7 @@ namespace Inkslab.Linq.Expressions
         /// <summary>
         /// 已预热参数。
         /// </summary>
-        private bool _preheatedParameter = false;
+        private bool _preheatedParameter;
 
         /// <summary>
         /// 预热参数。
@@ -80,7 +80,7 @@ namespace Inkslab.Linq.Expressions
         /// </summary>
         private ParameterExpression _parameterRel;
 
-        private volatile bool _backflowWorking = false;
+        private volatile bool _backflowWorking;
 
         /// <summary>
         /// 主干表达式。
@@ -644,7 +644,7 @@ namespace Inkslab.Linq.Expressions
 
                     break;
 
-                case nameof(QueryableExtentions.WhereIf) when IsPlainVariable(node.Arguments[1], true):
+                case nameof(QueryableExtentions.WhereIf) when IsPlainVariable(node.Arguments[1]):
 
                     var conditionIsValid = node.Arguments[1].GetValueFromExpression<bool>();
 
@@ -732,7 +732,7 @@ namespace Inkslab.Linq.Expressions
                     }
                     else
                     {
-                        _commandTimeout = new int?(timeOut);
+                        _commandTimeout = timeOut;
                     }
 
                     visitor.Visit(node.Arguments[0]);

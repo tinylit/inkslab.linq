@@ -108,7 +108,7 @@ namespace System.Linq.Expressions
         /// <returns>操作符。</returns>
         internal static SqlOperator GetOperator(this ExpressionType expressionType)
         {
-            if (TryGetOperator(expressionType, out SqlOperator @operator))
+            if (expressionType.TryGetOperator(out SqlOperator @operator))
             {
                 return @operator;
             }

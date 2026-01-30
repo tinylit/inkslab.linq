@@ -18,18 +18,18 @@ namespace Inkslab.Linq
             private readonly StringBuilder _sb;
             private readonly SqlWriter _writer;
 
-            private int cursorPosition = -1;
+            private int _cursorPosition = -1;
 
             //? 处理作为方法的 NOT 指令。
-            private bool writtenNOT = false;
+            private bool _writtenNOT = false;
 
-            private bool ignoreNOT = false;
+            private bool _ignoreNOT = false;
 
             //? 刚刚写入 CASE THEN。
-            private bool justWrittenWhiteCase = false;
+            private bool _justWrittenWhiteCase = false;
 
             //? 刚刚写入 DELETE FROM。
-            private bool justWrittenWhiteDelete = false;
+            private bool _justWrittenWhiteDelete = false;
 
             public Writer(SqlWriter writer, int capacity)
             {
@@ -42,14 +42,14 @@ namespace Inkslab.Linq
             {
                 get
                 {
-                    if (cursorPosition == -1)
+                    if (_cursorPosition == -1)
                     {
                         return _sb.Length;
                     }
 
-                    return cursorPosition;
+                    return _cursorPosition;
                 }
-                private set => cursorPosition = value;
+                private set => _cursorPosition = value;
             }
 
             public int Length => _sb.Length;
@@ -66,7 +66,7 @@ namespace Inkslab.Linq
 
                         WhiteSpace();
 
-                        justWrittenWhiteDelete = true;
+                        _justWrittenWhiteDelete = true;
 
                         break;
                     case SqlKeyword.SELECT:
@@ -87,12 +87,12 @@ namespace Inkslab.Linq
 
                         WhiteSpace();
 
-                        justWrittenWhiteCase = true;
+                        _justWrittenWhiteCase = true;
 
                         break;
                     case SqlKeyword.WHEN:
 
-                        if (!justWrittenWhiteCase)
+                        if (!_justWrittenWhiteCase)
                         {
                             WhiteSpace();
                         }
@@ -109,7 +109,7 @@ namespace Inkslab.Linq
                         break;
                     case SqlKeyword.FROM:
 
-                        if (!justWrittenWhiteDelete)
+                        if (!_justWrittenWhiteDelete)
                         {
                             WhiteSpace();
                         }
@@ -147,13 +147,13 @@ namespace Inkslab.Linq
                         break;
                     case SqlKeyword.NOT:
 
-                        ignoreNOT ^= true;
+                        _ignoreNOT ^= true;
 
-                        if (writtenNOT)
+                        if (_writtenNOT)
                         {
-                            writtenNOT = false;
+                            _writtenNOT = false;
 
-                            if (!ignoreNOT)
+                            if (!_ignoreNOT)
                             {
                                 WhiteSpace();
 
@@ -192,21 +192,21 @@ namespace Inkslab.Linq
 
             public void Write(char value)
             {
-                justWrittenWhiteCase &= false;
-                justWrittenWhiteDelete &= false;
+                _justWrittenWhiteCase &= false;
+                _justWrittenWhiteDelete &= false;
 
-                if (ignoreNOT)
+                if (_ignoreNOT)
                 {
-                    writtenNOT = true;
+                    _writtenNOT = true;
 
                     _writer.Keyword(SqlKeyword.NOT);
                 }
 
-                if (cursorPosition > -1)
+                if (_cursorPosition > -1)
                 {
-                    _sb.Insert(cursorPosition, value);
+                    _sb.Insert(_cursorPosition, value);
 
-                    cursorPosition++;
+                    _cursorPosition++;
                 }
                 else
                 {
@@ -216,21 +216,21 @@ namespace Inkslab.Linq
 
             public void Write(string value)
             {
-                justWrittenWhiteCase &= false;
-                justWrittenWhiteDelete &= false;
+                _justWrittenWhiteCase &= false;
+                _justWrittenWhiteDelete &= false;
 
-                if (ignoreNOT)
+                if (_ignoreNOT)
                 {
-                    writtenNOT = true;
+                    _writtenNOT = true;
 
                     _writer.Keyword(SqlKeyword.NOT);
                 }
 
-                if (cursorPosition > -1)
+                if (_cursorPosition > -1)
                 {
-                    _sb.Insert(cursorPosition, value);
+                    _sb.Insert(_cursorPosition, value);
 
-                    cursorPosition += value.Length;
+                    _cursorPosition += value.Length;
                 }
                 else
                 {
@@ -240,14 +240,14 @@ namespace Inkslab.Linq
 
             public void Insert(int index, string value)
             {
-                justWrittenWhiteCase &= false;
-                justWrittenWhiteDelete &= false;
+                _justWrittenWhiteCase &= false;
+                _justWrittenWhiteDelete &= false;
 
                 int offset = 0;
 
-                if (ignoreNOT)
+                if (_ignoreNOT)
                 {
-                    writtenNOT = true;
+                    _writtenNOT = true;
 
                     int length = _sb.Length;
 
@@ -258,13 +258,13 @@ namespace Inkslab.Linq
 
                 _sb.Insert(index + offset, value);
 
-                if (index <= cursorPosition)
+                if (index <= _cursorPosition)
                 {
-                    cursorPosition += value.Length; //? 插入位置在光标前面，光标后移，NOT 已在 Write 方法中添加，不能重复添加。
+                    _cursorPosition += value.Length; //? 插入位置在光标前面，光标后移，NOT 已在 Write 方法中添加，不能重复添加。
                 }
             }
 
-            public ISqlDomain Domain() => new SqlDomain(this, _sb, _sb.Length, cursorPosition);
+            public ISqlDomain Domain() => new SqlDomain(this, _sb, _sb.Length, _cursorPosition);
 
             public override string ToString() => _sb.ToString();
 

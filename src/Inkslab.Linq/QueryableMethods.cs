@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Reflection;
-using Inkslab.Linq;
 
 #pragma warning disable IDE0130 // 命名空间与文件夹结构不匹配
 namespace System.Linq
@@ -29,7 +28,7 @@ namespace System.Linq
         public static MethodInfo OfType { get; }
 
         /// <summary>
-        ///     The <see cref="MethodInfo" /> for <see cref="Queryable.All{TSource}(IQueryable{TSource},Expression{Func{TSource,bool}})" />
+        ///     The <see cref="MethodInfo" /> for <see cref="Queryable.All{TSource}(IQueryable{TSource},System.Linq.Expressions.Expression{System.Func{TSource,bool}})" />
         /// </summary>
         public static MethodInfo All { get; }
 
@@ -40,7 +39,7 @@ namespace System.Linq
 
         /// <summary>
         ///     The <see cref="MethodInfo" /> for
-        ///     <see cref="Queryable.Any{TSource}(IQueryable{TSource},Expression{Func{TSource,bool}})" />
+        ///     <see cref="Queryable.Any{TSource}(IQueryable{TSource},System.Linq.Expressions.Expression{System.Func{TSource,bool}})" />
         /// </summary>
         public static MethodInfo AnyWithPredicate { get; }
 

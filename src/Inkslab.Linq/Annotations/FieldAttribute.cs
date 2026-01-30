@@ -5,7 +5,7 @@ namespace Inkslab.Linq.Annotations
     /// <summary>
     /// 名称（字段名称）。
     /// </summary>
-    [AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = true)]
+    [AttributeUsage(AttributeTargets.Property)]
     public class FieldAttribute : Attribute
     {
         /// <summary>

@@ -1683,9 +1683,9 @@ namespace Inkslab.Linq
 
             static MapAdaper()
             {
-                _errorCtor = typeof(NotSupportedException).GetConstructor(new Type[] { Types.String });
+                _errorCtor = typeof(NotSupportedException).GetConstructor(new[] { Types.String });
 
-                _errorOutOfRangeCtor = typeof(IndexOutOfRangeException).GetConstructor(new Type[] { Types.String });
+                _errorOutOfRangeCtor = typeof(IndexOutOfRangeException).GetConstructor(new[] { Types.String });
 
                 _equals = typeof(MapAdaper).GetMethod(
                     nameof(Equals),
@@ -1696,21 +1696,21 @@ namespace Inkslab.Linq
                     nameof(string.Concat),
                     BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly,
                     null,
-                    new Type[] { Types.String, Types.String, Types.String },
+                    new[] { Types.String, Types.String, Types.String },
                     null);
 
                 _charToString = Types.Char.GetMethod(nameof(char.ToString), BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly, null, Type.EmptyTypes, null);
 
-                _stringToChar = Types.String.GetMethod("get_Chars", BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly, null, new Type[] { Types.Int32 }, null);
+                _stringToChar = Types.String.GetMethod("get_Chars", BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly, null, new[] { Types.Int32 }, null);
 
                 var type = typeof(Type);
 
-                _typeCode = type.GetMethod(nameof(Type.GetTypeCode), BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly, null, new Type[] { type }, null);
+                _typeCode = type.GetMethod(nameof(Type.GetTypeCode), BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly, null, new[] { type }, null);
             }
 
-            private int _refCount = 0;
+            private int _refCount;
 
-            private volatile bool _recovering = false;
+            private volatile bool _recovering;
 
             private readonly ConcurrentDictionary<Type, IDbMapper> _mappers =
                 new ConcurrentDictionary<Type, IDbMapper>(100, 2 * COLLECT_PER_ITEMS);
@@ -1729,7 +1729,7 @@ namespace Inkslab.Linq
 
             public MapAdaper(Type type)
             {
-                var types = new Type[] { Types.Int32 };
+                var types = new[] { Types.Int32 };
 
                 _type = type;
 
@@ -1775,18 +1775,18 @@ namespace Inkslab.Linq
             {
                 if (propertyType.FullName == LinqBinary)
                 {
-                    return New(propertyType.GetConstructor(new Type[] { Types.Object }), Call(dbVar, _getValue, iVar));
+                    return New(propertyType.GetConstructor(new[] { Types.Object }), Call(dbVar, _getValue, iVar));
                 }
 
                 if (propertyType.FullName is "Newtonsoft.Json.Linq.JObject" or "Newtonsoft.Json.Linq.JArray")
                 {
                     var jsonVar = Variable(Types.String);
 
-                    return Block(propertyType, new ParameterExpression[] { jsonVar },
+                    return Block(propertyType, new[] { jsonVar },
                         Assign(jsonVar, Call(dbVar, _typeMap[Types.String], iVar)),
                         Condition(Equal(jsonVar, Constant(null, Types.String)),
                             Constant(null, propertyType),
-                            Call(propertyType.GetMethod("Parse", BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly, null, new Type[] { Types.String }, null), jsonVar)
+                            Call(propertyType.GetMethod("Parse", BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly, null, new[] { Types.String }, null), jsonVar)
                         )
                     );
                 }
@@ -1795,11 +1795,11 @@ namespace Inkslab.Linq
                 {
                     var jsonVar = Variable(Types.String);
 
-                    return Block(propertyType, new ParameterExpression[] { jsonVar },
+                    return Block(propertyType, new[] { jsonVar },
                         Assign(jsonVar, Call(dbVar, _typeMap[Types.String], iVar)),
                         Condition(Equal(jsonVar, Constant(null, Types.String)),
                             Constant(null, propertyType),
-                            New(propertyType.GetConstructor(new Type[] { Types.String }), jsonVar)
+                            New(propertyType.GetConstructor(new[] { Types.String }), jsonVar)
                         )
                     );
                 }
@@ -1808,20 +1808,22 @@ namespace Inkslab.Linq
                 {
                     var typeArg = Variable(typeof(Type));
 
-                    return Block(new ParameterExpression[] { typeArg },
+                    return Block(new[] { typeArg },
                         Assign(typeArg, Call(dbVar, _getFieldType, iVar)),
                         ToSolveByTransform(propertyType, dbVar, iVar, typeArg)
                     );
                 }
-                else if (propertyType == Types.Object)
+
+                if (propertyType == Types.Object)
                 {
                     return Call(dbVar, originalFn, iVar);
                 }
-                else if (propertyType == Types.Char || propertyType == Types.String)
+
+                if (propertyType == Types.Char || propertyType == Types.String)
                 {
                     var typeArg = Variable(typeof(Type));
 
-                    return Block(new ParameterExpression[] { typeArg },
+                    return Block(new[] { typeArg },
                         Assign(typeArg, Call(dbVar, _getFieldType, iVar)),
                         Condition(Equal(typeArg, Constant(propertyType)),
                             Call(dbVar, originalFn, iVar),
@@ -1829,10 +1831,8 @@ namespace Inkslab.Linq
                         )
                     );
                 }
-                else
-                {
-                    return Call(dbVar, originalFn, iVar);
-                }
+
+                return Call(dbVar, originalFn, iVar);
             }
 
             private Expression ToSolveByTransform(Type propertyType, ParameterExpression dbVar, Expression iVar, ParameterExpression typeArg)
@@ -2053,7 +2053,7 @@ namespace Inkslab.Linq
 
                 var lambdaExp = Lambda<Func<DbDataReader, T>>(
                     Block(
-                        new ParameterExpression[] { dbVar },
+                        new[] { dbVar },
                         Assign(dbVar, _adaper.Convert(paramterExp)),
                         Condition(_adaper.IsDbNull(dbVar, iVar), Default(type), bodyExp)
                     ),
@@ -2071,13 +2071,13 @@ namespace Inkslab.Linq
 
                 var dbVar = _adaper.DbVariable();
 
-                var nullableCtor = nullableType.GetConstructor(new Type[] { type });
+                var nullableCtor = nullableType.GetConstructor(new[] { type });
 
                 var bodyExp = UncheckedValue(type, dbVar, iVar);
 
                 var lambdaExp = Lambda<Func<DbDataReader, T>>(
                     Block(
-                        new ParameterExpression[] { dbVar },
+                        new[] { dbVar },
                         Assign(dbVar, _adaper.Convert(paramterExp)),
                         Condition(
                             _adaper.IsDbNull(dbVar, iVar),
@@ -2093,7 +2093,7 @@ namespace Inkslab.Linq
 
             private Func<DbDataReader, T> MakeNull(Type type, Type nullableType)
             {
-                var nullCtor = nullableType.GetConstructor(new Type[] { type });
+                var nullCtor = nullableType.GetConstructor(new[] { type });
 
                 //? 无参构造函数。
                 var nonCtor = type.GetConstructor(
@@ -2194,7 +2194,7 @@ namespace Inkslab.Linq
                 list.Add(convert.Invoke(instanceExp));
 
                 var lambdaExp = Lambda<Func<DbDataReader, T>>(
-                    Block(new ParameterExpression[] { iVar, dbVar, instanceExp }, list),
+                    Block(new[] { iVar, dbVar, instanceExp }, list),
                     paramterExp
                 );
 
@@ -2240,7 +2240,7 @@ namespace Inkslab.Linq
 
                 var lambdaExp = Lambda<Func<DbDataReader, T>>(
                     Block(
-                        new ParameterExpression[] { dbVar },
+                        new[] { dbVar },
                         Assign(dbVar, _adaper.Convert(paramterExp)),
                         convert.Invoke(New(constructorInfo, arguments))
                     ),
@@ -2287,7 +2287,7 @@ namespace Inkslab.Linq
 
                 if (isNullable)
                 {
-                    body = New(type.GetConstructor(new Type[] { nonullableType }), body);
+                    body = New(type.GetConstructor(new[] { nonullableType }), body);
                 }
 
                 return body;

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.Common;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace Inkslab.Linq
@@ -130,7 +130,7 @@ namespace Inkslab.Linq
         /// </summary>
         public override string ToString()
         {
-            var sb = new System.Text.StringBuilder();
+            var sb = new StringBuilder();
 
             sb.Append("EXEC ");
 

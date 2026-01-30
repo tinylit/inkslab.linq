@@ -1,15 +1,16 @@
-﻿using Inkslab.Transactions;
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Data.Common;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Inkslab.Transactions;
+using IsolationLevel = System.Data.IsolationLevel;
 using Transaction = System.Transactions.Transaction;
 using OwnerTransaction = Inkslab.Transactions.Transaction;
-using System.Linq;
 
 namespace Inkslab.Linq
 {
@@ -52,16 +53,16 @@ namespace Inkslab.Linq
 
         #region 事务。
 
-        private static System.Data.IsolationLevel ToIsolationLevel(Transactions.IsolationLevel isolationLevel) => isolationLevel switch
+        private static IsolationLevel ToIsolationLevel(Transactions.IsolationLevel isolationLevel) => isolationLevel switch
         {
-            Transactions.IsolationLevel.Chaos => System.Data.IsolationLevel.Chaos,
-            Transactions.IsolationLevel.ReadUncommitted => System.Data.IsolationLevel.ReadUncommitted,
-            Transactions.IsolationLevel.ReadCommitted => System.Data.IsolationLevel.ReadCommitted,
-            Transactions.IsolationLevel.RepeatableRead => System.Data.IsolationLevel.RepeatableRead,
-            Transactions.IsolationLevel.Serializable => System.Data.IsolationLevel.Serializable,
-            Transactions.IsolationLevel.Snapshot => System.Data.IsolationLevel.Snapshot,
-            Transactions.IsolationLevel.Unspecified => System.Data.IsolationLevel.Unspecified,
-            _ => System.Data.IsolationLevel.Unspecified,
+            Transactions.IsolationLevel.Chaos => IsolationLevel.Chaos,
+            Transactions.IsolationLevel.ReadUncommitted => IsolationLevel.ReadUncommitted,
+            Transactions.IsolationLevel.ReadCommitted => IsolationLevel.ReadCommitted,
+            Transactions.IsolationLevel.RepeatableRead => IsolationLevel.RepeatableRead,
+            Transactions.IsolationLevel.Serializable => IsolationLevel.Serializable,
+            Transactions.IsolationLevel.Snapshot => IsolationLevel.Snapshot,
+            Transactions.IsolationLevel.Unspecified => IsolationLevel.Unspecified,
+            _ => IsolationLevel.Unspecified,
         };
 
         /// <inheritdoc/>
@@ -382,7 +383,7 @@ namespace Inkslab.Linq
 
                 public override Task ChangeDatabaseAsync(string databaseName, CancellationToken cancellationToken = default) => _connection.ChangeDatabaseAsync(databaseName, cancellationToken);
 
-                protected override ValueTask<DbTransaction> BeginDbTransactionAsync(System.Data.IsolationLevel isolationLevel, CancellationToken cancellationToken) => _connection.BeginTransactionAsync(isolationLevel, cancellationToken);
+                protected override ValueTask<DbTransaction> BeginDbTransactionAsync(IsolationLevel isolationLevel, CancellationToken cancellationToken) => _connection.BeginTransactionAsync(isolationLevel, cancellationToken);
 
                 public override Task CloseAsync()
                 {
@@ -407,7 +408,7 @@ namespace Inkslab.Linq
 
                 private volatile bool disposed;
 
-                protected override DbTransaction BeginDbTransaction(System.Data.IsolationLevel isolationLevel) => _connection.BeginTransaction(isolationLevel);
+                protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel) => _connection.BeginTransaction(isolationLevel);
 
                 protected override System.Data.Common.DbCommand CreateDbCommand()
                 {
@@ -672,7 +673,7 @@ namespace Inkslab.Linq
 
                 public override Task ChangeDatabaseAsync(string databaseName, CancellationToken cancellationToken = default) => _connection.ChangeDatabaseAsync(databaseName, cancellationToken);
 
-                protected override ValueTask<DbTransaction> BeginDbTransactionAsync(System.Data.IsolationLevel isolationLevel, CancellationToken cancellationToken) => _connection.BeginTransactionAsync(isolationLevel, cancellationToken);
+                protected override ValueTask<DbTransaction> BeginDbTransactionAsync(IsolationLevel isolationLevel, CancellationToken cancellationToken) => _connection.BeginTransactionAsync(isolationLevel, cancellationToken);
 
                 public override Task CloseAsync()
                 {
@@ -697,7 +698,7 @@ namespace Inkslab.Linq
 
                 private volatile bool disposed;
 
-                protected override DbTransaction BeginDbTransaction(System.Data.IsolationLevel isolationLevel) => _connection.BeginTransaction(isolationLevel);
+                protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel) => _connection.BeginTransaction(isolationLevel);
 
                 protected override System.Data.Common.DbCommand CreateDbCommand() => new DbCommand(_connection.CreateCommand());
 

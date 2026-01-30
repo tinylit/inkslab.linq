@@ -81,7 +81,7 @@ namespace Inkslab.Linq
                         _ => throw new NotImplementedException(),
                     },
                 ExpressionType.MemberAccess when body is MemberExpression member
-                    => new string[] { member.Member.Name },
+                    => new[] { member.Member.Name },
                 ExpressionType.MemberInit when body is MemberInitExpression memberInit
                     => memberInit.Bindings.Select(x => x.Member.Name).ToArray(),
                 ExpressionType.New when body is NewExpression newExpression
@@ -115,10 +115,8 @@ namespace Inkslab.Linq
                 {
                     throw new InvalidOperationException($"分区表“{_instance.Name}”的操作，必须指定分区键！");
                 }
-                else
-                {
-                    throw new InvalidOperationException($"普通表“{_instance.Name}”不支持分区操作！");
-                }
+
+                throw new InvalidOperationException($"普通表“{_instance.Name}”不支持分区操作！");
             }
 
             return new Insertable(
@@ -155,10 +153,8 @@ namespace Inkslab.Linq
                 {
                     throw new InvalidOperationException($"分区表“{_instance.Name}”的操作，必须指定分区键！");
                 }
-                else
-                {
-                    throw new InvalidOperationException($"普通表“{_instance.Name}”不支持分区操作！");
-                }
+
+                throw new InvalidOperationException($"普通表“{_instance.Name}”不支持分区操作！");
             }
 
             return new Updateable(
@@ -195,10 +191,8 @@ namespace Inkslab.Linq
                 {
                     throw new InvalidOperationException($"分区表“{_instance.Name}”的操作，必须指定分区键！");
                 }
-                else
-                {
-                    throw new InvalidOperationException($"普通表“{_instance.Name}”不支持分区操作！");
-                }
+
+                throw new InvalidOperationException($"普通表“{_instance.Name}”不支持分区操作！");
             }
 
             return new Deleteable(
@@ -658,7 +652,7 @@ namespace Inkslab.Linq
 #endif
 
                             var lambdaEx = Lambda<Func<TEntity, object>>(
-                                Block(new ParameterExpression[] { valueVar }, expressions),
+                                Block(new[] { valueVar }, expressions),
                                 entryArg
                             );
 

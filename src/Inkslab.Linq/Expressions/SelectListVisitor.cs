@@ -6,7 +6,7 @@ using System.Reflection;
 namespace Inkslab.Linq.Expressions
 {
     /// <summary>
-    /// <see cref="Queryable.Select{TSource, TResult}(IQueryable{TSource}, Expression{System.Func{TSource, TResult}})"/>。
+    /// <see cref="Queryable.Select{TSource, TResult}(IQueryable{TSource}, System.Linq.Expressions.Expression{System.Func{TSource,TResult}})"/>。
     /// </summary>
     [DebuggerDisplay("SelectField")]
     public class SelectListVisitor : BaseVisitor

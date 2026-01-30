@@ -382,10 +382,6 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override sealed Expression VisitMethodCall(MethodCallExpression node)
         {
-            /*             var instanceArg = node.Method.IsStatic
-                            ? node.Arguments[0]
-                            : node.Object; */
-
             PrepareTableInformation(node);
 
             switch (node.Method.Name)
@@ -471,22 +467,7 @@ namespace Inkslab.Linq.Expressions
                     }
 
                     break;
-                /*                 case nameof(Queryable.GroupJoin):
-
-                                    //? 分析 JOIN 表。
-                                    instanceArg = node.Arguments[1];
-
-                                    goto default; */
                 default:
-                    /*                     if (
-                                            instanceArg.NodeType == ExpressionType.Constant
-                                            && instanceArg is ConstantExpression constant
-                                            && constant.Value is IQueryable queryable
-                                        )
-                                        {
-                                            _tableInformation ??= TableAnalyzer.Table(queryable.ElementType);
-                                        } */
-
                     if (
                         _adapter.Visitors.TryGetValue(node.Method, out IMethodVisitor methodVisitor)
                     )
@@ -2273,16 +2254,19 @@ namespace Inkslab.Linq.Expressions
         /// <param name="node">The expression to visit.</param>
         protected virtual void BodyIsParameter(ParameterExpression node)
         {
-            bool commaFlag = false;
+            if (!TryGetSourceParameter(node, out ParameterExpression parameter))
+            {
+                throw new DSyntaxErrorException($"未能分析到表参数！");
+            }
 
-            string schema = TryGetSourceParameter(node, out ParameterExpression parameterExpression)
-                ? parameterExpression.Name
-                : node.Name;
-
-            if (!TryGetSourceTableInfo(parameterExpression, out var tableInfo))
+            if (!TryGetSourceTableInfo(parameter, out var tableInfo))
             {
                 throw new DSyntaxErrorException($"未能分析到表名称！");
             }
+
+            bool commaFlag = false;
+
+            string schema = parameter.Name;
 
             foreach (var (name, field) in tableInfo.Fields)
             {

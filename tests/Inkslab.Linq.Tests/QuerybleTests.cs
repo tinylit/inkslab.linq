@@ -1312,6 +1312,20 @@ namespace Inkslab.Linq.Tests
         }
 
         [Fact]
+        public void GroupByConditionNotVariable()
+        {
+            string name = "测试";
+
+            var linq =
+                from x in _users
+                group x by x.Name into g
+                where Conditions.IsTrue(g, x => x.Count() > 1) && Conditions.Not(g, string.IsNullOrEmpty(name), x => x.Key.Contains(name))
+                select g.Key;
+
+            var max = linq.Distinct().Max();
+        }
+
+        [Fact]
         public void GroupByConditionIfVariableNull()
         {
             string name = null;

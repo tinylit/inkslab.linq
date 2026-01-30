@@ -126,391 +126,277 @@ namespace Inkslab.Linq.Expressions
             switch (node.Method.Name)
             {
                 case nameof(Conditions.IsTrue):
-                    {
-                        // 准备参数。
-                        var expressions = new List<Expression>();
-                        var argVisitor = new ArgExpressionVisitor(expressions);
+                    VisitWithConditionVisitor(node.Arguments[0], node.Arguments[1]);
+                    break;
 
-                        argVisitor.Visit(node.Arguments[0]);
-
-                        // 分析表达式。
-                        var conditionVisitor = new ConditionExpressionVisitor(expressions, this);
-                        conditionVisitor.Visit(node.Arguments[1]);
-
-                        break;
-                    }
                 case nameof(Conditions.If) when node.Arguments.Count == 2 && IsPlainVariable(node.Arguments[0], true):
+                    if (node.Arguments[0].GetValueFromExpression<bool>())
                     {
-                        bool conditionIsValid = node.Arguments[0].GetValueFromExpression<bool>();
-
-                        if (conditionIsValid)
-                        {
-                            Condition(node.Arguments[1]);
-                        }
-
-                        break;
+                        Condition(node.Arguments[1]);
                     }
+                    break;
+
+                case nameof(Conditions.Not) when node.Arguments.Count == 2 && IsPlainVariable(node.Arguments[0], true):
+                    if (!node.Arguments[0].GetValueFromExpression<bool>())
+                    {
+                        Condition(node.Arguments[1]);
+                    }
+                    break;
+
                 case nameof(Conditions.If) when node.Arguments.Count == 2:
-                    {
-                        using (var domain = Writer.Domain())
-                        {
-                            Condition(node.Arguments[0]);
+                    VisitIfDynamic(node.Arguments[0], node.Arguments[1], isIfBranch: true);
+                    break;
 
-                            if (domain.HasValue)
-                            {
-                                Writer.Keyword(SqlKeyword.THEN);
+                case nameof(Conditions.Not) when node.Arguments.Count == 2:
+                    VisitIfDynamic(node.Arguments[0], node.Arguments[1], isIfBranch: false);
+                    break;
 
-                                using (var domainSub = Writer.Domain())
-                                {
-                                    Condition(node.Arguments[1]);
-
-                                    if (domainSub.IsEmpty)
-                                    {
-                                        Writer.Keyword(SqlKeyword.NULL);
-                                    }
-                                    else if (RequiresConditionalEscape() && IsCondition(node.Arguments[2]))
-                                    {
-                                        Writer.Keyword(SqlKeyword.THEN);
-
-                                        Writer.True();
-
-                                        Writer.Keyword(SqlKeyword.ELSE);
-
-                                        Writer.False();
-
-                                        Writer.Keyword(SqlKeyword.END);
-
-                                        domainSub.Flyback();
-
-                                        Writer.Keyword(SqlKeyword.CASE);
-                                        Writer.Keyword(SqlKeyword.WHEN);
-                                    }
-                                }
-
-                                Writer.Keyword(SqlKeyword.ELSE);
-
-                                Writer.True(); //? 测试条件不满足是始终为真。
-
-                                Writer.Keyword(SqlKeyword.END);
-
-                                Writer.CloseBrace();
-
-                                if (RequiresConditionalEscape())
-                                {
-                                    Writer.Operator(SqlOperator.IsTrue);
-                                }
-
-                                domain.Flyback();
-
-                                Writer.OpenBrace();
-
-                                Writer.Keyword(SqlKeyword.CASE);
-                                Writer.Keyword(SqlKeyword.WHEN);
-                            }
-                        }
-
-                        break;
-                    }
                 case nameof(Conditions.If) when node.Arguments.Count == 3 && IsPlainVariable(node.Arguments[1], true):
+                    if (node.Arguments[1].GetValueFromExpression<bool>())
                     {
-                        bool conditionIsValid = node.Arguments[1].GetValueFromExpression<bool>();
-
-                        if (conditionIsValid)
-                        {
-                            // 准备参数。
-                            var expressions = new List<Expression>();
-                            var argVisitor = new ArgExpressionVisitor(expressions);
-
-                            argVisitor.Visit(node.Arguments[0]);
-
-                            // 分析表达式。
-                            var conditionVisitor = new ConditionExpressionVisitor(expressions, this);
-                            conditionVisitor.Visit(node.Arguments[2]);
-                        }
-
-                        break;
+                        VisitWithConditionVisitor(node.Arguments[0], node.Arguments[2]);
                     }
+                    break;
+
+                case nameof(Conditions.Not) when node.Arguments.Count == 3 && IsPlainVariable(node.Arguments[1], true):
+                    if (!node.Arguments[1].GetValueFromExpression<bool>())
+                    {
+                        VisitWithConditionVisitor(node.Arguments[0], node.Arguments[2]);
+                    }
+                    break;
+
                 case nameof(Conditions.If) when node.Arguments.Count == 3:
-                    {                            // 准备参数。
-                        var expressions = new List<Expression>();
-                        var argVisitor = new ArgExpressionVisitor(expressions);
+                    VisitIfDynamicWithSource(node.Arguments[0], node.Arguments[1], node.Arguments[2], isIfBranch: true);
+                    break;
 
-                        argVisitor.Visit(node.Arguments[0]);
+                case nameof(Conditions.Not) when node.Arguments.Count == 3:
+                    VisitIfDynamicWithSource(node.Arguments[0], node.Arguments[1], node.Arguments[2], isIfBranch: false);
+                    break;
 
-                        var conditionVisitor = new ConditionExpressionVisitor(expressions, this);
-
-                        using (var domain = Writer.Domain())
-                        {
-                            Condition(node.Arguments[1]);
-
-                            if (domain.HasValue)
-                            {
-                                Writer.Keyword(SqlKeyword.THEN);
-
-                                using (var domainSub = Writer.Domain())
-                                {
-                                    conditionVisitor.Visit(node.Arguments[2]);
-
-                                    if (domainSub.IsEmpty)
-                                    {
-                                        Writer.Keyword(SqlKeyword.NULL);
-                                    }
-                                    else if (RequiresConditionalEscape() && IsCondition(node.Arguments[2]))
-                                    {
-                                        Writer.Keyword(SqlKeyword.THEN);
-
-                                        Writer.True();
-
-                                        Writer.Keyword(SqlKeyword.ELSE);
-
-                                        Writer.False();
-
-                                        Writer.Keyword(SqlKeyword.END);
-
-                                        domainSub.Flyback();
-
-                                        Writer.Keyword(SqlKeyword.CASE);
-                                        Writer.Keyword(SqlKeyword.WHEN);
-                                    }
-                                }
-
-                                Writer.Keyword(SqlKeyword.ELSE);
-
-                                Writer.True(); //? 测试条件不满足是始终为真。
-
-                                Writer.Keyword(SqlKeyword.END);
-
-                                Writer.CloseBrace();
-
-                                if (RequiresConditionalEscape())
-                                {
-                                    Writer.Operator(SqlOperator.IsTrue);
-                                }
-
-                                domain.Flyback();
-
-                                Writer.OpenBrace();
-
-                                Writer.Keyword(SqlKeyword.CASE);
-                                Writer.Keyword(SqlKeyword.WHEN);
-                            }
-                        }
-                        break;
-                    }
                 case nameof(Conditions.Conditional) when node.Arguments.Count == 3 && IsPlainVariable(node.Arguments[0], true):
-                    {
-                        var conditionIsValid = node.Arguments[0].GetValueFromExpression<bool>();
+                    Condition(node.Arguments[node.Arguments[0].GetValueFromExpression<bool>() ? 1 : 2]);
+                    break;
 
-                        Condition(node.Arguments[conditionIsValid ? 1 : 2]);
-
-                        break;
-                    }
                 case nameof(Conditions.Conditional) when node.Arguments.Count == 3:
-                    {
-                        using (var domain = Writer.Domain())
-                        {
-                            Condition(node.Arguments[0]);
+                    VisitConditionalDynamic(node.Arguments[0], node.Arguments[1], node.Arguments[2]);
+                    break;
 
-                            if (domain.IsEmpty) //? 测试条件不满足是视为假。
-                            {
-                                Condition(node.Arguments[2]);
-                            }
-                            else
-                            {
-                                Writer.Keyword(SqlKeyword.THEN);
-
-                                using (var domainSub = Writer.Domain())
-                                {
-                                    Condition(node.Arguments[1]);
-
-                                    if (domainSub.IsEmpty)
-                                    {
-                                        Writer.Keyword(SqlKeyword.NULL);
-                                    }
-                                    else if (RequiresConditionalEscape() && IsCondition(node.Arguments[2]))
-                                    {
-                                        Writer.Keyword(SqlKeyword.THEN);
-
-                                        Writer.True();
-
-                                        Writer.Keyword(SqlKeyword.ELSE);
-
-                                        Writer.False();
-
-                                        Writer.Keyword(SqlKeyword.END);
-
-                                        domainSub.Flyback();
-
-                                        Writer.Keyword(SqlKeyword.CASE);
-                                        Writer.Keyword(SqlKeyword.WHEN);
-                                    }
-                                }
-
-                                Writer.Keyword(SqlKeyword.ELSE);
-
-                                using (var domainSub = Writer.Domain())
-                                {
-                                    Condition(node.Arguments[2]);
-
-                                    if (domainSub.IsEmpty)
-                                    {
-                                        Writer.Keyword(SqlKeyword.NULL);
-                                    }
-                                    else if (RequiresConditionalEscape() && IsCondition(node.Arguments[3]))
-                                    {
-                                        Writer.Keyword(SqlKeyword.THEN);
-
-                                        Writer.True();
-
-                                        Writer.Keyword(SqlKeyword.ELSE);
-
-                                        Writer.False();
-
-                                        Writer.Keyword(SqlKeyword.END);
-
-                                        domainSub.Flyback();
-
-                                        Writer.Keyword(SqlKeyword.CASE);
-                                        Writer.Keyword(SqlKeyword.WHEN);
-                                    }
-                                }
-
-                                Writer.Keyword(SqlKeyword.END);
-
-                                Writer.CloseBrace();
-
-                                if (RequiresConditionalEscape())
-                                {
-                                    Writer.Operator(SqlOperator.IsTrue);
-                                }
-
-                                domain.Flyback();
-
-                                Writer.OpenBrace();
-
-                                Writer.Keyword(SqlKeyword.CASE);
-                                Writer.Keyword(SqlKeyword.WHEN);
-                            }
-                        }
-
-                        break;
-                    }
                 case nameof(Conditions.Conditional) when node.Arguments.Count == 4 && IsPlainVariable(node.Arguments[1], true):
-                    {
-                        var conditionIsValid = node.Arguments[1].GetValueFromExpression<bool>();
+                    VisitWithConditionVisitor(node.Arguments[0], node.Arguments[node.Arguments[1].GetValueFromExpression<bool>() ? 2 : 3]);
+                    break;
 
-                        // 准备参数。
-                        var expressions = new List<Expression>();
-                        var argVisitor = new ArgExpressionVisitor(expressions);
-
-                        argVisitor.Visit(node.Arguments[0]);
-
-                        // 分析表达式。
-                        var conditionVisitor = new ConditionExpressionVisitor(expressions, this);
-                        conditionVisitor.Visit(node.Arguments[conditionIsValid ? 2 : 3]);
-                        break;
-                    }
                 case nameof(Conditions.Conditional) when node.Arguments.Count == 4:
-                    {
-                        // 准备参数。
-                        var expressions = new List<Expression>();
-                        var argVisitor = new ArgExpressionVisitor(expressions);
+                    VisitConditionalDynamicWithSource(node.Arguments[0], node.Arguments[1], node.Arguments[2], node.Arguments[3]);
+                    break;
 
-                        argVisitor.Visit(node.Arguments[0]);
-
-                        var conditionVisitor = new ConditionExpressionVisitor(expressions, this);
-
-                        using (var domain = Writer.Domain())
-                        {
-                            Condition(node.Arguments[1]);
-
-                            if (domain.IsEmpty) //? 测试条件不满足是视为假。
-                            {
-                                conditionVisitor.Visit(node.Arguments[3]);
-                            }
-                            else
-                            {
-                                Writer.Keyword(SqlKeyword.THEN);
-
-                                using (var domainSub = Writer.Domain())
-                                {
-                                    conditionVisitor.Visit(node.Arguments[2]);
-
-                                    if (domainSub.IsEmpty)
-                                    {
-                                        Writer.Keyword(SqlKeyword.NULL);
-                                    }
-                                    else if (RequiresConditionalEscape() && IsCondition(node.Arguments[2]))
-                                    {
-                                        Writer.Keyword(SqlKeyword.THEN);
-
-                                        Writer.True();
-
-                                        Writer.Keyword(SqlKeyword.ELSE);
-
-                                        Writer.False();
-
-                                        Writer.Keyword(SqlKeyword.END);
-
-                                        domainSub.Flyback();
-
-                                        Writer.Keyword(SqlKeyword.CASE);
-                                        Writer.Keyword(SqlKeyword.WHEN);
-                                    }
-                                }
-
-                                Writer.Keyword(SqlKeyword.ELSE);
-
-                                using (var domainSub = Writer.Domain())
-                                {
-                                    conditionVisitor.Visit(node.Arguments[3]);
-
-                                    if (domainSub.IsEmpty)
-                                    {
-                                        Writer.Keyword(SqlKeyword.NULL);
-                                    }
-                                    else if (RequiresConditionalEscape() && IsCondition(node.Arguments[3]))
-                                    {
-                                        Writer.Keyword(SqlKeyword.THEN);
-
-                                        Writer.True();
-
-                                        Writer.Keyword(SqlKeyword.ELSE);
-
-                                        Writer.False();
-
-                                        Writer.Keyword(SqlKeyword.END);
-
-                                        domainSub.Flyback();
-
-                                        Writer.Keyword(SqlKeyword.CASE);
-                                        Writer.Keyword(SqlKeyword.WHEN);
-                                    }
-                                }
-
-                                Writer.Keyword(SqlKeyword.END);
-
-                                Writer.CloseBrace();
-
-                                if (RequiresConditionalEscape())
-                                {
-                                    Writer.Operator(SqlOperator.IsTrue);
-                                }
-
-                                domain.Flyback();
-
-                                Writer.OpenBrace();
-
-                                Writer.Keyword(SqlKeyword.CASE);
-                                Writer.Keyword(SqlKeyword.WHEN);
-                            }
-                        }
-                        break;
-                    }
                 default:
                     throw new NotSupportedException();
             }
         }
+
+        #region LinqCustomCall 辅助方法
+
+        /// <summary>
+        /// 使用条件访问器处理表达式。
+        /// </summary>
+        private void VisitWithConditionVisitor(Expression sourceArg, Expression predicateArg)
+        {
+            var expressions = new List<Expression>();
+            var argVisitor = new ArgExpressionVisitor(expressions);
+            argVisitor.Visit(sourceArg);
+
+            var conditionVisitor = new ConditionExpressionVisitor(expressions, this);
+            conditionVisitor.Visit(predicateArg);
+        }
+
+        /// <summary>
+        /// 处理2参数版本的 If/Not 动态条件分支。
+        /// </summary>
+        private void VisitIfDynamic(Expression testArg, Expression branchArg, bool isIfBranch)
+        {
+            using (var domain = Writer.Domain())
+            {
+                Condition(testArg);
+
+                // If: domain.HasValue 时处理; Not: domain.IsEmpty 时处理
+                if (isIfBranch ? domain.HasValue : domain.IsEmpty)
+                {
+                    if (isIfBranch)
+                    {
+                        Writer.Keyword(SqlKeyword.THEN);
+                        WriteBranchExpression(branchArg);
+                        Writer.Keyword(SqlKeyword.ELSE);
+                        Writer.True();
+                        WriteCaseWhenFooter(domain);
+                    }
+                    else
+                    {
+                        Condition(branchArg);
+                    }
+                }
+                else if (!isIfBranch && domain.HasValue)
+                {
+                    Writer.Keyword(SqlKeyword.THEN);
+                    Writer.True();
+                    Writer.Keyword(SqlKeyword.ELSE);
+                    WriteBranchExpression(branchArg);
+                    WriteCaseWhenFooter(domain);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 处理3参数版本的 If/Not 动态条件分支（带 source）。
+        /// </summary>
+        private void VisitIfDynamicWithSource(Expression sourceArg, Expression testArg, Expression branchArg, bool isIfBranch)
+        {
+            var expressions = new List<Expression>();
+            var argVisitor = new ArgExpressionVisitor(expressions);
+            argVisitor.Visit(sourceArg);
+
+            var conditionVisitor = new ConditionExpressionVisitor(expressions, this);
+
+            using (var domain = Writer.Domain())
+            {
+                Condition(testArg);
+
+                if (isIfBranch ? domain.HasValue : domain.IsEmpty)
+                {
+                    if (isIfBranch)
+                    {
+                        Writer.Keyword(SqlKeyword.THEN);
+                        WriteBranchExpression(branchArg, conditionVisitor);
+                        Writer.Keyword(SqlKeyword.ELSE);
+                        Writer.True();
+                        WriteCaseWhenFooter(domain);
+                    }
+                    else
+                    {
+                        conditionVisitor.Visit(branchArg);
+                    }
+                }
+                else if (!isIfBranch && domain.HasValue)
+                {
+                    Writer.Keyword(SqlKeyword.THEN);
+                    Writer.True();
+                    Writer.Keyword(SqlKeyword.ELSE);
+                    WriteBranchExpression(branchArg, conditionVisitor);
+                    WriteCaseWhenFooter(domain);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 处理3参数版本的 Conditional 动态条件。
+        /// </summary>
+        private void VisitConditionalDynamic(Expression testArg, Expression ifTrueArg, Expression ifFalseArg)
+        {
+            using (var domain = Writer.Domain())
+            {
+                Condition(testArg);
+
+                if (domain.IsEmpty)
+                {
+                    Condition(ifFalseArg);
+                }
+                else
+                {
+                    Writer.Keyword(SqlKeyword.THEN);
+                    WriteBranchExpression(ifTrueArg);
+                    Writer.Keyword(SqlKeyword.ELSE);
+                    WriteBranchExpression(ifFalseArg);
+                    WriteCaseWhenFooter(domain);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 处理4参数版本的 Conditional 动态条件（带 source）。
+        /// </summary>
+        private void VisitConditionalDynamicWithSource(Expression sourceArg, Expression testArg, Expression ifTrueArg, Expression ifFalseArg)
+        {
+            var expressions = new List<Expression>();
+            var argVisitor = new ArgExpressionVisitor(expressions);
+            argVisitor.Visit(sourceArg);
+
+            var conditionVisitor = new ConditionExpressionVisitor(expressions, this);
+
+            using (var domain = Writer.Domain())
+            {
+                Condition(testArg);
+
+                if (domain.IsEmpty)
+                {
+                    conditionVisitor.Visit(ifFalseArg);
+                }
+                else
+                {
+                    Writer.Keyword(SqlKeyword.THEN);
+                    WriteBranchExpression(ifTrueArg, conditionVisitor);
+                    Writer.Keyword(SqlKeyword.ELSE);
+                    WriteBranchExpression(ifFalseArg, conditionVisitor);
+                    WriteCaseWhenFooter(domain);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 写入分支表达式，处理空值和条件转义。
+        /// </summary>
+        private void WriteBranchExpression(Expression branchArg, ConditionExpressionVisitor conditionVisitor = null)
+        {
+            using (var domainSub = Writer.Domain())
+            {
+                if (conditionVisitor != null)
+                {
+                    conditionVisitor.Visit(branchArg);
+                }
+                else
+                {
+                    Condition(branchArg);
+                }
+
+                if (domainSub.IsEmpty)
+                {
+                    Writer.Keyword(SqlKeyword.NULL);
+                }
+                else if (RequiresConditionalEscape() && IsCondition(branchArg))
+                {
+                    Writer.Keyword(SqlKeyword.THEN);
+                    Writer.True();
+                    Writer.Keyword(SqlKeyword.ELSE);
+                    Writer.False();
+                    Writer.Keyword(SqlKeyword.END);
+
+                    domainSub.Flyback();
+
+                    Writer.Keyword(SqlKeyword.CASE);
+                    Writer.Keyword(SqlKeyword.WHEN);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 写入 CASE WHEN 结构的尾部并回溯写入头部。
+        /// </summary>
+        private void WriteCaseWhenFooter(ISqlDomain domain)
+        {
+            Writer.Keyword(SqlKeyword.END);
+            Writer.CloseBrace();
+
+            if (RequiresConditionalEscape())
+            {
+                Writer.Operator(SqlOperator.IsTrue);
+            }
+
+            domain.Flyback();
+
+            Writer.OpenBrace();
+            Writer.Keyword(SqlKeyword.CASE);
+            Writer.Keyword(SqlKeyword.WHEN);
+        }
+
+        #endregion
 
         /// <summary>
         /// Linq 方法。<see cref="Queryable"/> 或 <seealso cref="QueryableExtentions"/>。

@@ -6,9 +6,17 @@ using System.Threading.Tasks;
 using Inkslab.Linq.Annotations;
 using Inkslab.Transactions;
 using Xunit;
+using XunitPlus;
 
 namespace Inkslab.Linq.Tests
 {
+    /// <summary>
+    /// 仓储测试类。
+    /// </summary>
+    /// <remarks>
+    /// 使用 "xunitPlus" 作为测试框架，以支持按步骤执行测试。
+    /// </remarks>
+    [TestPriority(1)]
     public class RepositoryTests
     {
 

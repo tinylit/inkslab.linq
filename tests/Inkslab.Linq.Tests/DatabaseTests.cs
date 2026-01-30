@@ -15,6 +15,10 @@ namespace Inkslab.Linq.Tests
             _database = database;
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT * FROM `user` LIMIT 1
+        /// </summary>
         [Fact]
         public async Task SimpleTestAsync()
         {
@@ -23,6 +27,10 @@ namespace Inkslab.Linq.Tests
             await _database.FirstOrDefaultAsync<User>(sql);
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT '1'
+        /// </summary>
         [Fact]
         public async Task Striong2CharAsync()
         {
@@ -31,6 +39,10 @@ namespace Inkslab.Linq.Tests
             await _database.FirstOrDefaultAsync<char>(sql);
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT * FROM `user` WHERE id = @id
+        /// </summary>
         [Fact]
         public async Task SimpleWithArgTestAsync()
         {
@@ -47,6 +59,10 @@ namespace Inkslab.Linq.Tests
             await _database.FirstOrDefaultAsync<User>(sql, new Dictionary<string, object> { ["@id"] = 1 });
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT * FROM `user` WHERE id IN (@ids_0, @ids_1)
+        /// </summary>
         [Fact]
         public async Task InlistArgTestAsync()
         {
@@ -71,6 +87,11 @@ namespace Inkslab.Linq.Tests
             await _database.FirstOrDefaultAsync<User>(sql, new { ids = Array.Empty<int>() });
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT * FROM `user` WHERE id = 1
+        /// 注意: {=id} 会被直接替换为字面量值
+        /// </summary>
         [Fact]
         public void IiteralTokenTest()
         {
@@ -103,6 +124,10 @@ namespace Inkslab.Linq.Tests
             await _database.QueryAsync<User>(sql, new { ids = Array.Empty<int>() });
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT * FROM `user` WHERE id IN (@ids_0, @ids_1) LIMIT 5,10;SELECT COUNT(1) FROM `user` WHERE id IN (@ids_0, @ids_1)
+        /// </summary>
         [Fact]
         public void QueryMultipleTest()
         {
@@ -139,6 +164,10 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// INSERT INTO `user`(`name`,`date`,`is_administrator`) VALUES(@name,@now,0);SELECT @@IDENTITY;
+        /// </summary>
         [Fact]
         public void IDENTITY()
         {

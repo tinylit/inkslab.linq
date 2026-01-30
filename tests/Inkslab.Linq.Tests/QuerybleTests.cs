@@ -34,6 +34,10 @@ namespace Inkslab.Linq.Tests
             _publisheds = publisheds;
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT `x`.`id` FROM `user` AS `x` WHERE `x`.`id` = 100 ORDER BY `x`.`date`, `x`.`name`
+        /// </summary>
         [Fact]
         public void TestSimple()
         {
@@ -55,6 +59,10 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT `x`.`id` FROM `user_2025` AS `x` WHERE `x`.`id` = 100 ORDER BY `x`.`date`, `x`.`name`
+        /// </summary>
         [Fact]
         public void TestShardingSimple()
         {
@@ -76,6 +84,10 @@ namespace Inkslab.Linq.Tests
             Assert.Equal(memoryResults.OrderBy(x => x), results.OrderBy(x => x));
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT `x`.`id` AS `Key` FROM `user` AS `x` WHERE `x`.`id` = 100 GROUP BY `x`.`id` ORDER BY `x`.`id` DESC
+        /// </summary>
         [Fact]
         public void TestGroupBySimple()
         {
@@ -104,6 +116,11 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT `x`.`id` AS `Key`, COUNT(1) AS `Total`, COUNT(CASE WHEN `x`.`date` > ?now THEN 1 END) AS `Count` 
+        /// FROM `user` AS `x` WHERE `x`.`id` = 100 GROUP BY `x`.`id` ORDER BY `x`.`id` DESC
+        /// </summary>
         [Fact]
         public void TestGroupByElement()
         {
@@ -146,6 +163,11 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT `x`.`id` AS `Key`, MAX(`x`.`name`) AS `Name`, COUNT(1) AS `Total` 
+        /// FROM `user` AS `x` WHERE `x`.`id` = 100 GROUP BY `x`.`id` ORDER BY `x`.`id` DESC
+        /// </summary>
         [Fact]
         public void TestGroupByToMax()
         {
@@ -188,6 +210,22 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT `x`.`id` AS `Key`, MAX(`x`.`name`) AS `Name`, COUNT(1) AS `Total` 
+        /// FROM `user` AS `x` 
+        /// INNER JOIN `user_ex` AS `y` ON `x`.`id` = `y`.`id` 
+        /// WHERE `x`.`id` = 100 GROUP BY `x`.`id` ORDER BY `x`.`id` DESC
+        /// </summary>
+        /// <summary>
+        /// Join + GroupBy + Max测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` AS `Key`,MAX(`x`.`Name`) AS `Name`,COUNT(1) AS `Total` FROM `fmk_users` AS `x` INNER JOIN `fmk_user_exs` AS `y` ON `x`.`Id`=`y`.`Id` WHERE `x`.`Id`=100 GROUP BY `x`.`Id` ORDER BY `x`.`Id` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestJoinGroupByToMax()
         {
@@ -233,6 +271,15 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// 分片Join + GroupBy + Max测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` AS `Key`,MAX(`x`.`Name`) AS `Name`,COUNT(1) AS `Total` FROM `fmk_users` AS `x` INNER JOIN `fmk_user_shardings_2025` AS `y` ON `x`.`Id`=`y`.`Id` WHERE `x`.`Id`=100 GROUP BY `x`.`Id` ORDER BY `x`.`Id` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestShardingJoinGroupByToMax()
         {
@@ -277,6 +324,15 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// Join + GroupBy + Skip + Take测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` AS `Key`,MAX(`x`.`Name`) AS `Name`,COUNT(1) AS `Total` FROM `fmk_users` AS `x` INNER JOIN `fmk_user_exs` AS `y` ON `x`.`Id`=`y`.`Id` WHERE `x`.`Id`=100 GROUP BY `x`.`Id` ORDER BY `x`.`Id` DESC LIMIT 1 OFFSET 1
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestJoinGroupByTakeSkipToMax()
         {
@@ -321,6 +377,11 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT `x`.`id` FROM `user` AS `x` WHERE `x`.`id` = 100 
+        /// GROUP BY `x`.`id` HAVING COUNT(1) > 1 ORDER BY `x`.`id` DESC
+        /// </summary>
         [Fact]
         public void TestGroupByHavingElement()
         {
@@ -348,6 +409,15 @@ namespace Inkslab.Linq.Tests
             Assert.Equal(memoryResults, results);
         }
 
+        /// <summary>
+        /// GroupBy + Having + 多个Count聚合测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` AS `Key`,COUNT(1) AS `Total`,SUM(CASE WHEN `x`.`DateAt`&gt;@__variable_now__ THEN 1 ELSE 0 END) AS `Count`,SUM(CASE WHEN `x`.`DateAt`&gt;@__variable_now__ THEN 1 ELSE 0 END) AS `WhereCount`,SUM(CASE WHEN `x`.`DateAt`&gt;@__variable_now__ THEN 1 ELSE 0 END) AS `SelectCount`,COUNT(DISTINCT CASE WHEN `x`.`DateAt`&gt;@__variable_now__ THEN `x`.`Name` ELSE NULL END) AS `DistinctCount` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 GROUP BY `x`.`Id` HAVING COUNT(1)&gt;1 ORDER BY `x`.`Id` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestGroupByHavingElementCount()
         {
@@ -406,6 +476,15 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// GroupBy多字段 + Having + 多个Count聚合测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id`,`x`.`Name`,COUNT(1) AS `Total`,SUM(CASE WHEN `x`.`DateAt`&gt;@__variable_now__ THEN 1 ELSE 0 END) AS `Count`,... FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 GROUP BY `x`.`Id`,`x`.`Name` HAVING COUNT(1)&gt;1 ORDER BY `x`.`Id` DESC,`x`.`Name` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestGroupByHavingMoreElementCount()
         {
@@ -467,6 +546,15 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// GroupBy多字段 + Having返回Key测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id`,`x`.`Name` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 GROUP BY `x`.`Id`,`x`.`Name` HAVING COUNT(1)&gt;1 ORDER BY `x`.`Id` DESC,`x`.`Name` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestGroupByHavingMoreKey()
         {
@@ -499,6 +587,15 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// GroupBy + Having + Max聚合测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` AS `Key`,MAX(`x`.`DateAt`) AS `Max`,MAX(CASE WHEN `x`.`DateAt`&gt;@__variable_now__ THEN `x`.`Id` ELSE NULL END) AS `WhereMax`,MAX(CASE WHEN `x`.`DateAt`&gt;@__variable_now__ THEN `x`.`Id` ELSE NULL END) AS `SelectMax`,MAX(DISTINCT CASE WHEN `x`.`DateAt`&gt;@__variable_now__ THEN `x`.`Id` ELSE NULL END) AS `DistinctMax` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 GROUP BY `x`.`Id` HAVING SUM(CASE WHEN `x`.`DateAt`&gt;@__variable_now__ THEN 1 ELSE 0 END)&gt;1 ORDER BY `x`.`Id` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestGroupByHavingElemenMax()
         {
@@ -522,6 +619,12 @@ namespace Inkslab.Linq.Tests
             var results = linq.ToList();
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT `x`.`id` AS `Id`, `y`.`role_type` AS `RoleType` 
+        /// FROM `user` AS `x` INNER JOIN `user_ex` AS `y` ON `x`.`id` = `y`.`id` 
+        /// ORDER BY `x`.`id` DESC
+        /// </summary>
         [Fact]
         public void TestJoinSimple()
         {
@@ -550,6 +653,13 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT `x`.`id` AS `Id`, `y`.`role_type` AS `Role`, `x`.`name` AS `Name` 
+        /// FROM `user` AS `x` 
+        /// INNER JOIN `user_ex` AS `y` ON `y`.`age` > 18 AND `x`.`id` = `y`.`id` 
+        /// WHERE `x`.`date` > ?DateTime_UnixEpoch ORDER BY `x`.`id` DESC
+        /// </summary>
         [Fact]
         public void TestJoinWhere()
         {
@@ -589,6 +699,15 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// 分片Join + Where测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id`,`y`.`RoleType` AS `Role`,`x`.`Name` FROM `fmk_user_shardings_2025` AS `x` INNER JOIN `fmk_user_exs` AS `y` ON `y`.`Age`&gt;18 AND `x`.`Id`=`y`.`Id` WHERE `x`.`DateAt`&gt;@__variable_DateTime_UnixEpoch__ ORDER BY `x`.`Id` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestShardingJoinWhere()
         {
@@ -632,6 +751,12 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT `x`.`id` AS `Id`, `c`.`role_type` AS `Role`, `x`.`name` AS `Name` 
+        /// FROM `user` AS `x` LEFT JOIN `user_ex` AS `c` ON `c`.`age` > 18 AND `x`.`id` = `c`.`id` 
+        /// ORDER BY `x`.`id` DESC
+        /// </summary>
         [Fact]
         public void TestLeftJoinWhere()
         {
@@ -673,6 +798,15 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// 分片Left Join + Where测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id`,`c`.`RoleType` AS `Role`,`x`.`Name` FROM `fmk_user_shardings_2025` AS `x` LEFT JOIN `fmk_user_exs` AS `c` ON `c`.`Age`&gt;18 AND `x`.`Id`=`c`.`Id` ORDER BY `x`.`Id` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestShardingLeftJoinWhere()
         {
@@ -714,6 +848,13 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT `x`.`id` AS `Id`, `z`.`role_type` AS `RoleType` 
+        /// FROM `user` AS `x` 
+        /// INNER JOIN `user_ex` AS `z` ON `x`.`id` = `z`.`id` 
+        /// ORDER BY `x`.`id` DESC
+        /// </summary>
         [Fact]
         public void TestJoinSelectMany()
         {
@@ -744,6 +885,15 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// 分片Join + SelectMany测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id`,`z`.`RoleType` FROM `fmk_user_shardings_2025` AS `x` INNER JOIN `fmk_user_exs` AS `z` ON `x`.`Id`=`z`.`Id` ORDER BY `x`.`Id` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestShardingJoinSelectMany()
         {
@@ -774,6 +924,13 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT `x`.`id` AS `Id`, `z`.`role_type` AS `RoleType` 
+        /// FROM `user` AS `x` 
+        /// LEFT JOIN `user_ex` AS `z` ON `x`.`id` = `z`.`id` 
+        /// ORDER BY `x`.`id` DESC
+        /// </summary>
         [Fact]
         public void TestLeftJoinSelectMany()
         {
@@ -804,6 +961,15 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// Left Join + 多个表 + null判断测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id`,`t2`.`RoleType`,(`t2`.`Id` IS NOT NULL) AS `IsValid` FROM `fmk_users` AS `x` LEFT JOIN `fmk_user_exs` AS `t` ON `x`.`Id`=`t`.`Id` LEFT JOIN `fmk_user_exs` AS `t2` ON `x`.`Id`=`t`.`Id` WHERE `t`.`Id` IS NULL ORDER BY `x`.`Id` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestLeftJoinSelectElementNotNullMany()
         {
@@ -851,6 +1017,12 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT `x`.`id` AS `Id`, `y`.`role_type` AS `RoleType` 
+        /// FROM `user` AS `x`, `user_ex` AS `y` 
+        /// WHERE `x`.`id` < 10 AND `y`.`id` < 10 ORDER BY `x`.`id` DESC
+        /// </summary>
         [Fact]
         public void TestCrossJoinSelectMany()
         {
@@ -881,6 +1053,15 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// Cross Join + 元素null判断测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id`,CASE WHEN `x`.`Id` IS NOT NULL THEN `x`.`Id` ELSE `y`.`Id` END AS `Code` FROM `fmk_users` AS `x`,`fmk_user_exs` AS `y` WHERE `x`.`Id`&lt;10 AND `y`.`Id`&lt;10 AND (`x`.`Id` IS NULL OR `y`.`Id` IS NULL) ORDER BY `x`.`Id` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestCrossJoinWhereElementNullSelectMany()
         {
@@ -913,6 +1094,13 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT `x`.`id` AS `Id`, `y`.`name` AS `Name` 
+        /// FROM `user` AS `x` 
+        /// INNER JOIN `user` AS `y` ON `x`.`id` = `y`.`id` + 1 
+        /// ORDER BY `x`.`id` DESC
+        /// </summary>
         [Fact]
         public void TestJoinSelfSimple()
         {
@@ -940,6 +1128,15 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// 自关联Join + SelectMany测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id`,`z`.`Name` FROM `fmk_users` AS `x` INNER JOIN `fmk_users` AS `z` ON `x`.`Id`=`z`.`Id`+1 ORDER BY `x`.`Id` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestJoinSelfSelectMany()
         {
@@ -969,6 +1166,15 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// 自关联Left Join + SelectMany测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id`,`z`.`Name` FROM `fmk_users` AS `x` LEFT JOIN `fmk_users` AS `z` ON `x`.`Id`=`z`.`Id`+1 ORDER BY `x`.`Id` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestLeftJoinSelfSelectMany()
         {
@@ -998,6 +1204,15 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// 分片自关联Left Join测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id`,`z`.`Name` FROM `fmk_users` AS `x` LEFT JOIN `fmk_user_shardings_2025` AS `z` ON `x`.`Id`=`z`.`Id`+1 ORDER BY `x`.`Id` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestShardingLeftJoinSelfSelectMany()
         {
@@ -1028,6 +1243,15 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// 自关联Cross Join测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id`,`x`.`Name`,`y`.`Id` AS `RelationId`,`y`.`Name` AS `RelationName` FROM `fmk_users` AS `x`,`fmk_users` AS `y` WHERE `x`.`Id`&lt;150 AND `y`.`Id`&lt;150 ORDER BY `x`.`Id` DESC LIMIT 1
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestCrossJoinSelfSelectMany()
         {
@@ -1071,6 +1295,15 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// 分片Cross Join测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id`,`x`.`Name`,`y`.`Id` AS `RelationId`,`y`.`Name` AS `RelationName` FROM `fmk_users` AS `x`,`fmk_user_shardings_2025` AS `y` ORDER BY `x`.`Id` DESC LIMIT 1
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestShardingCrossJoinSelfSelectMany()
         {
@@ -1113,6 +1346,10 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT COUNT(1) FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// </summary>
         [Fact]
         public void SimpleCount()
         {
@@ -1126,6 +1363,10 @@ namespace Inkslab.Linq.Tests
             Assert.Equal(memoryCount, count);
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT COUNT(CASE WHEN `x`.`name` LIKE '测试%' THEN 1 END) FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// </summary>
         [Fact]
         public void WhereCount()
         {
@@ -1139,6 +1380,10 @@ namespace Inkslab.Linq.Tests
             Assert.Equal(memoryCount, count);
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT COUNT(1) FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// </summary>
         [Fact]
         public void SelectCount()
         {
@@ -1152,6 +1397,10 @@ namespace Inkslab.Linq.Tests
             Assert.Equal(memoryCount, count);
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT COUNT(*) FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// </summary>
         [Fact]
         public void SelectMultiCount()
         {
@@ -1165,6 +1414,10 @@ namespace Inkslab.Linq.Tests
             Assert.Equal(memoryCount, count);
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT COUNT(DISTINCT `x`.`id`, `x`.`name`) FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// </summary>
         [Fact]
         public void DistinctSelectMultiCount()
         {
@@ -1178,6 +1431,10 @@ namespace Inkslab.Linq.Tests
             Assert.Equal(memoryCount, count);
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT COUNT(DISTINCT `x`.`name`) FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// </summary>
         [Fact]
         public void DistinctSelectCount()
         {
@@ -1191,6 +1448,11 @@ namespace Inkslab.Linq.Tests
             Assert.Equal(memoryCount, count);
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT COUNT(1) FROM (SELECT `x`.`name` AS `Key` FROM `user` AS `x` 
+        /// GROUP BY `x`.`name` HAVING COUNT(1) > 1) AS `g`
+        /// </summary>
         [Fact]
         public void GroupBySelectCount()
         {
@@ -1204,6 +1466,13 @@ namespace Inkslab.Linq.Tests
             Assert.Equal(memoryCount, count);
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT COUNT(DISTINCT `g`.`Name`) FROM (
+        ///     SELECT `x`.`name` AS `Name`, `x`.`date` AS `DateAt` FROM `user` AS `x` 
+        ///     GROUP BY `x`.`name`, `x`.`date` HAVING COUNT(1) > 1
+        /// ) AS `g`
+        /// </summary>
         [Fact]
         public void GroupByDistinctCount()
         {
@@ -1224,6 +1493,12 @@ namespace Inkslab.Linq.Tests
             Assert.Equal(memoryCount, count);
         }
 
+        /// <summary>
+        /// 简单Max聚合异常测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>异常</b>：需指定聚合字段，不支持排序。
+        /// </remarks>
         [Fact]
         public void SimpleMax()
         {
@@ -1233,6 +1508,10 @@ namespace Inkslab.Linq.Tests
             Assert.Throws<DSyntaxErrorException>(() => linq.Max());
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT MAX(`x`.`id`) FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// </summary>
         [Fact]
         public void SelectMax()
         {
@@ -1246,6 +1525,10 @@ namespace Inkslab.Linq.Tests
             Assert.Equal(memoryMax, max);
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT MAX(DISTINCT `x`.`name`) FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// </summary>
         [Fact]
         public void DistinctSelectMax()
         {
@@ -1259,6 +1542,15 @@ namespace Inkslab.Linq.Tests
             Assert.Equal(memoryMax, max);
         }
 
+        /// <summary>
+        /// GroupBy + Select Max测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT MAX(`g`.`Key`) FROM (SELECT `x`.`Name` AS `Key` FROM `fmk_users` AS `x` GROUP BY `x`.`Name` HAVING COUNT(1)&gt;1) AS `g`
+        /// </code>
+        /// </remarks>
         [Fact]
         public void GroupBySelectMax()
         {
@@ -1272,6 +1564,15 @@ namespace Inkslab.Linq.Tests
             // Assert.Equal(memoryMax, max); 字符串数据库和内存排序不一致，无法比较
         }
 
+        /// <summary>
+        /// GroupBy + Distinct + Max测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT MAX(DISTINCT `g`.`Key`) FROM (SELECT `x`.`Name` AS `Key` FROM `fmk_users` AS `x` GROUP BY `x`.`Name` HAVING COUNT(1)&gt;1) AS `g`
+        /// </code>
+        /// </remarks>
         [Fact]
         public void GroupByDistinctMax()
         {
@@ -1285,6 +1586,15 @@ namespace Inkslab.Linq.Tests
             // Assert.Equal(memoryMax, max); 字符串数据库和内存排序不一致，无法比较
         }
 
+        /// <summary>
+        /// GroupBy + Conditions.IsTrue测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT MAX(DISTINCT `g`.`Key`) FROM (SELECT `x`.`Name` AS `Key` FROM `fmk_users` AS `x` GROUP BY `x`.`Name` HAVING COUNT(1)&gt;1) AS `g`
+        /// </code>
+        /// </remarks>
         [Fact]
         public void GroupByConditionIsTrue()
         {
@@ -1297,6 +1607,15 @@ namespace Inkslab.Linq.Tests
             var max = linq.Distinct().Max();
         }
 
+        /// <summary>
+        /// GroupBy + Conditions.If变量测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT MAX(DISTINCT `g`.`Key`) FROM (SELECT `x`.`Name` AS `Key` FROM `fmk_users` AS `x` GROUP BY `x`.`Name` HAVING COUNT(1)&gt;1 AND `x`.`Name` LIKE '%测试%') AS `g`
+        /// </code>
+        /// </remarks>
         [Fact]
         public void GroupByConditionIfVariable()
         {
@@ -1311,6 +1630,15 @@ namespace Inkslab.Linq.Tests
             var max = linq.Distinct().Max();
         }
 
+        /// <summary>
+        /// GroupBy + Conditions.Not变量测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT MAX(DISTINCT `g`.`Key`) FROM (SELECT `x`.`Name` AS `Key` FROM `fmk_users` AS `x` GROUP BY `x`.`Name` HAVING COUNT(1)&gt;1 AND `x`.`Name` LIKE '%测试%') AS `g`
+        /// </code>
+        /// </remarks>
         [Fact]
         public void GroupByConditionNotVariable()
         {
@@ -1325,6 +1653,15 @@ namespace Inkslab.Linq.Tests
             var max = linq.Distinct().Max();
         }
 
+        /// <summary>
+        /// GroupBy条件为null变量测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT MAX(DISTINCT `g`.`Key`) FROM (SELECT `x`.`Name` AS `Key` FROM `fmk_users` AS `x` GROUP BY `x`.`Name` HAVING 0) AS `g`
+        /// </code>
+        /// </remarks>
         [Fact]
         public void GroupByConditionIfVariableNull()
         {
@@ -1339,6 +1676,15 @@ namespace Inkslab.Linq.Tests
             var max = linq.Distinct().Max();
         }
 
+        /// <summary>
+        /// GroupBy + Conditions.If测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT MAX(DISTINCT `g`.`Key`) FROM (SELECT `x`.`Name` AS `Key` FROM `fmk_users` AS `x` GROUP BY `x`.`Name` HAVING CASE WHEN COUNT(1)&gt;1 THEN `x`.`Name` LIKE '%测试%' ELSE 1 END) AS `g`
+        /// </code>
+        /// </remarks>
         [Fact]
         public void GroupByConditionIf()
         {
@@ -1353,6 +1699,15 @@ namespace Inkslab.Linq.Tests
             var max = linq.Distinct().Max();
         }
 
+        /// <summary>
+        /// GroupBy + Conditions.Conditional变量测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT MAX(DISTINCT `g`.`Key`) FROM (SELECT `x`.`Name` AS `Key` FROM `fmk_users` AS `x` GROUP BY `x`.`Name` HAVING `x`.`Name` LIKE '%测试%') AS `g`
+        /// </code>
+        /// </remarks>
         [Fact]
         public void GroupByConditionConditionalVariable()
         {
@@ -1367,6 +1722,15 @@ namespace Inkslab.Linq.Tests
             var max = linq.Distinct().Max();
         }
 
+        /// <summary>
+        /// GroupBy + Conditions.Conditional测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT MAX(DISTINCT `g`.`Key`) FROM (SELECT `x`.`Name` AS `Key` FROM `fmk_users` AS `x` GROUP BY `x`.`Name` HAVING CASE WHEN COUNT(1)&gt;1 THEN `x`.`Name` LIKE '%测试%' ELSE `x`.`Name` LIKE '测试%' END) AS `g`
+        /// </code>
+        /// </remarks>
         [Fact]
         public void GroupByConditionConditional()
         {
@@ -1381,6 +1745,14 @@ namespace Inkslab.Linq.Tests
             var max = linq.Distinct().Max();
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// (SELECT `x`.`id` AS `Id`, `y`.`role_type` AS `RoleType`, 1 AS `Type` 
+        ///  FROM `user` AS `x` INNER JOIN `user_ex` AS `y` ON `x`.`id` = `y`.`id`)
+        /// UNION 
+        /// (SELECT `x`.`id` AS `Id`, `z`.`role_type` AS `RoleType`, 2 AS `Type` 
+        ///  FROM `user` AS `x` LEFT JOIN `user_ex` AS `z` ON `x`.`id` = `z`.`id`)
+        /// </summary>
         [Fact]
         public void Union()
         {
@@ -1445,6 +1817,15 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// Concat + Select + Distinct 测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT DISTINCT CONCAT(`__g`.`RoleType`,`__g`.`Type`) AS `__col0__` FROM ((SELECT `x`.`Id`,`y`.`RoleType`,1 AS `Type` FROM `fmk_users` AS `x` INNER JOIN `fmk_user_exs` AS `y` ON `x`.`Id`=`y`.`Id`) UNION ALL (SELECT `x`.`Id`,`z`.`RoleType`,2 AS `Type` FROM `fmk_users` AS `x` LEFT JOIN `fmk_user_exs` AS `z` ON `x`.`Id`=`z`.`Id`)) AS `__g`
+        /// </code>
+        /// </remarks>
         [Fact]
         public void ConcatSelectDistinct()
         {
@@ -1507,6 +1888,15 @@ namespace Inkslab.Linq.Tests
             Assert.Equal(sortedMemoryResults, sortedResults);
         }
 
+        /// <summary>
+        /// Union + Where 测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT DISTINCT CONCAT(`__g`.`RoleType`,`__g`.`Type`) AS `__col0__` FROM ((SELECT `x`.`Id`,`y`.`RoleType`,1 AS `Type` FROM `fmk_users` AS `x` INNER JOIN `fmk_user_exs` AS `y` ON `x`.`Id`=`y`.`Id`) UNION (SELECT `x`.`Id`,`z`.`RoleType`,2 AS `Type` FROM `fmk_users` AS `x` LEFT JOIN `fmk_user_exs` AS `z` ON `x`.`Id`=`z`.`Id`)) AS `__g` WHERE `__g`.`RoleType`=2
+        /// </code>
+        /// </remarks>
         [Fact] //? MySQL 不支持 Except 语法。
         public void UnionWhere()
         {
@@ -1571,6 +1961,15 @@ namespace Inkslab.Linq.Tests
             Assert.Equal(sortedMemoryResults, sortedResults);
         }
 
+        /// <summary>
+        /// Union嵌套Take测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// (SELECT `x`.`Id`,`y`.`RoleType`,1 AS `Type` FROM `fmk_users` AS `x` INNER JOIN `fmk_user_exs` AS `y` ON `x`.`Id`=`y`.`Id` ORDER BY `x`.`Id` DESC LIMIT 10) UNION (SELECT `x`.`Id`,`z`.`RoleType`,2 AS `Type` FROM `fmk_users` AS `x` LEFT JOIN `fmk_user_exs` AS `z` ON `x`.`Id`=`z`.`Id` ORDER BY `x`.`Id` DESC LIMIT 10)
+        /// </code>
+        /// </remarks>
         [Fact]
         public void UnionNestedTake()
         {
@@ -1639,6 +2038,15 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// Union Take 测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `__g`.`Id`,`__g`.`RoleType`,`__g`.`Type` FROM ((SELECT `x`.`Id`,`y`.`RoleType`,1 AS `Type` FROM `fmk_users` AS `x` INNER JOIN `fmk_user_exs` AS `y` ON `x`.`Id`=`y`.`Id` ORDER BY `x`.`Id` DESC LIMIT 10) UNION (SELECT `x`.`Id`,`z`.`RoleType`,2 AS `Type` FROM `fmk_users` AS `x` LEFT JOIN `fmk_user_exs` AS `z` ON `x`.`Id`=`z`.`Id` ORDER BY `x`.`Id` DESC LIMIT 10)) AS `__g` ORDER BY `__g`.`Id` ASC LIMIT 10
+        /// </code>
+        /// </remarks>
         [Fact]
         public void UnionTake()
         {
@@ -1706,6 +2114,12 @@ namespace Inkslab.Linq.Tests
         /// <summary>
         /// 任意测试。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT EXISTS(SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100)
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestAny()
         {
@@ -1722,6 +2136,12 @@ namespace Inkslab.Linq.Tests
         /// <summary>
         /// 全部测试。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT NOT EXISTS(SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE NOT (`x`.`Id`&lt;100))
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestAll()
         {
@@ -1736,6 +2156,12 @@ namespace Inkslab.Linq.Tests
         /// <summary>
         /// 内置任意满足测试。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 AND EXISTS(SELECT `y`.`Id` FROM `fmk_user_exs` AS `y` WHERE `y`.`Id`=`x`.`Id` AND `y`.`Age`&gt;12) ORDER BY `x`.`DateAt` ASC,`x`.`Name` ASC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestNestedAny()
         {
@@ -1761,8 +2187,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 内置任意满足测试。
+        /// 内置任意满足测试（WhereIf变量）。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 AND EXISTS(SELECT `y`.`Id` FROM `fmk_user_exs` AS `y` WHERE `y`.`Age`&gt;12 AND `y`.`Id`=`x`.`Id`) ORDER BY `x`.`DateAt` ASC,`x`.`Name` ASC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestWereIfVariableAny()
         {
@@ -1778,8 +2210,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 内置任意满足测试。
+        /// 内置任意满足测试（WhereIf条件）。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 AND EXISTS(SELECT `y`.`Id` FROM `fmk_user_exs` AS `y` WHERE (`x`.`DateAt`&gt;@__variable_now__ AND `y`.`Age`&gt;12) AND `y`.`Id`=`x`.`Id`) ORDER BY `x`.`DateAt` ASC,`x`.`Name` ASC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestWereIfAny()
         {
@@ -1797,6 +2235,12 @@ namespace Inkslab.Linq.Tests
         /// <summary>
         /// 内置所有满足测试。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 AND NOT EXISTS(SELECT `y`.`Id` FROM `fmk_user_exs` AS `y` WHERE NOT (`y`.`Id`=`x`.`Id` AND `y`.`Age`&gt;12)) ORDER BY `x`.`DateAt` ASC,`x`.`Name` ASC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestNestedAll()
         {
@@ -1823,6 +2267,12 @@ namespace Inkslab.Linq.Tests
         /// <summary>
         /// 内置包含测试。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 AND `x`.`Id` IN(SELECT `y`.`Id` FROM `fmk_user_exs` AS `y` WHERE `y`.`Age`&gt;12) ORDER BY `x`.`DateAt` ASC,`x`.`Name` ASC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestNestedContains()
         {
@@ -1849,8 +2299,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 内置包含测试。
+        /// 内置不包含测试。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 AND `x`.`Id` NOT IN(SELECT `y`.`Id` FROM `fmk_user_exs` AS `y` WHERE `y`.`Age`&gt;12) ORDER BY `x`.`DateAt` ASC,`x`.`Name` ASC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestNestedNotContains()
         {
@@ -1877,8 +2333,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 内置包含测试。
+        /// 内置多条件不包含测试。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 AND NOT (`x`.`Id` IN(SELECT `y`.`Id` FROM `fmk_user_exs` AS `y` WHERE `y`.`Age`&gt;12) OR EXISTS(SELECT `y`.`Id` FROM `fmk_user_exs` AS `y` WHERE `y`.`Age`&gt;12 AND `y`.`Id`=`x`.`Id`)) ORDER BY `x`.`DateAt` ASC,`x`.`Name` ASC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestNestedNotWrapContains()
         {
@@ -1905,8 +2367,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 内置包含测试。
+        /// 内存集合包含测试。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 AND `x`.`Id` IN(1,2,5) ORDER BY `x`.`DateAt` ASC,`x`.`Name` ASC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestNestedMemoryContains()
         {
@@ -1922,8 +2390,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 内置包含测试。
+        /// 内存HashSet包含测试。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 AND `x`.`Id` IN(1,2,5) ORDER BY `x`.`DateAt` ASC,`x`.`Name` ASC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestNestedMemoryHashContains()
         {
@@ -1950,8 +2424,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 内置包含测试。
+        /// 内存集合Any测试。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 AND `x`.`Id` IN(256,257,258,...) ORDER BY `x`.`DateAt` ASC,`x`.`Name` ASC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestNestedMemoryAny()
         {
@@ -1994,6 +2474,12 @@ namespace Inkslab.Linq.Tests
         /// <summary>
         /// 同表多个别名。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id`,`x`.`Account`,`x`.`Bcid`,`x`.`Name`,`x`.`Tel`,`x`.`Mail`,`x`.`Avatar`,`x`.`IsAdministrator`,`x`.`Sex`,`x`.`DateAt`,`x`.`Nullable` FROM `fmk_users` AS `x` WHERE `x`.`Id`&gt;100 AND `x`.`Id`&lt;1000 ORDER BY `x`.`DateAt` DESC LIMIT 1
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestLambdaMultiAliasName()
         {
@@ -2025,8 +2511,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 内置包含测试。
+        /// 内存集合包含多次查询测试。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 AND `x`.`Id` IN(1,2,5) ORDER BY `x`.`DateAt` ASC,`x`.`Name` ASC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestNestedMemoryContainsMultiSelect()
         {
@@ -2053,8 +2545,17 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 内置包含测试。
+        /// 内存集合包含多次查询测试2。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// -- 第一次查询
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 AND `x`.`Id` IN(1,2,5) ORDER BY `x`.`DateAt` ASC,`x`.`Name` ASC
+        /// -- 第二次查询
+        /// SELECT COUNT(1) FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 AND `x`.`Id` IN(1,2,5)
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestNestedMemoryContainsMultiSelect2()
         {
@@ -2082,8 +2583,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 内置包含测试。
+        /// 内存集合包含多次异步查询测试。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 AND `x`.`Id` IN(1,2,5) ORDER BY `x`.`DateAt` ASC,`x`.`Name` ASC
+        /// </code>
+        /// </remarks>
         [Fact]
         public async Task TestNestedMemoryContainsMultiSelectAsync()
         {
@@ -2110,8 +2617,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 内置不包含测试。
+        /// 内存集合不包含多次异步查询测试。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 AND `x`.`Id` NOT IN(1,2,5) ORDER BY `x`.`DateAt` ASC,`x`.`Name` ASC
+        /// </code>
+        /// </remarks>
         [Fact]
         public async Task TestNestedMemoryNotContainsMultiSelectAsync()
         {
@@ -2138,8 +2651,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 内置包含测试。
+        /// 内存集合包含多次异步查询2。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 AND `x`.`Id` IN(1,2,5) ORDER BY `x`.`DateAt` ASC,`x`.`Name` ASC
+        /// </code>
+        /// </remarks>
         [Fact]
         public async Task TestNestedMemoryContainsMultiSelect2Async()
         {
@@ -2167,8 +2686,16 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 内置包含测试。
+        /// 内存集合包含多次异步查询3。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// -- 并行执行
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 AND `x`.`Id` IN(1,2,5) ORDER BY `x`.`DateAt` ASC,`x`.`Name` ASC
+        /// SELECT COUNT(1) FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 AND `x`.`Id` IN(1,2,5)
+        /// </code>
+        /// </remarks>
         [Fact]
         public async Task TestNestedMemoryContainsMultiSelect3Async()
         {
@@ -2200,8 +2727,16 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 内置包含测试。
+        /// 内存集合包含多次异步查询4。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// -- 异步+同步查询
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 AND `x`.`Id` IN(1,2,5) ORDER BY `x`.`DateAt` ASC,`x`.`Name` ASC
+        /// SELECT COUNT(1) FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 AND `x`.`Id` IN(1,2,5)
+        /// </code>
+        /// </remarks>
         [Fact]
         public async Task TestNestedMemoryContainsMultiSelect4Async()
         {
@@ -2229,8 +2764,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 内置包含测试。
+        /// 内存集合包含多次异步查询5。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT COUNT(1) FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 AND `x`.`Id` IN(1,2,5)
+        /// </code>
+        /// </remarks>
         [Fact]
         public async Task TestNestedMemoryContainsMultiSelect5Async()
         {
@@ -2259,6 +2800,12 @@ namespace Inkslab.Linq.Tests
         /// <summary>
         /// 获取所有数据测试。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id`,`x`.`Account`,`x`.`Bcid`,`x`.`Name`,`x`.`Tel`,`x`.`Mail`,`x`.`Avatar`,`x`.`IsAdministrator`,`x`.`Sex`,`x`.`DateAt`,`x`.`Nullable` FROM `fmk_users` AS `x`
+        /// </code>
+        /// </remarks>
         /// <returns></returns>
         [Fact]
         public async Task GetAllTestAsync()
@@ -2269,6 +2816,12 @@ namespace Inkslab.Linq.Tests
         /// <summary>
         /// 获取所有数据条数测试。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT COUNT(1) FROM `fmk_users` AS `x`
+        /// </code>
+        /// </remarks>
         /// <returns></returns>
         [Fact]
         public async Task GetCountAllTestAsync()
@@ -2279,6 +2832,12 @@ namespace Inkslab.Linq.Tests
         /// <summary>
         /// 测试自定义排序。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 ORDER BY `x`.`DateAt` ASC,`x`.`Name` ASC,`x`.`DateAt` ASC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestRankBy()
         {
@@ -2293,8 +2852,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 测试自定义排序。
+        /// 测试自定义排序（内部倒序）。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 ORDER BY `x`.`DateAt` ASC,`x`.`Name` ASC,`x`.`DateAt` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestRankByInnerDescending()
         {
@@ -2312,6 +2877,12 @@ namespace Inkslab.Linq.Tests
         /// <summary>
         /// 测试自定义多排序。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 ORDER BY `x`.`DateAt` ASC,`x`.`Name` ASC,`x`.`DateAt` DESC,`x`.`Id` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestRankByInnerMultiDescending()
         {
@@ -2328,6 +2899,12 @@ namespace Inkslab.Linq.Tests
         /// <summary>
         /// 测试自定义多混合排序。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 ORDER BY `x`.`DateAt` ASC,`x`.`Name` ASC,`x`.`DateAt` ASC,`x`.`Id` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestRankByInnerMultiBlendDescending()
         {
@@ -2342,8 +2919,17 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 测试自定义多混合排序。
+        /// 测试自定义多混合排序（带参数）。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// -- type=10时：
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 ORDER BY `x`.`DateAt` ASC,`x`.`Name` ASC,`x`.`DateAt` ASC,`x`.`Id` DESC
+        /// -- type=100时（使用默认排序）：
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 ORDER BY `x`.`DateAt` ASC,`x`.`Name` ASC,`x`.`DateAt` DESC,`x`.`Id` ASC
+        /// </code>
+        /// </remarks>
         [Theory]
         [InlineData(10)]
         [InlineData(100)]
@@ -2362,6 +2948,12 @@ namespace Inkslab.Linq.Tests
         /// <summary>
         /// 测试自定义排序倒序。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 ORDER BY `x`.`DateAt` ASC,`x`.`Name` ASC,`x`.`DateAt` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestRankByDescending()
         {
@@ -2378,6 +2970,12 @@ namespace Inkslab.Linq.Tests
         /// <summary>
         /// 测试自定义排序倒序和正常倒序。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 ORDER BY `x`.`DateAt` ASC,`x`.`Name` ASC,`x`.`DateAt` ASC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestRankByRepeatDescending()
         {
@@ -2392,8 +2990,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 测试自定义排序倒序。
+        /// 测试自定义排序忽略。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 ORDER BY `x`.`DateAt` ASC,`x`.`Name` ASC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestRankByIgnore()
         {
@@ -2408,8 +3012,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 测试自定义排序倒序。
+        /// 测试自定义排序倒序忽略。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 ORDER BY `x`.`DateAt` ASC,`x`.`Name` ASC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestRankByDescendingIgnore()
         {
@@ -2426,6 +3036,12 @@ namespace Inkslab.Linq.Tests
         /// <summary>
         /// 测试三目运算排序。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_user_exs` AS `x` WHERE `x`.`Id`=100 ORDER BY CASE WHEN `x`.`Id`&gt;100 THEN `x`.`Age` ELSE `x`.`RoleType` END ASC,`x`.`DateAt` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestOrderByConditional()
         {
@@ -2450,6 +3066,12 @@ namespace Inkslab.Linq.Tests
         /// <summary>
         /// 测试三目运算排序倒序。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_user_exs` AS `x` WHERE `x`.`Id`=100 ORDER BY CASE WHEN `x`.`Id`&gt;100 THEN `x`.`Age` ELSE `x`.`RoleType` END DESC,`x`.`DateAt` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestOrderByDescendingConditional()
         {
@@ -2474,6 +3096,12 @@ namespace Inkslab.Linq.Tests
         /// <summary>
         /// 测试合并运算排序。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 ORDER BY COALESCE(`x`.`Name`,'') ASC,`x`.`DateAt` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestOrderByCoalesce()
         {
@@ -2489,6 +3117,12 @@ namespace Inkslab.Linq.Tests
         /// <summary>
         /// 测试合并运算排序倒序。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 ORDER BY COALESCE(`x`.`Name`,'') DESC,`x`.`DateAt` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestOrderByDescendingCoalesce()
         {
@@ -2511,8 +3145,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 测试二元运算排序倒序。
+        /// 测试二元运算排序。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_user_exs` AS `x` WHERE `x`.`Id`=100 ORDER BY `x`.`Age`+`x`.`RoleType` ASC,`x`.`DateAt` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestOrderByBinary()
         {
@@ -2535,8 +3175,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 测试一元运算排序倒序。
+        /// 测试一元运算排序。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_user_exs` AS `x` WHERE `x`.`Id`=100 ORDER BY ~`x`.`Age` ASC,`x`.`DateAt` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestOrderByUnary()
         {
@@ -2559,8 +3205,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 测试字符串方法排序倒序。
+        /// 测试字符串方法排序。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 ORDER BY SUBSTRING(`x`.`Name`,3,5) ASC,`x`.`DateAt` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestOrderByStringMethod()
         {
@@ -2585,6 +3237,12 @@ namespace Inkslab.Linq.Tests
         /// <summary>
         /// 测试字符串截取。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id`,`x`.`Name`,SUBSTRING(`x`.`Name`,3,5) AS `NameSubstring` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 ORDER BY `x`.`DateAt` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestSubstring()
         {
@@ -2616,6 +3274,12 @@ namespace Inkslab.Linq.Tests
         /// <summary>
         /// 测试字符串空判断。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id`,`x`.`Name`,(`x`.`Name` IS NULL OR `x`.`Name`='') AS `Null` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 ORDER BY `x`.`DateAt` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestIsNullOrEmpty()
         {
@@ -2644,8 +3308,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 常量字符串空判断。
+        /// 常量字符串空判断（普通变量）。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id`,`x`.`Name`,0 AS `Null` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 ORDER BY `x`.`DateAt` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestIsNullOrEmptyPlainVariable()
         {
@@ -2675,8 +3345,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 常量字符串空判断。
+        /// 常量字符串空判断（空字符串）。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id`,`x`.`Name`,1 AS `Null` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 ORDER BY `x`.`DateAt` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestIsNullOrEmptyByEmpty()
         {
@@ -2706,8 +3382,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 常量字符串空判断。
+        /// 常量字符串空判断（null）。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id`,`x`.`Name`,1 AS `Null` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 ORDER BY `x`.`DateAt` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestIsNullOrEmptyByNull()
         {
@@ -2739,6 +3421,12 @@ namespace Inkslab.Linq.Tests
         /// <summary>
         /// 测试字符串替换。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id`,`x`.`Name`,REPLACE(`x`.`Name`,'测试','测试2') AS `NickName` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 ORDER BY `x`.`DateAt` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestReplaceString()
         {
@@ -2767,8 +3455,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 测试字符串截取。
+        /// 测试字符串查找位置。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id`,`x`.`Name`,LOCATE('测试',`x`.`Name`,3)-1 AS `IndexOf` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 ORDER BY `x`.`DateAt` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestIndexOfString()
         {
@@ -2781,6 +3475,15 @@ namespace Inkslab.Linq.Tests
             var results = linq.ToList();
         }
 
+        /// <summary>
+        /// 测试可空类型等于null。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id`,`x`.`StatusId`,`x`.`ExchangeName`,`x`.`RoutingKey`,`x`.`Body`,`x`.`ExpiresAt`,`x`.`Status`,`x`.`DeliverTime` FROM `fmk_publisheds` AS `x` WHERE `x`.`Status`=0 AND (`x`.`ExpiresAt` IS NULL OR `x`.`ExpiresAt`&gt;@__variable_date__) AND `x`.`DeliverTime`&gt;@__variable_takeTime__ AND `x`.`DeliverTime`&lt;=@__variable_offsetTime__
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestNullableEqualNull()
         {
@@ -2813,6 +3516,15 @@ namespace Inkslab.Linq.Tests
             Assert.Single(messages);
         }
 
+        /// <summary>
+        /// 测试可空类型不等于null。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id`,`x`.`StatusId`,`x`.`ExchangeName`,`x`.`RoutingKey`,`x`.`Body`,`x`.`ExpiresAt`,`x`.`Status`,`x`.`DeliverTime` FROM `fmk_publisheds` AS `x` WHERE `x`.`Status`=0 AND `x`.`ExpiresAt` IS NOT NULL AND `x`.`DeliverTime`&gt;@__variable_takeTime__ AND `x`.`DeliverTime`&lt;=@__variable_offsetTime__
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestNullableNotEqualNull()
         {
@@ -2845,6 +3557,15 @@ namespace Inkslab.Linq.Tests
             Assert.Empty(messages);
         }
 
+        /// <summary>
+        /// 测试SkipWhile可空类型不等于null。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id`,`x`.`StatusId`,`x`.`ExchangeName`,`x`.`RoutingKey`,`x`.`Body`,`x`.`ExpiresAt`,`x`.`Status`,`x`.`DeliverTime` FROM `fmk_publisheds` AS `x` WHERE `x`.`Status`=0 AND `x`.`ExpiresAt` IS NULL AND `x`.`DeliverTime`&gt;@__variable_takeTime__ AND `x`.`DeliverTime`&lt;=@__variable_offsetTime__
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestSkipWhileNullableNotEqualNull()
         {
@@ -2878,6 +3599,15 @@ namespace Inkslab.Linq.Tests
             Assert.Single(messages);
         }
 
+        /// <summary>
+        /// 测试非null字段与null变量比较。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id`,`x`.`StatusId`,`x`.`ExchangeName`,`x`.`RoutingKey`,`x`.`Body`,`x`.`ExpiresAt`,`x`.`Status`,`x`.`DeliverTime` FROM `fmk_publisheds` AS `x` WHERE (`x`.`ExpiresAt` IS NULL OR `x`.`ExpiresAt`&gt;@__variable_date__) AND `x`.`ExchangeName` IS NOT NULL AND `x`.`DeliverTime`&gt;@__variable_takeTime__ AND `x`.`DeliverTime`&lt;=@__variable_offsetTime__
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestNonullableEqualNull()
         {
@@ -2913,8 +3643,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 布尔字段。
+        /// 布尔字段查询。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`IsAdministrator` ORDER BY `x`.`DateAt` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestBooleanFieldOnly()
         {
@@ -2939,8 +3675,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 布尔字段。
+        /// 布尔字段与条件组合查询。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 AND `x`.`IsAdministrator` ORDER BY `x`.`DateAt` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestBooleanField()
         {
@@ -2954,8 +3696,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 布尔字段。
+        /// 可空布尔字段Value查询。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Nullable` ORDER BY `x`.`DateAt` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestBooleanNullableFieldOnly()
         {
@@ -2969,8 +3717,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 布尔字段。
+        /// 可空布尔字段HasValue查询。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Nullable` IS NOT NULL ORDER BY `x`.`DateAt` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestBooleanNullableHasValueFieldOnly()
         {
@@ -2984,8 +3738,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 布尔字段。
+        /// 可空布尔字段Value与条件组合查询。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 AND `x`.`Nullable` ORDER BY `x`.`DateAt` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestBooleanNullableField()
         {
@@ -2999,8 +3759,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 布尔字段。
+        /// 可空布尔字段HasValue与条件组合查询。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 AND `x`.`Nullable` IS NOT NULL ORDER BY `x`.`DateAt` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestBooleanNullableHasValueField()
         {
@@ -3014,8 +3780,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 布尔字段。
+        /// 可空布尔字段合并运算查询。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 AND COALESCE(`x`.`Nullable`,`x`.`IsAdministrator`) ORDER BY `x`.`DateAt` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestBooleanNullableCoalesceField()
         {
@@ -3029,8 +3801,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 布尔字段。
+        /// 可空布尔字段异或运算查询。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 AND `x`.`Nullable`^`x`.`IsAdministrator` ORDER BY `x`.`DateAt` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestBooleanNullableExclusiveOrField()
         {
@@ -3044,8 +3822,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 布尔字段。
+        /// 可空布尔字段HasValue异或运算查询。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 AND (`x`.`Nullable` IS NOT NULL)^`x`.`IsAdministrator` ORDER BY `x`.`DateAt` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestBooleanNullableHasValueExclusiveOrField()
         {
@@ -3059,8 +3843,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 布尔字段。
+        /// 可空布尔字段HasValue与运算查询。
         /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 AND (`x`.`Nullable` IS NOT NULL)&amp;`x`.`IsAdministrator` ORDER BY `x`.`DateAt` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void TestBooleanNullableHasValueAndField()
         {
@@ -3073,6 +3863,15 @@ namespace Inkslab.Linq.Tests
             var results = linq.ToList();
         }
 
+        /// <summary>
+        /// 测试ToString方法。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id`,`x`.`Account`,`x`.`Bcid`,`x`.`Name`,`x`.`Tel`,`x`.`Mail`,`x`.`Avatar`,`x`.`IsAdministrator`,`x`.`Sex`,`x`.`DateAt`,`x`.`Nullable` FROM `fmk_users` AS `x` WHERE `x`.`Name`='100' ORDER BY `x`.`DateAt` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void ToStringTest()
         {
@@ -3105,6 +3904,15 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// 可空类型投影查询。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id`,`x`.`Name`,`x`.`DateAt`,`x`.`IsAdministrator`,COALESCE(`x`.`Nullable`,0) AS `Nullable` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 ORDER BY `x`.`DateAt` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void NullableSelect()
         {

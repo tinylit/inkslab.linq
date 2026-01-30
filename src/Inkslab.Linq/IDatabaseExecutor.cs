@@ -61,7 +61,8 @@ namespace Inkslab.Linq
         /// <returns>受影响的行数。</returns>
         int ExecuteMultiple(IConnection databaseStrings, Action<IMultipleExecutor> multipleAction, int? commandTimeout = null);
 
-        /// <summary>        /// 读取数据。
+        /// <summary>        
+        /// 读取数据。
         /// </summary>
         /// <typeparam name="T">返回类型。</typeparam>
         /// <param name="databaseStrings">数据库链接。</param>
@@ -104,6 +105,7 @@ namespace Inkslab.Linq
         /// <param name="commandTimeout">超时时间（秒）。</param>
         /// <param name="cancellationToken">取消操作的标记。</param>
         Task<int> WriteToServerAsync(IConnection databaseStrings, DataTable dataTable, int? commandTimeout = null, CancellationToken cancellationToken = default);
+
         /// <summary>
         /// 多执行异步处理器。
         /// </summary>

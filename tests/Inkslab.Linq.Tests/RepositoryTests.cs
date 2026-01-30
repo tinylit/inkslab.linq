@@ -108,6 +108,12 @@ namespace Inkslab.Linq.Tests
         /// <summary>
         /// 插入。
         /// </summary>
+        /// <remarks>
+        /// 生成SQL预览:
+        /// <code>
+        /// INSERT IGNORE INTO `user`(`name`, `date`) SELECT `x`.`name`, '2026-01-30 16:31:13.142' FROM `user` AS `x` INNER JOIN `user_ex` AS `y` ON `x`.`id` = `y`.`id` ORDER BY `x`.`id` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void InsertLinq()
         {
@@ -121,8 +127,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 插入。
+        /// 分片插入。
         /// </summary>
+        /// <remarks>
+        /// 生成SQL预览:
+        /// <code>
+        /// INSERT IGNORE INTO `user_2025`(`name`, `date`) SELECT `x`.`name`, NOW() FROM `user` AS `x` INNER JOIN `user_ex` AS `y` ON `x`.`id` = `y`.`id` ORDER BY `x`.`id` DESC
+        /// </code>
+        /// </remarks>
         [Fact]
         public void ShardingInsertLinq()
         {
@@ -136,8 +148,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 更新。
+        /// 更新所有。
         /// </summary>
+        /// <remarks>
+        /// 生成SQL预览:
+        /// <code>
+        /// UPDATE `user` AS `x` SET `x`.date = NOW()
+        /// </code>
+        /// </remarks>
         [Fact]
         public void UpdateAll()
         {
@@ -145,8 +163,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 更新。
+        /// 条件更新。
         /// </summary>
+        /// <remarks>
+        /// 生成SQL预览:
+        /// <code>
+        /// UPDATE `user` AS `x` SET `x`.date = NOW(), `x`.nullable = IFNULL(1, 0) WHERE EXISTS(SELECT `id`, `role`, `age`, `date` FROM `user_ex` AS `y` WHERE `y`.`role` = 2 AND `x`.`id` = `y`.`id`)
+        /// </code>
+        /// </remarks>
         [Fact]
         public void UpdateLinq()
         {
@@ -159,8 +183,14 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 删除。
+        /// 删除（子查询）。
         /// </summary>
+        /// <remarks>
+        /// 生成SQL预览:
+        /// <code>
+        /// DELETE FROM `user` AS `x` WHERE `x`.`id` IN(SELECT `y`.`id` FROM `user_ex` AS `y` WHERE `y`.`role` = 2)
+        /// </code>
+        /// </remarks>
         [Fact]
         public void DeleteByLinq()
         {
@@ -172,6 +202,12 @@ namespace Inkslab.Linq.Tests
         /// <summary>
         /// 删除所有。
         /// </summary>
+        /// <remarks>
+        /// 生成SQL预览:
+        /// <code>
+        /// DELETE FROM `user` AS `g`
+        /// </code>
+        /// </remarks>
         [Fact]
         public void DeleteAll()
         {
@@ -181,12 +217,27 @@ namespace Inkslab.Linq.Tests
         /// <summary>
         /// 按条件删除。
         /// </summary>
+        /// <remarks>
+        /// 生成SQL预览:
+        /// <code>
+        /// DELETE FROM `user` AS `x` WHERE `x`.`id` &lt; 100
+        /// </code>
+        /// </remarks>
         [Fact]
         public void DeleteByLinqWhere()
         {
             _userRpo.Delete(x => x.Id < 100);
         }
 
+        /// <summary>
+        /// 批量插入。
+        /// </summary>
+        /// <remarks>
+        /// 生成SQL预览:
+        /// <code>
+        /// INSERT IGNORE INTO `user`(`name`,`date`,`is_administrator`,`nullable`)VALUES('测试：000',NOW(),False,null),('测试：001',NOW(),False,null),...
+        /// </code>
+        /// </remarks>
         [Fact]
         public void Insert()
         {
@@ -202,6 +253,15 @@ namespace Inkslab.Linq.Tests
             int rows = _userRpo.Ignore().Into(users).Execute();
         }
 
+        /// <summary>
+        /// 分片批量插入。
+        /// </summary>
+        /// <remarks>
+        /// 生成SQL预览:
+        /// <code>
+        /// INSERT IGNORE INTO `user_2025`(`name`,`date`,`is_administrator`,`nullable`)VALUES('测试：000',NOW(),False,null),('测试：001',NOW(),False,null),...
+        /// </code>
+        /// </remarks>
         [Fact]
         public void ShardingInsert()
         {
@@ -217,6 +277,15 @@ namespace Inkslab.Linq.Tests
             int rows = _userShardingRpo.DataSharding("2025").Ignore().Into(users).Execute();
         }
 
+        /// <summary>
+        /// 批量更新。
+        /// </summary>
+        /// <remarks>
+        /// 生成SQL预览:
+        /// <code>
+        /// UPDATE `user` SET `name`='测试：000',`date`=NOW(),`is_administrator`=False,`nullable`=null WHERE `id`=256 AND `date`='2026-01-30 16:30:00.412';UPDATE `user` SET ...
+        /// </code>
+        /// </remarks>
         [Fact]
         public void Update()
         {
@@ -239,6 +308,15 @@ namespace Inkslab.Linq.Tests
             int rows = _userRpo.UpdateTo(users).Execute();
         }
 
+        /// <summary>
+        /// 批量删除。
+        /// </summary>
+        /// <remarks>
+        /// 生成SQL预览:
+        /// <code>
+        /// DELETE FROM `user` WHERE `id`=256 AND `date`='2026-01-30 16:29:59.800';DELETE FROM `user` WHERE `id`=257 AND `date`='2026-01-30 16:30:59.800';...
+        /// </code>
+        /// </remarks>
         [Fact]
         public void Delete()
         {
@@ -261,6 +339,15 @@ namespace Inkslab.Linq.Tests
             int rows = _userRpo.DeleteWith(users).Execute();
         }
 
+        /// <summary>
+        /// 大批量插入。
+        /// </summary>
+        /// <remarks>
+        /// 生成SQL预览:
+        /// <code>
+        /// INSERT IGNORE INTO `user`(`name`,`date`,`is_administrator`,`nullable`)VALUES('测试：000',NOW(),False,null),('测试：001',NOW(),False,null),...
+        /// </code>
+        /// </remarks>
         [Fact]
         public void InsertBulk()
         {
@@ -276,6 +363,15 @@ namespace Inkslab.Linq.Tests
             int rows = _userRpo.Timeout(100).Ignore().Into(users).Execute();
         }
 
+        /// <summary>
+        /// 大批量更新。
+        /// </summary>
+        /// <remarks>
+        /// 生成SQL预览:
+        /// <code>
+        /// UPDATE `user` SET `name`='测试：000',`date`=NOW(),`is_administrator`=False,`nullable`=null WHERE `id`=1 AND `date`='...';UPDATE `user` SET ...
+        /// </code>
+        /// </remarks>
         [Fact]
         public void UpdateBulk()
         {
@@ -298,6 +394,15 @@ namespace Inkslab.Linq.Tests
             int rows = _userRpo.UpdateTo(users).Execute();
         }
 
+        /// <summary>
+        /// 大批量删除。
+        /// </summary>
+        /// <remarks>
+        /// 生成SQL预览:
+        /// <code>
+        /// DELETE FROM `user` WHERE `id`=1 AND `date`='2026-01-30 16:29:59.800';DELETE FROM `user` WHERE `id`=2 AND `date`='2026-01-30 16:30:59.800';...
+        /// </code>
+        /// </remarks>
         [Fact]
         public void DeleteBulk()
         {
@@ -320,6 +425,15 @@ namespace Inkslab.Linq.Tests
             int rows = _userRpo.DeleteWith(users).Execute();
         }
 
+        /// <summary>
+        /// 更新带Trim函数。
+        /// </summary>
+        /// <remarks>
+        /// 生成SQL预览:
+        /// <code>
+        /// UPDATE `channel_config` AS `x` SET `x`.types = 2, `x`.request_address = TRIM('  http://example.com/api  '), `x`.remark = 'Updated via LINQ', `x`.update_by = 1000000000000000000, `x`.update_time = NOW() WHERE `x`.`id` = 1
+        /// </code>
+        /// </remarks>
         [Fact]
         public void UpdateTrim()
         {
@@ -343,12 +457,30 @@ namespace Inkslab.Linq.Tests
                });
         }
 
+        /// <summary>
+        /// 异步条件删除。
+        /// </summary>
+        /// <remarks>
+        /// 生成SQL预览:
+        /// <code>
+        /// DELETE FROM `user` AS `x` WHERE `x`.`id` &lt; 100
+        /// </code>
+        /// </remarks>
         [Fact]
         public async Task DeleteAsync()
         {
             await _userRpo.Where(x => x.Id < 100).DeleteAsync();
         }
 
+        /// <summary>
+        /// 异步删除所有。
+        /// </summary>
+        /// <remarks>
+        /// 生成SQL预览:
+        /// <code>
+        /// DELETE FROM `user` AS `g`
+        /// </code>
+        /// </remarks>
         [Fact]
         public async Task DeleteAllAsync()
         {

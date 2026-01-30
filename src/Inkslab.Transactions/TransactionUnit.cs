@@ -97,31 +97,32 @@ namespace Inkslab.Transactions
                 await _transaction.CommitAsync(cancellationToken);
             }
         }
-        
+
         private bool _disposed;
 
         /// <inheritdoc/>
         public void Dispose()
         {
-            if (!_disposed)
+            if (_disposed)
             {
-                _disposed = true;
+                return;
+            }
 
-                Transaction.Current = _previousTransaction;
+            _disposed = true;
 
-                if (_transactionOption == TransactionOption.Suppress)
+            Transaction.Current = _previousTransaction;
+
+            if (_complete)
+            {
+                if (_transactionOption == TransactionOption.RequiresNew || _previousTransaction is null)
                 {
-
-                }
-                else if (_transactionOption == TransactionOption.RequiresNew || _previousTransaction is null)
-                {
-                    if (!_complete)
-                    {
-                        _transaction.Rollback();
-                    }
-
                     _transaction.Dispose();
                 }
+            }
+            else if (_transactionOption == TransactionOption.RequiresNew || _previousTransaction is null)
+            {
+                _transaction.Rollback();
+                _transaction.Dispose();
             }
 
             GC.SuppressFinalize(this);
@@ -130,25 +131,26 @@ namespace Inkslab.Transactions
         /// <inheritdoc/>
         public async ValueTask DisposeAsync()
         {
-            if (!_disposed)
+            if (_disposed)
             {
-                _disposed = true;
+                return;
+            }
 
-                Transaction.Current = _previousTransaction;
+            _disposed = true;
 
-                if (_transactionOption == TransactionOption.Suppress)
+            Transaction.Current = _previousTransaction;
+
+            if (_complete)
+            {
+                if (_transactionOption == TransactionOption.RequiresNew || _previousTransaction is null)
                 {
-
-                }
-                else if (_transactionOption == TransactionOption.RequiresNew || _previousTransaction is null)
-                {
-                    if (!_complete)
-                    {
-                        await _transaction.RollbackAsync();
-                    }
-
                     await _transaction.DisposeAsync();
                 }
+            }
+            else if (_transactionOption == TransactionOption.RequiresNew || _previousTransaction is null)
+            {
+                await _transaction.RollbackAsync();
+                await _transaction.DisposeAsync();
             }
 
             GC.SuppressFinalize(this);

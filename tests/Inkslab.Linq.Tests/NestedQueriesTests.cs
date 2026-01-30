@@ -1074,6 +1074,21 @@ namespace Inkslab.Linq.Tests
             _businessConsultationReps = businessConsultationReps;
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT `a`.`business_department_id` AS `BusinessDepartmentId`, `a`.`specialist_id` AS `SpecialistId`, 
+        /// `a`.`business_line_id` AS `BusinessLineId`, `a`.`business_consultation_id` AS `BusinessConsultationId`, 
+        /// `c`.`SpecialistName`, `b`.`name` AS `ConsultationName` 
+        /// FROM `business_department_consultation_rel` AS `a` 
+        /// LEFT JOIN `business_consultation_rep` AS `b` ON `a`.`business_consultation_id` = `b`.`id` 
+        /// INNER JOIN (
+        ///     SELECT `a`.`business_department_id` AS `BusinessDepartmentId`, `a`.`specialist_id` AS `SpecialistId`, 
+        ///     `a`.`business_line_id` AS `BusinessLineId`, `b`.`name` AS `SpecialistName` 
+        ///     FROM `business_department_consultation_rel` AS `a` 
+        ///     INNER JOIN `my_user` AS `b` ON `a`.`specialist_id` = `b`.`id` 
+        ///     WHERE `a`.`id` = ?id
+        /// ) AS `c` ON `a`.`business_department_id` = `c`.`BusinessDepartmentId` AND `a`.`specialist_id` = `c`.`SpecialistId` AND `a`.`business_line_id` = `c`.`BusinessLineId`
+        /// </summary>
         [Fact]
         public async Task TestAsync()
         {
@@ -1108,6 +1123,14 @@ namespace Inkslab.Linq.Tests
             var consultations = await consultationQuery.ToListAsync();
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT COUNT(1) FROM `business_department_rel` AS `a` 
+        /// INNER JOIN `specialist` AS `b` ON `a`.`specialist_id` = `b`.`id` 
+        /// INNER JOIN `my_user` AS `c` ON NOT `c`.`is_delete` AND `c`.`name` LIKE CONCAT('%', ?param_Name, '%') AND `c`.`phone` LIKE CONCAT('%', ?param_Phone, '%') AND `a`.`specialist_id` = `c`.`id` 
+        /// LEFT JOIN `specialist_cost_rep` AS `d` ON `d`.`cost_type` = 1 AND `a`.`specialist_id` = `d`.`specialist_id` 
+        /// WHERE `a`.`business_department_id` = ?param_BusinessDepartmentId
+        /// </summary>
         [Fact]
         public async Task Test2Async()
         {
@@ -1162,6 +1185,15 @@ namespace Inkslab.Linq.Tests
             var results = await specialistQuery.CountAsync();
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT `a`.`business_department_id` AS `BusinessDepartmentId`, `a`.`specialist_id` AS `SpecialistId`, 
+        /// `a`.`business_line_id` AS `BusinessLineId`, `a`.`business_consultation_id` AS `BusinessConsultationId`, 
+        /// `be`.`name` AS `ConsultationName` 
+        /// FROM `business_department_consultation_rel` AS `a` 
+        /// LEFT JOIN `business_consultation_rep` AS `be` ON `a`.`business_consultation_id` = `be`.`id` 
+        /// WHERE `a`.`business_department_id` IN (?businessDepartmentIds) AND `a`.`specialist_id` IN (?specialistIds) AND `a`.`business_line_id` IN (?businessLineIds)
+        /// </summary>
         [Fact]
         public async Task Test3Async()
         {
@@ -1185,12 +1217,31 @@ namespace Inkslab.Linq.Tests
             var consultations = await consultationQuery.ToListAsync();
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT COUNT(1) FROM `business_consultation_rep` AS `x` WHERE `x`.`business_line_id` = ?businessLineId
+        /// </summary>
         [Fact]
         public async Task Test4Async()
         {
             var businessConsultationCount = await _businessConsultationReps.CountAsync(x => x.BusinessLineId == 9000000000000000);
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT `a`.`business_department_id` AS `BusinessDepartmentId`, `a`.`specialist_id` AS `SpecialistId`, 
+        /// `a`.`business_line_id` AS `BusinessLineId`, `a`.`business_consultation_id` AS `BusinessConsultationId`, 
+        /// `c`.`SpecialistName`, `b`.`name` AS `ConsultationName` 
+        /// FROM `business_department_consultation_rel` AS `a` 
+        /// LEFT JOIN `business_consultation_rep` AS `b` ON `a`.`business_consultation_id` = `b`.`id` 
+        /// INNER JOIN (
+        ///     SELECT `a`.`business_department_id` AS `BusinessDepartmentId`, `a`.`specialist_id` AS `SpecialistId`, 
+        ///     `a`.`business_line_id` AS `BusinessLineId`, `b`.`name` AS `SpecialistName` 
+        ///     FROM `business_department_consultation_rel` AS `a` 
+        ///     INNER JOIN `my_user` AS `b` ON `a`.`specialist_id` = `b`.`id` 
+        ///     WHERE `a`.`id` = ?id ORDER BY `a`.`id` DESC LIMIT 5, 5
+        /// ) AS `c` ON ... 
+        /// </summary>
         [Fact]
         public async Task Test5Async()
         {
@@ -1226,6 +1277,13 @@ namespace Inkslab.Linq.Tests
             var consultations = await consultationQuery.ToListAsync();
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT `b`.`content` AS `Content`, `b`.`id` AS `Id` 
+        /// FROM `order` AS `a` 
+        /// INNER JOIN `business_term_rep` AS `b` ON `a`.`business_line_id` = `b`.`business_line_id` 
+        /// WHERE `a`.`id` = ?orderId ORDER BY `b`.`create_time` DESC
+        /// </summary>
         [Fact]
         public async Task Test6Async()
         {
@@ -1241,6 +1299,13 @@ namespace Inkslab.Linq.Tests
             var list = await query.ToListAsync();
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT DISTINCT `s`.`id` 
+        /// FROM `session_group_user` AS `gu` 
+        /// INNER JOIN `specialist` AS `s` ON `gu`.`user_id` = `s`.`id` 
+        /// WHERE `gu`.`session_id` IN (?orderIds)
+        /// </summary>
         [Fact]
         public async Task Test7Async()
         {
@@ -1253,6 +1318,10 @@ namespace Inkslab.Linq.Tests
                  .ToListAsync();
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT CASE WHEN EXISTS(SELECT 1 FROM `system_user` AS `s` WHERE `s`.`user_id` = ?id LIMIT 1) THEN 1 ELSE 0 END
+        /// </summary>
         [Fact]
         public async Task Test8Async()
         {
@@ -1261,6 +1330,10 @@ namespace Inkslab.Linq.Tests
             await _systemUsers.Where(s => s.UserId == id).AnyAsync();
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT CASE WHEN NOT EXISTS(SELECT 1 FROM `system_user` AS `s` WHERE `s`.`user_id` <> ?id LIMIT 1) THEN 1 ELSE 0 END
+        /// </summary>
         [Fact]
         public async Task Test9Async()
         {
@@ -1269,6 +1342,15 @@ namespace Inkslab.Linq.Tests
             await _systemUsers.AllAsync(s => s.UserId == id);
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT `o`.`id` AS `Id`, `o`.`code` AS `Code`, ... 
+        /// FROM `order` AS `o` 
+        /// INNER JOIN `order_user_info` AS `ou` ON `o`.`id` = `ou`.`id` 
+        /// INNER JOIN `session` AS `s` ON `o`.`id` = `s`.`id` 
+        /// WHERE (?patientId <= 0 OR EXISTS(SELECT 1 FROM `inquiry` AS `i` WHERE `i`.`order_id` = `o`.`id` AND `i`.`patient_id` = ?patientId LIMIT 1)) 
+        /// AND (...) ORDER BY `o`.`create_time` DESC
+        /// </summary>
         [Fact]
         public async Task Test10Async()
         {
@@ -1309,6 +1391,16 @@ namespace Inkslab.Linq.Tests
             var entities = await query.ToListAsync();
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT `o`.`id` AS `Id`, `o`.`code` AS `Code`, ... 
+        /// FROM `order` AS `o` 
+        /// INNER JOIN `order_user_info` AS `ou` ON `o`.`id` = `ou`.`id` 
+        /// INNER JOIN `session` AS `s` ON `o`.`id` = `s`.`id` 
+        /// WHERE (?patientId <= 0 OR EXISTS(...)) 
+        /// AND (... OR EXISTS(SELECT 1 FROM `inquiry` AS `inquiry` WHERE `inquiry`.`order_id` = `o`.`id` AND `inquiry`.`phone` LIKE CONCAT('%', ?dto_PatientPhone, '%') LIMIT 1)) 
+        /// ORDER BY `o`.`create_time` DESC
+        /// </summary>
         [Fact]
         public async Task Test11Async()
         {
@@ -1356,6 +1448,17 @@ namespace Inkslab.Linq.Tests
             var entities = await query.ToListAsync();
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT `o`.`id` AS `Id`, `o`.`code` AS `Code`, ... 
+        /// FROM `order` AS `o` 
+        /// INNER JOIN `order_user_info` AS `ou` ON `o`.`id` = `ou`.`id` 
+        /// INNER JOIN `session` AS `s` ON `o`.`id` = `s`.`id` 
+        /// WHERE EXISTS(SELECT 1 FROM `inquiry` AS `i` WHERE `i`.`order_id` = `o`.`id` AND `i`.`patient_id` = ?patientId LIMIT 1) 
+        /// AND NOT EXISTS(SELECT 1 FROM `inquiry` WHERE `inquiry`.`order_id` = `o`.`id` AND NOT `inquiry`.`phone` LIKE CONCAT('%', ?dto_PatientPhone, '%') LIMIT 1) 
+        /// ORDER BY `o`.`create_time` DESC
+        /// 注意: 使用Conditions.If()动态构建WHERE条件
+        /// </summary>
         [Fact]
         public async Task Test12Async()
         {
@@ -1403,6 +1506,16 @@ namespace Inkslab.Linq.Tests
             var entities = await query.ToListAsync();
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT `aurora`.`device_id` AS `DeviceId` 
+        /// FROM `jpush_phone_rel` AS `rel` 
+        /// INNER JOIN `jpush` AS `aurora` ON `rel`.`jpush_id` = `aurora`.`id` 
+        /// WHERE `rel`.`phone` = ?phone 
+        /// GROUP BY `aurora`.`device_id` 
+        /// ORDER BY MAX(`aurora`.`create_time`) 
+        /// LIMIT 0, 10
+        /// </summary>
         [Fact]
         public async Task Test13Async()
         {
@@ -1417,6 +1530,16 @@ namespace Inkslab.Linq.Tests
                                  }).ToListAsync(1, 10);
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT `aurora`.`device_id` AS `DeviceId` 
+        /// FROM `jpush_phone_rel` AS `rel` 
+        /// INNER JOIN `jpush` AS `aurora` ON `rel`.`jpush_id` = `aurora`.`id` 
+        /// WHERE `rel`.`phone` = ?phone 
+        /// GROUP BY `aurora`.`device_id` 
+        /// ORDER BY MAX(`aurora`.`create_time`) - MIN(`aurora`.`create_time`) 
+        /// LIMIT 0, 10
+        /// </summary>
         [Fact]
         public async Task Test14Async()
         {

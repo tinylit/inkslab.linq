@@ -20,6 +20,11 @@ namespace Inkslab.Linq.Tests
             _users = users;
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// UPDATE `user` SET `date` = ?x_DateAt
+        /// 注意: 此测试演示事务回滚 - 未调用CompleteAsync()会自动回滚
+        /// </summary>
         [Fact]
         public async Task RollbackAsync()
         {
@@ -32,6 +37,11 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// UPDATE `user` SET `date` = ?x_DateAt
+        /// 注意: 此测试演示事务提交 - 调用CompleteAsync()提交事务
+        /// </summary>
         [Fact]
         public async Task CommitAsync()
         {
@@ -46,6 +56,12 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT `x`.`id` AS `Id`, `x`.`name` AS `Name`, `x`.`date` AS `DateAt`, `x`.`is_administrator` AS `IsAdministrator`, `x`.`nullable` AS `Nullable` 
+        /// FROM `user` AS `x` ORDER BY `x`.`id` LIMIT 1
+        /// 注意: 纯查询操作不会开启事务
+        /// </summary>
         [Fact]
         public async Task ReadonlyAsync()
         {
@@ -58,6 +74,10 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// SELECT * FROM `user` WHERE id = @id
+        /// </summary>
         [Fact]
         public async Task TestAsync()
         {
@@ -71,6 +91,11 @@ namespace Inkslab.Linq.Tests
             }
         }
 
+        /// <summary>
+        /// SQL预览:
+        /// INSERT IGNORE INTO `user`(`name`,`date`) VALUES(?entry0_Name,?entry0_DateAt),(?entry1_Name,?entry1_DateAt),...
+        /// 注意: 批量插入200条数据，使用IGNORE策略忽略重复数据
+        /// </summary>
         [Fact]
         public async Task WriteServerCommitAsync()
         {

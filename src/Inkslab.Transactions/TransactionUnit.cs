@@ -119,7 +119,11 @@ namespace Inkslab.Transactions
                     _transaction.Dispose();
                 }
             }
-            else if (_transactionOption == TransactionOption.RequiresNew || _previousTransaction is null)
+            else if (_transactionOption == TransactionOption.Suppress)
+            {
+
+            }
+            else
             {
                 _transaction.Rollback();
                 _transaction.Dispose();
@@ -147,7 +151,11 @@ namespace Inkslab.Transactions
                     await _transaction.DisposeAsync();
                 }
             }
-            else if (_transactionOption == TransactionOption.RequiresNew || _previousTransaction is null)
+            else if (_transactionOption == TransactionOption.Suppress)
+            {
+
+            }
+            else
             {
                 await _transaction.RollbackAsync();
                 await _transaction.DisposeAsync();

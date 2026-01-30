@@ -33,7 +33,7 @@ namespace Inkslab.Linq.Tests
             var writer = new SqlWriter(new MySqlCorrectSettings());
 
             writer.Write("SELECT");
-            
+
             using (var transaction = writer.Domain())
             {
                 writer.Write("FROM table x");
@@ -165,7 +165,9 @@ namespace Inkslab.Linq.Tests
             writer.Keyword(Enums.SqlKeyword.NOT);
             writer.OpenBrace();
 
-            Assert.Equal(" NOT(", writer.ToString());
+            var value = writer.ToString();
+
+            Assert.True(value is " NOT(" or " NOT (");
         }
 
         [Fact]
@@ -220,6 +222,98 @@ namespace Inkslab.Linq.Tests
             }
 
             Assert.Equal(" IS NOT NULL", writer.ToString());
+        }
+
+        [Fact]
+        public void AndNotExists()
+        {
+            var writer = new SqlWriter(new MySqlCorrectSettings());
+
+            writer.Write("x.Id > 0");
+            writer.Keyword(Enums.SqlKeyword.AND);
+            writer.Keyword(Enums.SqlKeyword.NOT);
+            writer.Keyword(Enums.SqlKeyword.EXISTS);
+            writer.OpenBrace();
+            writer.Write("SELECT 1");
+            writer.CloseBrace();
+
+            Assert.Equal("x.Id > 0 AND NOT EXISTS(SELECT 1)", writer.ToString());
+        }
+
+        [Fact]
+        public void DeleteFrom()
+        {
+            var writer = new SqlWriter(new MySqlCorrectSettings());
+
+            writer.Keyword(Enums.SqlKeyword.DELETE);
+            writer.Keyword(Enums.SqlKeyword.FROM);
+            writer.Name("user");
+
+            Assert.Equal("DELETE FROM `user`", writer.ToString());
+        }
+
+        [Fact]
+        public void DeleteAliasFrom()
+        {
+            var writer = new SqlWriter(new MySqlCorrectSettings());
+
+            writer.Keyword(Enums.SqlKeyword.DELETE);
+            writer.Name("x");
+            writer.Keyword(Enums.SqlKeyword.FROM);
+            writer.Name("user");
+            writer.WhiteSpace();
+            writer.Name("x");
+
+            Assert.Equal("DELETE `x` FROM `user` `x`", writer.ToString());
+        }
+
+        [Fact]
+        public void SelectFromSubquery()
+        {
+            var writer = new SqlWriter(new MySqlCorrectSettings());
+
+            writer.Keyword(Enums.SqlKeyword.SELECT);
+            writer.Write("*");
+            writer.Keyword(Enums.SqlKeyword.FROM);
+            writer.OpenBrace();
+            writer.Keyword(Enums.SqlKeyword.SELECT);
+            writer.Write("1");
+            writer.CloseBrace();
+            writer.Keyword(Enums.SqlKeyword.AS);
+            writer.Name("x");
+
+            Assert.Equal("SELECT * FROM (SELECT 1) AS `x`", writer.ToString());
+        }
+
+        [Fact]
+        public void VariableFrom()
+        {
+            var writer = new SqlWriter(new MySqlCorrectSettings());
+
+            writer.Keyword(Enums.SqlKeyword.SELECT);
+            writer.Variable("test", "value");
+            writer.Keyword(Enums.SqlKeyword.FROM);
+            writer.Name("user");
+
+            Assert.Equal("SELECT ?test FROM `user`", writer.ToString());
+        }
+
+        [Fact]
+        public void UnionSelect()
+        {
+            var writer = new SqlWriter(new MySqlCorrectSettings());
+
+            writer.OpenBrace();
+            writer.Keyword(Enums.SqlKeyword.SELECT);
+            writer.Write("1");
+            writer.CloseBrace();
+            writer.Keyword(Enums.SqlKeyword.UNION);
+            writer.OpenBrace();
+            writer.Keyword(Enums.SqlKeyword.SELECT);
+            writer.Write("2");
+            writer.CloseBrace();
+
+            Assert.Equal("(SELECT 1) UNION (SELECT 2)", writer.ToString());
         }
     }
 }

@@ -19,6 +19,7 @@ namespace Inkslab.Linq.PostgreSQL
             var sb = new StringBuilder(sql.Length + 15);
 
             sb.Append(sql)
+                .Append(' ')
                 .Append(orderBy)
                 .Append(" LIMIT ");
 

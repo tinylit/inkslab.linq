@@ -25,10 +25,10 @@ namespace Inkslab.Linq
 
             private bool _ignoreNOT = false;
 
-            //? 刚刚写入 CASE THEN。
-            private bool _justWrittenWhiteCase = false;
+            // 跟踪最后写入的字符是否为空格，用于 NOT 前置空格判断
+            private bool _lastIsWhitespace = false;
 
-            //? 刚刚写入 DELETE FROM。
+            // 跟踪是否刚刚写入 DELETE，用于 FROM 跳过前置空格
             private bool _justWrittenWhiteDelete = false;
 
             public Writer(SqlWriter writer, int capacity)
@@ -54,21 +54,37 @@ namespace Inkslab.Linq
 
             public int Length => _sb.Length;
 
+            /// <summary>
+            /// 写入一个空格。
+            /// </summary>
             public void WhiteSpace() => Write(WHITESPACE);
 
             public void Keyword(SqlKeyword keyword)
             {
                 switch (keyword)
                 {
-                    case SqlKeyword.DELETE:
+                    // NOT 关键字特殊处理（延迟写入机制）
+                    case SqlKeyword.NOT:
 
-                        Write(keyword.ToString());
+                        _ignoreNOT ^= true;
 
-                        WhiteSpace();
+                        if (_writtenNOT)
+                        {
+                            _writtenNOT = false;
 
-                        _justWrittenWhiteDelete = true;
-
+                            if (!_ignoreNOT)
+                            {
+                                // 检查最后写入的字符是否为空格，如果不是则添加前置空格
+                                if (!_lastIsWhitespace)
+                                {
+                                    WhiteSpace();
+                                }
+                                Write(keyword.ToString());
+                                WhiteSpace();
+                            }
+                        }
                         break;
+                    // 语句开头的关键字：只在后面加空格
                     case SqlKeyword.SELECT:
                     case SqlKeyword.DISTINCT:
                     case SqlKeyword.UPDATE:
@@ -76,54 +92,48 @@ namespace Inkslab.Linq
                     case SqlKeyword.IGNORE:
                     case SqlKeyword.INTO:
                     case SqlKeyword.ALL:
-
-                        Write(keyword.ToString());
-                        WhiteSpace();
-
-                        break;
                     case SqlKeyword.CASE:
-
                         Write(keyword.ToString());
-
                         WhiteSpace();
-
-                        _justWrittenWhiteCase = true;
-
                         break;
+
+                    // DELETE：后面加空格，并标记用于 FROM 跳过前置空格
+                    case SqlKeyword.DELETE:
+                        Write(keyword.ToString());
+                        WhiteSpace();
+                        _justWrittenWhiteDelete = true;
+                        break;
+
+                    // WHEN：如果前面是 CASE，不加前置空格
                     case SqlKeyword.WHEN:
-
-                        if (!_justWrittenWhiteCase)
-                        {
-                            WhiteSpace();
-                        }
-
+                        WhiteSpace();
                         Write(keyword.ToString());
                         WhiteSpace();
-
                         break;
+
+                    // END：只在前面加空格
                     case SqlKeyword.END:
-
                         WhiteSpace();
                         Write(keyword.ToString());
-
                         break;
-                    case SqlKeyword.FROM:
 
+                    // FROM：前后都加空格，但如果前面是 DELETE 则跳过前置空格
+                    case SqlKeyword.FROM:
                         if (!_justWrittenWhiteDelete)
                         {
                             WhiteSpace();
                         }
-
                         Write(keyword.ToString());
                         WhiteSpace();
-
                         break;
+
+                    // IS：只在前面加空格（后面由 NOT 或 NULL 处理）
                     case SqlKeyword.IS:
-
                         WhiteSpace();
                         Write(keyword.ToString());
-
                         break;
+
+                    // 这些关键字前后都需要空格
                     case SqlKeyword.AS:
                     case SqlKeyword.SET:
                     case SqlKeyword.JOIN:
@@ -139,29 +149,12 @@ namespace Inkslab.Linq
                     case SqlKeyword.UNION:
                     case SqlKeyword.INTERSECT:
                     case SqlKeyword.EXCEPT:
-
                         WhiteSpace();
                         Write(keyword.ToString());
                         WhiteSpace();
-
                         break;
-                    case SqlKeyword.NOT:
 
-                        _ignoreNOT ^= true;
-
-                        if (_writtenNOT)
-                        {
-                            _writtenNOT = false;
-
-                            if (!_ignoreNOT)
-                            {
-                                WhiteSpace();
-
-                                Write(keyword.ToString());
-                            }
-                        }
-
-                        break;
+                    // 这些关键字只在前面加空格
                     case SqlKeyword.EXISTS:
                     case SqlKeyword.CROSS:
                     case SqlKeyword.INNER:
@@ -174,32 +167,29 @@ namespace Inkslab.Linq
                     case SqlKeyword.GROUP:
                     case SqlKeyword.ORDER:
                     case SqlKeyword.VALUES:
-
-                        WhiteSpace();
-                        Write(keyword.ToString());
-
-                        break;
                     case SqlKeyword.NULL:
-
                         WhiteSpace();
                         Write(keyword.ToString());
-
                         break;
+
                     default:
-                        throw new NotImplementedException();
+                        throw new NotImplementedException($"未处理的关键字: {keyword}");
                 }
             }
 
             public void Write(char value)
             {
-                _justWrittenWhiteCase &= false;
-                _justWrittenWhiteDelete &= false;
-
                 if (_ignoreNOT)
                 {
                     _writtenNOT = true;
 
                     _writer.Keyword(SqlKeyword.NOT);
+
+                    // NOT 写入后已包含后置空格，如果触发它的是空格则跳过避免双空格
+                    if (value == WHITESPACE)
+                    {
+                        return;
+                    }
                 }
 
                 if (_cursorPosition > -1)
@@ -212,12 +202,13 @@ namespace Inkslab.Linq
                 {
                     _sb.Append(value);
                 }
+
+                _lastIsWhitespace = value == WHITESPACE;
             }
 
             public void Write(string value)
             {
-                _justWrittenWhiteCase &= false;
-                _justWrittenWhiteDelete &= false;
+                _justWrittenWhiteDelete = false;
 
                 if (_ignoreNOT)
                 {
@@ -236,12 +227,13 @@ namespace Inkslab.Linq
                 {
                     _sb.Append(value);
                 }
+
+                _lastIsWhitespace = false;
             }
 
             public void Insert(int index, string value)
             {
-                _justWrittenWhiteCase &= false;
-                _justWrittenWhiteDelete &= false;
+                _justWrittenWhiteDelete = false;
 
                 int offset = 0;
 
@@ -365,12 +357,12 @@ namespace Inkslab.Linq
             Parameters = writer.Parameters;
         }
 
-        private int parameterIndex = 0;
+        private int _parameterIndex = 0;
 
         /// <summary>
         /// 参数索引。
         /// </summary>
-        protected int ParameterIndex => _writer is null ? ++parameterIndex : _writer.ParameterIndex;
+        protected int ParameterIndex => _writer is null ? ++_parameterIndex : _writer.ParameterIndex;
 
         /// <summary>
         /// 矫正配置。
@@ -575,7 +567,7 @@ namespace Inkslab.Linq
                 throw new ArgumentOutOfRangeException(nameof(takeSize), "参数值必须大于零!");
             }
 
-            if (this._takeSize > 0 && takeSize > this._takeSize)
+            if (_takeSize > 0 && takeSize > _takeSize)
             {
                 throw new IndexOutOfRangeException();
             }
@@ -590,7 +582,7 @@ namespace Inkslab.Linq
                 takeSize -= _skipSize;
             }
 
-            this._takeSize = takeSize;
+            _takeSize = takeSize;
         }
 
         /// <summary>
@@ -604,7 +596,7 @@ namespace Inkslab.Linq
                 throw new ArgumentOutOfRangeException(nameof(skipSize), "参数不能小于0。");
             }
 
-            this._skipSize += skipSize;
+            _skipSize += skipSize;
         }
 
         /// <summary>
@@ -954,12 +946,15 @@ namespace Inkslab.Linq
         /// <inheritdoc/>
         public override string ToString()
         {
+            string mainSql = _main.ToString();
+            string rankSql = _rank.ToString();
+
             if (_takeSize > 0)
             {
-                return Settings.ToSQL(_main.ToString(), _takeSize, _skipSize, _rank.ToString());
+                return Settings.ToSQL(mainSql, _takeSize, _skipSize, rankSql);
             }
 
-            return string.Concat(_main.ToString(), _rank.ToString());
+            return string.Concat(mainSql, rankSql);
         }
 
         /// <summary>

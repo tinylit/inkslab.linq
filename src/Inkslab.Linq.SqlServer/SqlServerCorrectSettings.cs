@@ -19,6 +19,7 @@ namespace Inkslab.Linq.SqlServer
             var sb = new StringBuilder(sql.Length + (take > 0 ? 40 : 18));
 
             sb.Append(sql)
+               .Append(' ')
                .Append(orderBy)
                .Append(" OFFSET ")
                .Append(skip)

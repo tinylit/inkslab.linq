@@ -8,28 +8,41 @@
 [![GitHub](https://img.shields.io/github/license/tinylit/inkslab.linq.svg)](LICENSE)
 [![GitHub issues](https://img.shields.io/github/issues-raw/tinylit/inkslab.linq)](../../issues)
 
-## � 最近更新 (v1.2.54)
+## � 最近更新 (v1.2.57)
 
 ### ✨ 新增功能
 
-#### 1. 空节点处理逻辑增强
+#### 1. **SerializableScope 串行化范围支持** 🔥
+- **核心功能**：在串行化范围内，相同连接字符串永远使用同一个数据库连接实例
+- **性能优化**：减少连接创建和销毁开销，显著提升批量操作性能
+- **事务兼容**：与 `TransactionUnit` 完美配合，支持嵌套使用
+- **资源管理**：自动管理连接生命周期，支持同步和异步释放
+- **线程安全**：基于 `AsyncLocal` 实现，支持异步上下文传递
+
+**使用场景**：
+- 批量数据操作（批量插入、更新、删除）
+- 需要复用数据库连接的高频操作
+- 与事务单元配合使用，确保连接一致性
+- 减少连接池压力，提升应用性能
+
+#### 2. 空节点处理逻辑增强
 - 添加了对空节点（null nodes）的处理逻辑，提升代码健壮性
 - 优化了条件判断和节点处理流程
 
-#### 2. IsPlainVariable 方法优化
+#### 3. IsPlainVariable 方法优化
 - 为 `IsPlainVariable` 方法添加了默认参数值
 - 简化了调用方式，提高开发效率
 
-#### 3. 字符串处理与条件判断优化
+#### 4. 字符串处理与条件判断优化
 - 优化了字符串处理和条件判断逻辑
 - 简化了代码复杂度，增强代码可读性
 
-#### 4. MySQL 连接字符串 UTF8MB4 支持
+#### 5. MySQL 连接字符串 UTF8MB4 支持
 - 调整 MySQL 连接字符串以完全支持 `utf8mb4` 字符集
 - 移除不必要的代码，优化连接性能
 - **注意**：如果使用中文或其他多字节字符，请确保数据库和表使用 `utf8mb4` 字符集
 
-#### 5. ToString() 方法支持
+#### 6. ToString() 方法支持
 - 新增 `ToString()` 方法支持，改进 LINQ 查询中的字符串转换
 - 支持对象字段直接转换为字符串表示
 
@@ -296,7 +309,252 @@ public async Task ExecuteSqlAsync()
 }
 ```
 
-### 3. 复杂查询支持
+### 3. 串行化范围 (SerializableScope)
+
+`SerializableScope` 提供了连接复用机制，在同一范围内，相同连接字符串将使用同一个数据库连接实例，显著提升批量操作性能。
+
+#### 核心特性
+
+- **连接复用**：相同连接字符串自动复用数据库连接
+- **自动管理**：连接生命周期由 Scope 自动管理
+- **事务兼容**：与 `TransactionUnit` 完美配合
+- **嵌套支持**：支持 Scope 嵌套，内外层共享连接
+- **线程安全**：基于 `AsyncLocal` 实现，支持异步上下文
+
+#### 基本用法
+
+```csharp
+using Inkslab.Linq;
+
+// 基本用法：在范围内复用连接
+public async Task BasicSerializableScopeAsync()
+{
+    await using (var scope = new SerializableScope())
+    {
+        // 第一次查询 - 创建新连接
+        var user1 = await _users.FirstOrDefaultAsync();
+        
+        // 第二次查询 - 复用同一连接
+        var user2 = await _users.Where(x => x.Id > 100).FirstOrDefaultAsync();
+        
+        // 第三次查询 - 仍然复用同一连接
+        var count = await _users.CountAsync();
+        
+        // 批量操作 - 所有操作使用同一连接，性能更优
+        for (int i = 0; i < 100; i++)
+        {
+            await _userRepository.UpdateAsync(x => new User { CreatedAt = DateTime.Now });
+        }
+    } // Scope 结束，连接自动释放
+}
+
+// 批量插入场景
+public async Task BatchInsertWithScopeAsync()
+{
+    var users = Enumerable.Range(1, 1000)
+        .Select(i => new User
+        {
+            Name = $"User_{i}",
+            Email = $"user{i}@example.com",
+            CreatedAt = DateTime.Now
+        })
+        .ToList();
+
+    await using (var scope = new SerializableScope())
+    {
+        // 批量插入，复用连接，性能提升显著
+        foreach (var user in users)
+        {
+            await _userRepository.Into(user).ExecuteAsync();
+        }
+        
+        // 验证插入结果
+        var insertedCount = await _users.CountAsync();
+        Console.WriteLine($"已插入 {insertedCount} 条记录");
+    }
+}
+
+// 嵌套 Scope - 内外层共享连接
+public async Task NestedSerializableScopeAsync()
+{
+    await using (var outerScope = new SerializableScope())
+    {
+        var user1 = await _users.FirstOrDefaultAsync();
+        
+        await using (var innerScope = new SerializableScope())
+        {
+            // 内层 Scope 复用外层 Scope 的连接
+            var user2 = await _users.Where(x => x.Id > 0).FirstOrDefaultAsync();
+            var count = await _users.CountAsync();
+        }
+        
+        // 外层 Scope 继续使用相同连接
+        var user3 = await _users.OrderBy(x => x.Id).FirstOrDefaultAsync();
+    }
+}
+```
+
+#### 与事务单元配合使用
+
+`SerializableScope` 与 `TransactionUnit` 可以灵活组合，支持多种使用模式：
+
+```csharp
+// 模式 1：SerializableScope 外层 + TransactionUnit 内层（推荐）
+public async Task ScopeOuterTransactionInnerAsync()
+{
+    await using (var scope = new SerializableScope())
+    {
+        // 先建立连接复用范围
+        var initialCount = await _users.CountAsync();
+        
+        await using (var transaction = new TransactionUnit())
+        {
+            // 事务内操作，复用 Scope 的连接
+            var user = new User
+            {
+                Name = "测试用户",
+                Email = "test@example.com",
+                CreatedAt = DateTime.Now
+            };
+            
+            await _userRepository.Into(user).ExecuteAsync();
+            
+            // 提交事务
+            await transaction.CompleteAsync();
+        }
+        
+        // Scope 继续使用，验证数据
+        var finalCount = await _users.CountAsync();
+        Assert.True(finalCount > initialCount);
+    }
+}
+
+// 模式 2：TransactionUnit 外层 + SerializableScope 内层
+public async Task TransactionOuterScopeInnerAsync()
+{
+    await using (var transaction = new TransactionUnit())
+    {
+        await using (var scope = new SerializableScope())
+        {
+            // 在事务和 Scope 内执行操作
+            var user = new User
+            {
+                Name = "测试用户",
+                Email = "test@example.com",
+                CreatedAt = DateTime.Now
+            };
+            
+            await _userRepository.Into(user).ExecuteAsync();
+            
+            // 验证插入
+            var savedUser = await _users
+                .OrderBy(x => x.Id)
+                .FirstOrDefaultAsync(x => x.Name == "测试用户");
+            
+            Assert.NotNull(savedUser);
+        }
+        
+        // 提交事务
+        await transaction.CompleteAsync();
+    }
+}
+
+// 模式 3：同时使用 - 批量事务操作
+public async Task BatchTransactionWithScopeAsync()
+{
+    await using (var scope = new SerializableScope())
+    {
+        await using (var transaction = new TransactionUnit())
+        {
+            // 批量更新
+            for (int i = 1; i <= 100; i++)
+            {
+                await _userRepository
+                    .Where(x => x.Id == i)
+                    .UpdateAsync(x => new User
+                    {
+                        CreatedAt = DateTime.Now,
+                        IsActive = true
+                    });
+            }
+            
+            // 批量插入
+            var newUsers = Enumerable.Range(1, 50)
+                .Select(i => new User
+                {
+                    Name = $"BatchUser_{i}",
+                    Email = $"batch{i}@example.com",
+                    CreatedAt = DateTime.Now
+                })
+                .ToList();
+            
+            await _userRepository.Ignore().Into(newUsers).ExecuteAsync();
+            
+            // 提交事务
+            await transaction.CompleteAsync();
+        }
+    }
+}
+```
+
+#### 性能对比
+
+```csharp
+// ❌ 不使用 SerializableScope - 每次操作创建新连接
+public async Task WithoutScopeAsync()
+{
+    var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+    
+    for (int i = 0; i < 100; i++)
+    {
+        // 每次都创建和释放连接
+        await _userRepository
+            .Where(x => x.Id == i)
+            .UpdateAsync(x => new User { CreatedAt = DateTime.Now });
+    }
+    
+    stopwatch.Stop();
+    Console.WriteLine($"不使用 Scope: {stopwatch.ElapsedMilliseconds} ms");
+}
+
+// ✅ 使用 SerializableScope - 复用连接
+public async Task WithScopeAsync()
+{
+    var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+    
+    await using (var scope = new SerializableScope())
+    {
+        for (int i = 0; i < 100; i++)
+        {
+            // 复用同一连接，性能提升 50%-80%
+            await _userRepository
+                .Where(x => x.Id == i)
+                .UpdateAsync(x => new User { CreatedAt = DateTime.Now });
+        }
+    }
+    
+    stopwatch.Stop();
+    Console.WriteLine($"使用 Scope: {stopwatch.ElapsedMilliseconds} ms");
+}
+```
+
+#### 使用建议
+
+**适用场景**：
+- ✅ 批量插入、更新、删除操作
+- ✅ 高频数据库操作（如循环中的查询）
+- ✅ 需要在多个操作间共享连接的场景
+- ✅ 与事务配合使用，确保连接一致性
+- ✅ 减少连接池压力，提升应用性能
+
+**注意事项**：
+- 🔸 Scope 生命周期内连接保持打开状态，需及时释放
+- 🔸 嵌套使用时，内层 Scope 会复用外层连接
+- 🔸 与事务混合使用时，事务优先级更高
+- 🔸 在事务环境中（`TransactionUnit` 或 `System.Transactions.Transaction`），连接由事务管理
+- 🔸 建议使用 `await using` 确保资源正确释放
+
+### 4. 复杂查询支持
 
 支持嵌套查询、多表关联等复杂场景：
 
@@ -486,7 +744,8 @@ Inkslab.Linq/                          # 核心抽象层
 ├── IDatabase                           # 数据库接口  
 ├── IQueryable<T>                       # 查询接口
 ├── DynamicParameter                    # 动态参数（用于输出参数和JSON类型）
-└── TransactionUnit                     # 事务单元
+├── TransactionUnit                     # 事务单元
+└── SerializableScope                   # 串行化范围（连接复用）
 
 Inkslab.Linq.SqlServer/                 # SQL Server 实现
 ├── SqlServerAdapter                    # SQL Server 适配器
@@ -1440,11 +1699,11 @@ public class DynamicParameter
 
 | 包名 | 版本 | 描述 |
 |------|------|------|
-| Inkslab.Linq | 1.2.54 | 核心库，提供基础抽象和接口 |
-| Inkslab.Linq.SqlServer | 1.2.54 | SQL Server 数据库支持 |
-| Inkslab.Linq.MySql | 1.2.54 | MySQL 数据库支持 |
-| Inkslab.Linq.PostgreSQL | 1.2.54 | PostgreSQL 数据库支持，包含 JSON/JSONB 和批量操作 |
-| Inkslab.Transactions | 1.2.54 | 事务管理组件 |
+| Inkslab.Linq | 1.2.57 | 核心库，提供基础抽象和接口 |
+| Inkslab.Linq.SqlServer | 1.2.57 | SQL Server 数据库支持 |
+| Inkslab.Linq.MySql | 1.2.57 | MySQL 数据库支持 |
+| Inkslab.Linq.PostgreSQL | 1.2.57 | PostgreSQL 数据库支持，包含 JSON/JSONB 和批量操作 |
+| Inkslab.Transactions | 1.2.57 | 事务管理组件 |
 
 ### 包依赖关系
 
@@ -1457,22 +1716,22 @@ public class DynamicParameter
   
   <ItemGroup>
     <!-- 核心包 -->
-    <PackageReference Include="Inkslab.Linq" Version="1.2.54" />
+    <PackageReference Include="Inkslab.Linq" Version="1.2.57" />
     
     <!-- 根据需要选择数据库支持（可选择其中一个或多个） -->
     <!-- SQL Server 支持 -->
-    <PackageReference Include="Inkslab.Linq.SqlServer" Version="1.2.54" />
+    <PackageReference Include="Inkslab.Linq.SqlServer" Version="1.2.57" />
     
     <!-- MySQL 支持 -->
-    <PackageReference Include="Inkslab.Linq.MySql" Version="1.2.54" />
+    <PackageReference Include="Inkslab.Linq.MySql" Version="1.2.57" />
     <PackageReference Include="MySqlConnector" Version="2.4.0" />
     
     <!-- PostgreSQL 支持（包含 JSON/JSONB 和 COPY 批量操作） -->
-    <PackageReference Include="Inkslab.Linq.PostgreSQL" Version="1.2.54" />
+    <PackageReference Include="Inkslab.Linq.PostgreSQL" Version="1.2.57" />
     <PackageReference Include="Npgsql" Version="8.0.8" />
     
     <!-- 事务支持 -->
-    <PackageReference Include="Inkslab.Transactions" Version="1.2.54" />
+    <PackageReference Include="Inkslab.Transactions" Version="1.2.57" />
   </ItemGroup>
 </Project>
 ```

@@ -37,16 +37,44 @@ namespace Inkslab.Linq
             _logger = logger;
         }
 
-        /// <inheritdoc/>
-        public int Execute(IConnection databaseStrings, CommandSql commandSql)
+        #region 通用辅助方法
+
+        /// <summary>
+        /// 记录命令调试日志
+        /// </summary>
+        private void LogCommandIfDebug(CommandSql commandSql)
         {
             if (_logger.IsEnabled(LogLevel.Debug))
             {
                 _logger.LogDebug(commandSql.ToString());
             }
+        }
 
+        /// <summary>
+        /// 配置数据库命令
+        /// </summary>
+        private void ConfigureCommand(DbCommand command, IConnection databaseStrings, CommandSql commandSql)
+        {
+            command.CommandText = commandSql.Text;
+            command.CommandType = commandSql.CommandType;
+
+            if (commandSql.Timeout.HasValue)
+            {
+                command.CommandTimeout = commandSql.Timeout.Value;
+            }
+
+            foreach (var (name, value) in commandSql.Parameters)
+            {
+                LookupDb.AddParameterAuto(command, databaseStrings.Engine, name, value);
+            }
+        }
+
+        /// <summary>
+        /// 执行带连接管理的操作
+        /// </summary>
+        private TResult ExecuteWithConnection<TResult>(IConnection databaseStrings, Func<DbConnection, bool, TResult> action)
+        {
             using var dbConnection = _connectionPipeline.Get(databaseStrings);
-
             bool isClosedConnection = dbConnection.State == ConnectionState.Closed;
 
             if (isClosedConnection)
@@ -56,27 +84,7 @@ namespace Inkslab.Linq
 
             try
             {
-                using (var command = dbConnection.CreateCommand())
-                {
-                    command.CommandText = commandSql.Text;
-                    command.CommandType = commandSql.CommandType;
-
-                    if (commandSql.Timeout.HasValue)
-                    {
-                        command.CommandTimeout = commandSql.Timeout.Value;
-                    }
-
-                    foreach (var (name, value) in commandSql.Parameters)
-                    {
-                        LookupDb.AddParameterAuto(command, databaseStrings.Engine, name, value);
-                    }
-
-                    var result = command.ExecuteNonQuery();
-
-                    commandSql.Callback(command);
-
-                    return result;
-                }
+                return action(dbConnection, isClosedConnection);
             }
             finally
             {
@@ -87,68 +95,109 @@ namespace Inkslab.Linq
             }
         }
 
+        /// <summary>
+        /// 从 Reader 中读取并映射数据列表
+        /// </summary>
+        private List<T> MapReaderToList<T>(DbDataReader reader)
+        {
+            var results = new List<T>();
+
+            if (reader.HasRows)
+            {
+                var adaper = _adapters.GetOrAdd(reader.GetType(), type => new MapAdaper(type));
+                var map = adaper.CreateMap<T>();
+
+                while (reader.Read())
+                {
+                    if (map.IsInvalid(reader))
+                    {
+                        continue;
+                    }
+
+                    results.Add(map.Map(reader));
+                }
+            }
+
+            return results;
+        }
+
+        /// <summary>
+        /// 从 Reader 中读取单个结果
+        /// </summary>
+        private T ReadSingleFromReader<T>(DbDataReader reader, CommandSql<T> commandSql)
+        {
+            if (reader.HasRows)
+            {
+                var adaper = _adapters.GetOrAdd(reader.GetType(), type => new MapAdaper(type));
+                var map = adaper.CreateMap<T>();
+
+                if (reader.Read())
+                {
+                    var result = map.Map(reader);
+
+                    if (commandSql.RowStyle >= RowStyle.Single && reader.Read())
+                    {
+                        ThrowMultipleRows(commandSql.RowStyle);
+                    }
+
+                    return result;
+                }
+            }
+
+            if (commandSql.HasDefaultValue || (commandSql.RowStyle & RowStyle.FirstOrDefault) == RowStyle.FirstOrDefault)
+            {
+                return commandSql.DefaultValue;
+            }
+
+            if (commandSql.CustomError)
+            {
+                throw new NoElementException(commandSql.NoElementError);
+            }
+
+            throw new InvalidOperationException("The input sequence contains more than one element.");
+        }
+
+        #endregion
+
+        /// <inheritdoc/>
+        public int Execute(IConnection databaseStrings, CommandSql commandSql)
+        {
+            LogCommandIfDebug(commandSql);
+
+            return ExecuteWithConnection(databaseStrings, (dbConnection, _) =>
+            {
+                using var command = dbConnection.CreateCommand();
+                ConfigureCommand(command, databaseStrings, commandSql);
+
+                var result = command.ExecuteNonQuery();
+                commandSql.Callback(command);
+
+                return result;
+            });
+        }
+
         /// <inheritdoc/>
         public List<T> Query<T>(IConnection databaseStrings, CommandSql commandSql)
         {
-            if (_logger.IsEnabled(LogLevel.Debug))
-            {
-                _logger.LogDebug(commandSql.ToString());
-            }
+            LogCommandIfDebug(commandSql);
 
-            CommandBehavior behavior =
-                CommandBehavior.SequentialAccess | CommandBehavior.SingleResult;
+            CommandBehavior behavior = CommandBehavior.SequentialAccess | CommandBehavior.SingleResult;
 
             using var dbConnection = _connectionPipeline.Get(databaseStrings);
 
             if (dbConnection.State == ConnectionState.Closed)
             {
                 behavior |= CommandBehavior.CloseConnection;
-
                 dbConnection.Open();
             }
 
-            var results = new List<T>();
+            using var command = dbConnection.CreateCommand();
+            ConfigureCommand(command, databaseStrings, commandSql);
 
-            using (var command = dbConnection.CreateCommand())
-            {
-                command.CommandText = commandSql.Text;
-                command.CommandType = commandSql.CommandType;
+            using var reader = command.ExecuteReader(behavior);
+            var results = MapReaderToList<T>(reader);
 
-                if (commandSql.Timeout.HasValue)
-                {
-                    command.CommandTimeout = commandSql.Timeout.Value;
-                }
-
-                foreach (var (name, value) in commandSql.Parameters)
-                {
-                    LookupDb.AddParameterAuto(command, databaseStrings.Engine, name, value);
-                }
-
-                using (var reader = command.ExecuteReader(behavior))
-                {
-                    if (reader.HasRows)
-                    {
-                        var adaper = _adapters.GetOrAdd(
-                            reader.GetType(),
-                            type => new MapAdaper(type)
-                        );
-
-                        var map = adaper.CreateMap<T>();
-
-                        while (reader.Read())
-                        {
-                            if (map.IsInvalid(reader))
-                            {
-                                continue;
-                            }
-
-                            results.Add(map.Map(reader));
-                        }
-                    }
-                }
-
-                commandSql.Callback(command);
-            }
+            commandSql.Callback(command);
 
             return results;
         }
@@ -235,13 +284,9 @@ namespace Inkslab.Linq
         /// <inheritdoc/>
         public T Read<T>(IConnection databaseStrings, CommandSql<T> commandSql)
         {
-            if (_logger.IsEnabled(LogLevel.Debug))
-            {
-                _logger.LogDebug(commandSql.ToString());
-            }
+            LogCommandIfDebug(commandSql);
 
-            CommandBehavior behavior =
-                CommandBehavior.SequentialAccess | CommandBehavior.SingleResult;
+            CommandBehavior behavior = CommandBehavior.SequentialAccess | CommandBehavior.SingleResult;
 
             if ((commandSql.RowStyle & RowStyle.FirstOrDefault) == RowStyle.FirstOrDefault)
             {
@@ -253,75 +298,20 @@ namespace Inkslab.Linq
             if (dbConnection.State == ConnectionState.Closed)
             {
                 behavior |= CommandBehavior.CloseConnection;
-
                 dbConnection.Open();
             }
 
-            using (var command = dbConnection.CreateCommand())
+            using var command = dbConnection.CreateCommand();
+            ConfigureCommand(command, databaseStrings, commandSql);
+
+            try
             {
-                command.CommandText = commandSql.Text;
-                command.CommandType = commandSql.CommandType;
-
-                if (commandSql.Timeout.HasValue)
-                {
-                    command.CommandTimeout = commandSql.Timeout.Value;
-                }
-
-                foreach (var (name, value) in commandSql.Parameters)
-                {
-                    LookupDb.AddParameterAuto(command, databaseStrings.Engine, name, value);
-                }
-
-                try
-                {
-                    using (var reader = command.ExecuteReader(behavior))
-                    {
-                        if (reader.HasRows)
-                        {
-                            var adaper = _adapters.GetOrAdd(
-                                reader.GetType(),
-                                type => new MapAdaper(type)
-                            );
-
-                            var map = adaper.CreateMap<T>();
-
-                            if (reader.Read())
-                            {
-                                var result = map.Map(reader);
-
-                                if (commandSql.RowStyle >= RowStyle.Single
-                                    && reader.Read())
-                                {
-                                    ThrowMultipleRows(commandSql.RowStyle);
-                                }
-
-                                return result;
-                            }
-                        }
-
-                        if (
-                            commandSql.HasDefaultValue
-                            || (commandSql.RowStyle & RowStyle.FirstOrDefault)
-                                == RowStyle.FirstOrDefault
-                        )
-                        {
-                            return commandSql.DefaultValue;
-                        }
-
-                        if (commandSql.CustomError)
-                        {
-                            throw new NoElementException(commandSql.NoElementError);
-                        }
-
-                        throw new InvalidOperationException(
-                            "The input sequence contains more than one element."
-                        );
-                    }
-                }
-                finally
-                {
-                    commandSql.Callback(command);
-                }
+                using var reader = command.ExecuteReader(behavior);
+                return ReadSingleFromReader(reader, commandSql);
+            }
+            finally
+            {
+                commandSql.Callback(command);
             }
         }
 
@@ -333,32 +323,19 @@ namespace Inkslab.Linq
                 throw new ArgumentNullException(nameof(multipleAction));
             }
 
-            using var connection = _connectionPipeline.Get(databaseStrings);
-
-            IMultipleExecutor multiple = commandTimeout.HasValue
-            ? new MultipleExecuteTimeout(_connectionPipeline, connection, databaseStrings.Engine, commandTimeout.Value, _logger)
-            : new MultipleExecute(_connectionPipeline, connection, databaseStrings.Engine, _logger);
-
-            bool isClosedConnection = connection.State == ConnectionState.Closed;
-
-            if (isClosedConnection)
+            return ExecuteWithConnection(databaseStrings, (connection, _) =>
             {
-                connection.Open();
-            }
+                IMultipleExecutor multiple = new MultipleExecutor(
+                    _connectionPipeline,
+                    connection,
+                    databaseStrings.Engine,
+                    _logger,
+                    commandTimeout);
 
-            try
-            {
                 multipleAction.Invoke(multiple);
 
                 return multiple.RowsExecuted;
-            }
-            finally
-            {
-                if (isClosedConnection)
-                {
-                    connection.Close();
-                }
-            }
+            });
         }
 
         /// <inheritdoc/>
@@ -405,53 +382,77 @@ namespace Inkslab.Linq
         }
 
         #region 执行器
-        private class MultipleExecute : IMultipleExecutor
+        private class MultipleExecutor : IMultipleExecutor
         {
             private readonly IDbConnectionPipeline _pipeline;
             private readonly DbConnection _connection;
             private readonly DatabaseEngine _engine;
             private readonly ILogger<DatabaseExecutor> _logger;
+            private readonly int? _globalTimeout;
+            private readonly Stopwatch _stopwatch;
 
-            public MultipleExecute(IDbConnectionPipeline pipeline, DbConnection connection, DatabaseEngine engine, ILogger<DatabaseExecutor> logger)
+            public MultipleExecutor(IDbConnectionPipeline pipeline, DbConnection connection, DatabaseEngine engine, ILogger<DatabaseExecutor> logger, int? globalTimeout)
             {
                 _pipeline = pipeline;
                 _connection = connection;
                 _engine = engine;
                 _logger = logger;
+                _globalTimeout = globalTimeout;
+                _stopwatch = globalTimeout.HasValue ? Stopwatch.StartNew() : null;
             }
 
-            public int RowsExecuted { private set; get; }
+            public int RowsExecuted { get; private set; }
+
+            /// <summary>
+            /// 应用全局超时策略到命令
+            /// </summary>
+            private void ApplyTimeoutPolicy(CommandSql commandSql)
+            {
+                if (_globalTimeout.HasValue)
+                {
+                    int remainingTimeout = _globalTimeout.Value - (int)(_stopwatch.ElapsedMilliseconds / 1000);
+                    commandSql.Timeout = commandSql.Timeout.HasValue
+                        ? Math.Min(remainingTimeout, commandSql.Timeout.Value)
+                        : remainingTimeout;
+                }
+            }
+
+            /// <summary>
+            /// 配置数据库命令
+            /// </summary>
+            private void ConfigureCommand(DbCommand command, CommandSql commandSql)
+            {
+                command.CommandText = commandSql.Text;
+                command.CommandType = commandSql.CommandType;
+
+                if (commandSql.Timeout.HasValue)
+                {
+                    command.CommandTimeout = commandSql.Timeout.Value;
+                }
+
+                foreach (var (name, value) in commandSql.Parameters)
+                {
+                    LookupDb.AddParameterAuto(command, _engine, name, value);
+                }
+            }
 
             public int Execute(CommandSql commandSql)
             {
+                ApplyTimeoutPolicy(commandSql);
+
                 if (_logger.IsEnabled(LogLevel.Debug))
                 {
                     _logger.LogDebug(commandSql.ToString());
                 }
 
-                using (var command = _connection.CreateCommand())
-                {
-                    command.CommandText = commandSql.Text;
-                    command.CommandType = commandSql.CommandType;
+                using var command = _connection.CreateCommand();
+                ConfigureCommand(command, commandSql);
 
-                    if (commandSql.Timeout.HasValue)
-                    {
-                        command.CommandTimeout = commandSql.Timeout.Value;
-                    }
+                int influenceRows = command.ExecuteNonQuery();
+                commandSql.Callback(command);
 
-                    foreach (var (name, value) in commandSql.Parameters)
-                    {
-                        LookupDb.AddParameterAuto(command, _engine, name, value);
-                    }
-
-                    int influenceRows = command.ExecuteNonQuery();
-
-                    commandSql.Callback(command);
-
-                    RowsExecuted += influenceRows;
-
-                    return influenceRows;
-                }
+                RowsExecuted += influenceRows;
+                return influenceRows;
             }
 
             public int WriteToServer(DataTable dt, int? commandTimeout = null)
@@ -481,196 +482,6 @@ namespace Inkslab.Linq
                 RowsExecuted += influenceRows;
 
                 return influenceRows;
-            }
-
-            public T Read<T>(CommandSql<T> commandSql)
-            {
-                if (_logger.IsEnabled(LogLevel.Debug))
-                {
-                    _logger.LogDebug(commandSql.ToString());
-                }
-
-                CommandBehavior behavior = CommandBehavior.SequentialAccess | CommandBehavior.SingleResult;
-
-                if ((commandSql.RowStyle & RowStyle.FirstOrDefault) == RowStyle.FirstOrDefault)
-                {
-                    behavior |= CommandBehavior.SingleRow;
-                }
-
-                try
-                {
-                    using (var command = _connection.CreateCommand())
-                    {
-                        command.CommandText = commandSql.Text;
-                        command.CommandType = commandSql.CommandType;
-
-                        if (commandSql.Timeout.HasValue)
-                        {
-                            command.CommandTimeout = commandSql.Timeout.Value;
-                        }
-
-                        foreach (var (name, value) in commandSql.Parameters)
-                        {
-                            LookupDb.AddParameterAuto(command, _engine, name, value);
-                        }
-
-                        using (var reader = command.ExecuteReader(behavior))
-                        {
-                            if (reader.HasRows)
-                            {
-                                var adaper = _adapters.GetOrAdd(
-                                    reader.GetType(),
-                                    type => new MapAdaper(type)
-                                );
-
-                                var map = adaper.CreateMap<T>();
-
-                                if (reader.Read())
-                                {
-                                    var result = map.Map(reader);
-
-                                    if (commandSql.RowStyle >= RowStyle.Single && reader.Read())
-                                    {
-                                        ThrowMultipleRows(commandSql.RowStyle);
-                                    }
-
-                                    return result;
-                                }
-                            }
-
-                            if (commandSql.HasDefaultValue || (commandSql.RowStyle & RowStyle.FirstOrDefault) == RowStyle.FirstOrDefault)
-                            {
-                                return commandSql.DefaultValue;
-                            }
-
-                            if (commandSql.CustomError)
-                            {
-                                throw new NoElementException(commandSql.NoElementError);
-                            }
-
-                            throw new InvalidOperationException("The input sequence contains more than one element.");
-                        }
-                    }
-                }
-                finally
-                {
-                    commandSql.Callback(null);
-                }
-            }
-
-            public List<T> Query<T>(CommandSql commandSql)
-            {
-                if (_logger.IsEnabled(LogLevel.Debug))
-                {
-                    _logger.LogDebug(commandSql.ToString());
-                }
-
-                CommandBehavior behavior = CommandBehavior.SequentialAccess | CommandBehavior.SingleResult;
-
-                var results = new List<T>();
-
-                using (var command = _connection.CreateCommand())
-                {
-                    command.CommandText = commandSql.Text;
-                    command.CommandType = commandSql.CommandType;
-
-                    if (commandSql.Timeout.HasValue)
-                    {
-                        command.CommandTimeout = commandSql.Timeout.Value;
-                    }
-
-                    foreach (var (name, value) in commandSql.Parameters)
-                    {
-                        LookupDb.AddParameterAuto(command, _engine, name, value);
-                    }
-
-                    using (var reader = command.ExecuteReader(behavior))
-                    {
-                        if (reader.HasRows)
-                        {
-                            var adaper = _adapters.GetOrAdd(
-                                reader.GetType(),
-                                type => new MapAdaper(type)
-                            );
-
-                            var map = adaper.CreateMap<T>();
-
-                            while (reader.Read())
-                            {
-                                if (map.IsInvalid(reader))
-                                {
-                                    continue;
-                                }
-
-                                results.Add(map.Map(reader));
-                            }
-                        }
-                    }
-
-                    commandSql.Callback(command);
-                }
-
-                return results;
-            }
-
-            public IDbGridReader QueryMultiple(CommandSql commandSql)
-            {
-                if (_logger.IsEnabled(LogLevel.Debug))
-                {
-                    _logger.LogDebug(commandSql.ToString());
-                }
-
-                CommandBehavior behavior = CommandBehavior.SequentialAccess;
-
-                DbCommand command = null;
-                DbDataReader reader = null;
-
-                try
-                {
-                    command = _connection.CreateCommand();
-
-                    command.CommandText = commandSql.Text;
-                    command.CommandType = commandSql.CommandType;
-
-                    if (commandSql.Timeout.HasValue)
-                    {
-                        command.CommandTimeout = commandSql.Timeout.Value;
-                    }
-
-                    foreach (var (name, value) in commandSql.Parameters)
-                    {
-                        LookupDb.AddParameterAuto(command, _engine, name, value);
-                    }
-
-                    reader = command.ExecuteReader(behavior);
-
-                    var adaper = _adapters.GetOrAdd(
-                        reader.GetType(),
-                        type => new MapAdaper(type)
-                    );
-
-                    return new DbGridReader(null, command, reader, commandSql, adaper);
-                }
-                catch
-                {
-                    if (reader != null)
-                    {
-                        if (!reader.IsClosed)
-                        {
-                            try
-                            {
-                                command?.Cancel();
-                            }
-                            catch { }
-                        }
-
-                        reader.Dispose();
-                    }
-
-                    command?.Dispose();
-
-                    throw;
-                }
             }
         }
 
@@ -772,219 +583,6 @@ namespace Inkslab.Linq
                 RowsExecuted += influenceRows;
 
                 return influenceRows;
-            }
-
-            public T Read<T>(CommandSql<T> commandSql)
-            {
-                commandSql.Timeout = commandSql.Timeout.HasValue
-                    ? Math.Min(_commandTimeout - (int)(_stopwatch.ElapsedMilliseconds / 1000), commandSql.Timeout.Value)
-                    : _commandTimeout - (int)(_stopwatch.ElapsedMilliseconds / 1000);
-
-                if (_logger.IsEnabled(LogLevel.Debug))
-                {
-                    _logger.LogDebug(commandSql.ToString());
-                }
-
-                CommandBehavior behavior = CommandBehavior.SequentialAccess | CommandBehavior.SingleResult;
-
-                if ((commandSql.RowStyle & RowStyle.FirstOrDefault) == RowStyle.FirstOrDefault)
-                {
-                    behavior |= CommandBehavior.SingleRow;
-                }
-
-                _stopwatch.Start();
-
-                try
-                {
-                    using (var command = _connection.CreateCommand())
-                    {
-                        command.CommandText = commandSql.Text;
-                        command.CommandType = commandSql.CommandType;
-
-                        if (commandSql.Timeout.HasValue)
-                        {
-                            command.CommandTimeout = commandSql.Timeout.Value;
-                        }
-
-                        foreach (var (name, value) in commandSql.Parameters)
-                        {
-                            LookupDb.AddParameterAuto(command, _engine, name, value);
-                        }
-
-                        using (var reader = command.ExecuteReader(behavior))
-                        {
-                            if (reader.HasRows)
-                            {
-                                var adaper = _adapters.GetOrAdd(
-                                    reader.GetType(),
-                                    type => new MapAdaper(type)
-                                );
-
-                                var map = adaper.CreateMap<T>();
-
-                                if (reader.Read())
-                                {
-                                    var result = map.Map(reader);
-
-                                    if (commandSql.RowStyle >= RowStyle.Single && reader.Read())
-                                    {
-                                        ThrowMultipleRows(commandSql.RowStyle);
-                                    }
-
-                                    return result;
-                                }
-                            }
-
-                            if (commandSql.HasDefaultValue || (commandSql.RowStyle & RowStyle.FirstOrDefault) == RowStyle.FirstOrDefault)
-                            {
-                                return commandSql.DefaultValue;
-                            }
-
-                            if (commandSql.CustomError)
-                            {
-                                throw new NoElementException(commandSql.NoElementError);
-                            }
-
-                            throw new InvalidOperationException("The input sequence contains more than one element.");
-                        }
-                    }
-                }
-                finally
-                {
-                    _stopwatch.Stop();
-                    commandSql.Callback(null);
-                }
-            }
-
-            public List<T> Query<T>(CommandSql commandSql)
-            {
-                commandSql.Timeout = commandSql.Timeout.HasValue
-                    ? Math.Min(_commandTimeout - (int)(_stopwatch.ElapsedMilliseconds / 1000), commandSql.Timeout.Value)
-                    : _commandTimeout - (int)(_stopwatch.ElapsedMilliseconds / 1000);
-
-                if (_logger.IsEnabled(LogLevel.Debug))
-                {
-                    _logger.LogDebug(commandSql.ToString());
-                }
-
-                CommandBehavior behavior = CommandBehavior.SequentialAccess | CommandBehavior.SingleResult;
-
-                var results = new List<T>();
-
-                _stopwatch.Start();
-
-                using (var command = _connection.CreateCommand())
-                {
-                    command.CommandText = commandSql.Text;
-                    command.CommandType = commandSql.CommandType;
-
-                    if (commandSql.Timeout.HasValue)
-                    {
-                        command.CommandTimeout = commandSql.Timeout.Value;
-                    }
-
-                    foreach (var (name, value) in commandSql.Parameters)
-                    {
-                        LookupDb.AddParameterAuto(command, _engine, name, value);
-                    }
-
-                    using (var reader = command.ExecuteReader(behavior))
-                    {
-                        if (reader.HasRows)
-                        {
-                            var adaper = _adapters.GetOrAdd(
-                                reader.GetType(),
-                                type => new MapAdaper(type)
-                            );
-
-                            var map = adaper.CreateMap<T>();
-
-                            while (reader.Read())
-                            {
-                                if (map.IsInvalid(reader))
-                                {
-                                    continue;
-                                }
-
-                                results.Add(map.Map(reader));
-                            }
-                        }
-                    }
-
-                    commandSql.Callback(command);
-                }
-
-                _stopwatch.Stop();
-
-                return results;
-            }
-
-            public IDbGridReader QueryMultiple(CommandSql commandSql)
-            {
-                commandSql.Timeout = commandSql.Timeout.HasValue
-                    ? Math.Min(_commandTimeout - (int)(_stopwatch.ElapsedMilliseconds / 1000), commandSql.Timeout.Value)
-                    : _commandTimeout - (int)(_stopwatch.ElapsedMilliseconds / 1000);
-
-                if (_logger.IsEnabled(LogLevel.Debug))
-                {
-                    _logger.LogDebug(commandSql.ToString());
-                }
-
-                CommandBehavior behavior = CommandBehavior.SequentialAccess;
-
-                DbCommand command = null;
-                DbDataReader reader = null;
-
-                _stopwatch.Start();
-
-                try
-                {
-                    command = _connection.CreateCommand();
-
-                    command.CommandText = commandSql.Text;
-                    command.CommandType = commandSql.CommandType;
-
-                    if (commandSql.Timeout.HasValue)
-                    {
-                        command.CommandTimeout = commandSql.Timeout.Value;
-                    }
-
-                    foreach (var (name, value) in commandSql.Parameters)
-                    {
-                        LookupDb.AddParameterAuto(command, _engine, name, value);
-                    }
-
-                    reader = command.ExecuteReader(behavior);
-
-                    var adaper = _adapters.GetOrAdd(
-                        reader.GetType(),
-                        type => new MapAdaper(type)
-                    );
-
-                    return new DbGridReader(null, command, reader, commandSql, adaper);
-                }
-                catch
-                {
-                    _stopwatch.Stop();
-
-                    if (reader != null)
-                    {
-                        if (!reader.IsClosed)
-                        {
-                            try
-                            {
-                                command?.Cancel();
-                            }
-                            catch { }
-                        }
-
-                        reader.Dispose();
-                    }
-
-                    command?.Dispose();
-
-                    throw;
-                }
             }
         }
 

@@ -26,28 +26,5 @@ namespace Inkslab.Linq
         /// <param name="dt">数据表。</param>
         /// <param name="commandTimeout">超时时间。</param>
         int WriteToServer(DataTable dt, int? commandTimeout = null);
-
-        /// <summary>
-        /// 读取数据。
-        /// </summary>
-        /// <typeparam name="T">返回类型。</typeparam>
-        /// <param name="commandSql">T-SQL 命令。</param>
-        /// <returns>查询结果。</returns>
-        T Read<T>(CommandSql<T> commandSql);
-
-        /// <summary>
-        /// 读取数据。
-        /// </summary>
-        /// <typeparam name="T">返回类型。</typeparam>
-        /// <param name="commandSql">T-SQL 命令。</param>
-        /// <returns>查询结果列表。</returns>
-        List<T> Query<T>(CommandSql commandSql);
-
-        /// <summary>
-        /// 查询多个结果。
-        /// </summary>
-        /// <param name="commandSql">T-SQL 命令。</param>
-        /// <returns>查询器。</returns>
-        IDbGridReader QueryMultiple(CommandSql commandSql);
     }
 }

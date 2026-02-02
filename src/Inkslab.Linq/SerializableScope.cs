@@ -19,10 +19,6 @@ namespace Inkslab.Linq
     ///   await ...;
     /// }
     /// </code>
-    /// 注意事项：
-    /// - 串行化范围内的不能同时存在多个事务。
-    /// - 串行化范围支持嵌套，内层范围共享外层范围的数据库连接。
-    /// - 串行化范围适用于需要在多个操作中共享数据库连接的场景，如事务处理等。
     /// </remarks>
     public class SerializableScope : IAsyncDisposable, IDisposable
     {
@@ -106,7 +102,6 @@ namespace Inkslab.Linq
 
                 if (holder is null)
                 {
-
                 }
                 else
                 {
@@ -115,7 +110,6 @@ namespace Inkslab.Linq
 
                 if (value is null)
                 {
-
                 }
                 else
                 {
@@ -195,15 +189,20 @@ namespace Inkslab.Linq
 
             _disposed = true;
 
-            foreach (var connection in _connections.Values)
+            if (Trusteeship)
             {
-                if (connection.State != ConnectionState.Closed)
+                foreach (var connection in _connections.Values)
                 {
-                    connection.Close();
-                }
+                    if (connection.State != ConnectionState.Closed)
+                    {
+                        connection.Close();
+                    }
 
-                connection.Dispose();
+                    connection.Dispose();
+                }
             }
+            
+            _connections.Clear();
 
             GC.SuppressFinalize(this);
         }
@@ -218,16 +217,21 @@ namespace Inkslab.Linq
 
             _disposed = true;
 
-            foreach (var connection in _connections.Values)
+            if (Trusteeship)
             {
-                if (connection.State != ConnectionState.Closed)
+                foreach (var connection in _connections.Values)
                 {
-                    await connection.CloseAsync();
+                    if (connection.State != ConnectionState.Closed)
+                    {
+                        await connection.CloseAsync();
+                    }
+
+                    await connection.DisposeAsync();
                 }
-
-                await connection.DisposeAsync();
             }
-
+            
+            _connections.Clear();
+            
             GC.SuppressFinalize(this);
         }
 

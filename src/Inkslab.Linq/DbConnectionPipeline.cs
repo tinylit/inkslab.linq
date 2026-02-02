@@ -253,6 +253,8 @@ namespace Inkslab.Linq
 
                 public void Dispose()
                 {
+                    Transaction = null;
+
                     if (_trusteeship)
                     {
                         if (_connection.State == ConnectionState.Open)

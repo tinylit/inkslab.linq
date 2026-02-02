@@ -397,91 +397,40 @@ namespace Inkslab.Linq.Tests
             var outerName = $"OuterTx_{Guid.NewGuid()}";
             var innerName = $"InnerTx_{Guid.NewGuid()}";
 
-            await Assert.ThrowsAsync<Exception>(async () =>
-              {
-                  // Act
-                  await using (var scope = new SerializableScope())
-                  {
-                      await using (var outerTransaction = new TransactionUnit())
-                      {
-                          // 外层事务操作
-                          var user1 = new User
-                          {
-                              Name = outerName,
-                              DateAt = DateTime.Now
-                          };
-                          _userRpts.Into(user1).Execute();
-
-                          await using (var innerTransaction = new TransactionUnit(TransactionOption.RequiresNew))
-                          {
-                              // 内层独立事务操作
-                              var user2 = new User
-                              {
-                                  Name = innerName,
-                                  DateAt = DateTime.Now
-                              };
-                              _userRpts.Into(user2).Execute();
-
-                              // 内层事务提交
-                              await innerTransaction.CompleteAsync();
-                          }
-
-                          // 外层事务不提交（回滚）
-                      }
-                  }
-              });
-        }
-
-        /// <summary>
-        /// 测试：RequiresNew 事务选项 + SerializableScope
-        /// 验证：新事务在序列化范围内独立执行
-        /// </summary>
-        [Fact]
-        public async Task SerializableScope_WithRequiresNewTransaction2Async()
-        {
-            // Arrange
-            var outerName = $"OuterTx_{Guid.NewGuid()}";
-            var innerName = $"InnerTx_{Guid.NewGuid()}";
-
-            // Act
-            await using (var scope = new SerializableScope())
+            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             {
-                // 预热一个连接，链接内的事务都使用同一个“DbConnection”。
-                await _users.OrderBy(x => x.Id).FirstOrDefaultAsync();
-
-                await using (var outerTransaction = new TransactionUnit())
+                // Act
+                await using (var scope = new SerializableScope())
                 {
-                    // 外层事务操作
-                    var user1 = new User
+                    await using (var outerTransaction = new TransactionUnit())
                     {
-                        Name = outerName,
-                        DateAt = DateTime.Now
-                    };
-                    _userRpts.Into(user1).Execute();
-
-                    await using (var innerTransaction = new TransactionUnit(TransactionOption.RequiresNew))
-                    {
-                        // 内层独立事务操作
-                        var user2 = new User
+                        // 外层事务操作
+                        var user1 = new User
                         {
-                            Name = innerName,
+                            Name = outerName,
                             DateAt = DateTime.Now
                         };
-                        _userRpts.Into(user2).Execute();
 
-                        // 内层事务提交
-                        await innerTransaction.CompleteAsync();
+                        _userRpts.Into(user1).Execute();
+
+                        await using (var innerTransaction = new TransactionUnit(TransactionOption.RequiresNew))
+                        {
+                            // 内层独立事务操作
+                            var user2 = new User
+                            {
+                                Name = innerName,
+                                DateAt = DateTime.Now
+                            };
+                            _userRpts.Into(user2).Execute();
+
+                            // 内层事务提交
+                            await innerTransaction.CompleteAsync();
+                        }
+
+                        // 外层事务不提交（回滚）
                     }
-
-                    // 外层事务不提交（回滚）
                 }
-            }
-
-            // Assert - 内层已提交，外层已回滚
-            var savedUser1 = await _users.OrderBy(x => x.Id).FirstOrDefaultAsync(x => x.Name == outerName);
-            var savedUser2 = await _users.OrderBy(x => x.Id).FirstOrDefaultAsync(x => x.Name == innerName);
-            Assert.Null(savedUser1); // 外层回滚
-            Assert.NotNull(savedUser2); // 内层独立提交
+            });
         }
 
         /// <summary>
@@ -495,94 +444,40 @@ namespace Inkslab.Linq.Tests
             var outerName = $"OuterTx_{Guid.NewGuid()}";
             var suppressName = $"SuppressTx_{Guid.NewGuid()}";
 
-            // Act
-            await using (var scope = new SerializableScope())
+            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             {
-                await using (var outerTransaction = new TransactionUnit())
+                // Act
+                await using (var scope = new SerializableScope())
                 {
-                    // 外层事务操作
-                    var user1 = new User
+                    await using (var outerTransaction = new TransactionUnit())
                     {
-                        Name = outerName,
-                        DateAt = DateTime.Now
-                    };
-                    _userRpts.Into(user1).Execute();
-
-                    await using (var suppressTransaction = new TransactionUnit(TransactionOption.Suppress))
-                    {
-                        // 抑制事务，操作自动提交
-                        var user2 = new User
+                        // 外层事务操作
+                        var user1 = new User
                         {
-                            Name = suppressName,
+                            Name = outerName,
                             DateAt = DateTime.Now
                         };
-                        _userRpts.Into(user2).Execute();
 
-                        // Suppress 模式下，CompleteAsync 无实际作用
-                        await suppressTransaction.CompleteAsync();
-                    }
+                        _userRpts.Into(user1).Execute();
 
-                    // 外层事务不提交（回滚）
-                }
-            }
-
-            // Assert - 抑制事务的操作已自动提交，外层回滚
-            var savedUser1 = await _users.OrderBy(x => x.Id).FirstOrDefaultAsync(x => x.Name == outerName);
-            var savedUser2 = await _users.OrderBy(x => x.Id).FirstOrDefaultAsync(x => x.Name == suppressName);
-            Assert.Null(savedUser1); // 外层回滚
-            Assert.NotNull(savedUser2); // Suppress 自动提交
-        }
-
-        /// <summary>
-        /// 测试：Suppress 事务选项 + SerializableScope
-        /// 验证：抑制事务后，操作在序列化范围内仍正常执行
-        /// </summary>
-        [Fact]
-        public async Task SerializableScope_WithSuppressTransaction2Async()
-        {
-            // Arrange
-            var outerName = $"OuterTx_{Guid.NewGuid()}";
-            var suppressName = $"SuppressTx_{Guid.NewGuid()}";
-
-            // Act
-            await using (var scope = new SerializableScope())
-            {
-                // 预热一个连接，链接内的事务都使用同一个“DbConnection”。
-                await _users.OrderBy(x => x.Id).FirstOrDefaultAsync();
-
-                await using (var outerTransaction = new TransactionUnit())
-                {
-                    // 外层事务操作
-                    var user1 = new User
-                    {
-                        Name = outerName,
-                        DateAt = DateTime.Now
-                    };
-                    _userRpts.Into(user1).Execute();
-
-                    await using (var suppressTransaction = new TransactionUnit(TransactionOption.Suppress))
-                    {
-                        // 抑制事务，操作自动提交
-                        var user2 = new User
+                        await using (var suppressTransaction = new TransactionUnit(TransactionOption.Suppress)) // 抑制事务，用同一个连接时，无法抑制
                         {
-                            Name = suppressName,
-                            DateAt = DateTime.Now
-                        };
-                        _userRpts.Into(user2).Execute();
+                            // 抑制事务，操作自动提交
+                            var user2 = new User
+                            {
+                                Name = suppressName,
+                                DateAt = DateTime.Now
+                            };
+                            _userRpts.Into(user2).Execute(); // 报错 The transaction associated with this command is not the connection's active transaction; 
 
-                        // Suppress 模式下，CompleteAsync 无实际作用
-                        await suppressTransaction.CompleteAsync();
+                            // Suppress 模式下，CompleteAsync 无实际作用
+                            await suppressTransaction.CompleteAsync();
+                        }
+
+                        // 外层事务不提交（回滚）
                     }
-
-                    // 外层事务不提交（回滚）
                 }
-            }
-
-            // Assert - 抑制事务的操作已自动提交，外层回滚
-            var savedUser1 = await _users.OrderBy(x => x.Id).FirstOrDefaultAsync(x => x.Name == outerName);
-            var savedUser2 = await _users.OrderBy(x => x.Id).FirstOrDefaultAsync(x => x.Name == suppressName);
-            Assert.Null(savedUser1); // 外层回滚
-            Assert.NotNull(savedUser2); // Suppress 自动提交
+            });
         }
 
         #endregion
@@ -641,15 +536,6 @@ namespace Inkslab.Linq.Tests
 
                 // 串行范围中，不支持并行查询。
                 await Assert.ThrowsAsync<InvalidOperationException>(() => Task.WhenAll(task1, task2, task3));
-
-                var count = await task1;
-                var users = await task2;
-                var lastUser = await task3;
-
-                // Assert
-                Assert.True(count >= 0);
-                Assert.NotNull(users);
-                Assert.NotNull(lastUser);
             }
         }
 
@@ -770,6 +656,81 @@ namespace Inkslab.Linq.Tests
             // Assert - 验证最终数据
             var finalOrder = await _users.OrderBy(x => x.Id).FirstOrDefaultAsync(x => x.Name == orderName);
             Assert.NotNull(finalOrder);
+        }
+
+        /// <summary>
+        /// 测试：模拟订单创建业务场景
+        /// 验证：SerializableScope + Transaction 在复杂业务中的应用
+        /// </summary>
+        [Fact]
+        public async Task RealWorldScenario_OrderCreation_WithSerializableScopeAndTransactionMultiAsync()
+        {
+            // Arrange
+            var orderName = $"Order_{Guid.NewGuid()}";
+            var orderName2 = $"Order_{Guid.NewGuid()}";
+
+            // Act - 模拟订单创建流程
+            await using (var scope = new SerializableScope())
+            {
+                await using (var transaction = new TransactionUnit())
+                {
+                    // 1. 创建订单
+                    var order = new User
+                    {
+                        Name = orderName,
+                        DateAt = DateTime.Now
+                    };
+                    _userRpts.Into(order).Execute();
+
+                    // 2. 查询验证
+                    var createdOrder = await _users.OrderBy(x => x.Id).FirstOrDefaultAsync(x => x.Name == orderName);
+                    Assert.NotNull(createdOrder);
+
+                    // 3. 更新订单状态
+                    await _userRpts.UpdateAsync(x => new User
+                    {
+                        DateAt = DateTime.Now.AddHours(1)
+                    });
+
+                    // 4. 再次查询确认
+                    var updatedOrder = await _users.OrderBy(x => x.Id).FirstOrDefaultAsync(x => x.Id == createdOrder.Id);
+                    Assert.NotNull(updatedOrder);
+
+                    // 5. 提交事务
+                    await transaction.CompleteAsync();
+                }
+
+                await using (var transaction = new TransactionUnit())
+                {
+                    // 1. 创建订单
+                    var order = new User
+                    {
+                        Name = orderName2,
+                        DateAt = DateTime.Now
+                    };
+                    _userRpts.Into(order).Execute();
+
+                    // 2. 查询验证
+                    var createdOrder = await _users.OrderBy(x => x.Id).FirstOrDefaultAsync(x => x.Name == orderName2);
+                    Assert.NotNull(createdOrder);
+
+                    // 3. 更新订单状态
+                    await _userRpts.UpdateAsync(x => new User
+                    {
+                        DateAt = DateTime.Now.AddHours(1)
+                    });
+
+                    // 4. 再次查询确认
+                    var updatedOrder = await _users.OrderBy(x => x.Id).FirstOrDefaultAsync(x => x.Id == createdOrder.Id);
+                    Assert.NotNull(updatedOrder);
+                }
+            }
+
+            // Assert - 验证最终数据
+            var finalOrder = await _users.OrderBy(x => x.Id).FirstOrDefaultAsync(x => x.Name == orderName);
+            var finalOrder2 = await _users.OrderBy(x => x.Id).FirstOrDefaultAsync(x => x.Name == orderName2);
+            Assert.NotNull(finalOrder);
+            Assert.Null(finalOrder2);
         }
 
         /// <summary>

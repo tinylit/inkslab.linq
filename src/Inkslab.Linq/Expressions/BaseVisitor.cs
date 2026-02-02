@@ -258,6 +258,8 @@ namespace Inkslab.Linq.Expressions
                     or ExpressionType.OnesComplement
                     or ExpressionType.IsTrue
                     or ExpressionType.IsFalse
+                    or ExpressionType.Negate
+                    or ExpressionType.NegateChecked
                     or ExpressionType.Not
                 } unary:
                     return IsPlainVariableNs(unary.Operand);

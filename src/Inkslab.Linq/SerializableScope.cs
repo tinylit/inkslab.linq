@@ -131,9 +131,16 @@ namespace Inkslab.Linq
                 throw new ObjectDisposedException(nameof(Serializable));
             }
 
-            ArgumentNullException.ThrowIfNull(connections);
-            ArgumentNullException.ThrowIfNull(connectionStrings);
-            
+            if (connections is null)
+            {
+                throw new ArgumentNullException(nameof(connections));
+            }
+
+            if (connectionStrings is null)
+            {
+                throw new ArgumentNullException(nameof(connectionStrings));
+            }
+
             if (_connections.TryGetValue(connectionStrings.Strings, out var connection))
             {
                 return connection;
@@ -152,20 +159,6 @@ namespace Inkslab.Linq
             }
 
             return connection;
-        }
-
-        /// <summary>
-        /// 尝试添加数据库连接。
-        /// </summary>
-        /// <param name="connectionStrings">连接字符串。</param>
-        /// <param name="connection">数据库连接。</param>
-        /// <returns>是否添加成功。</returns>
-        public bool TryAdd(IConnection connectionStrings, DbConnection connection)
-        {
-            ArgumentNullException.ThrowIfNull(connectionStrings);
-            ArgumentNullException.ThrowIfNull(connection);
-            
-            return _connections.TryAdd(connectionStrings.Strings, connection);
         }
 
         /// <inheritdoc/>

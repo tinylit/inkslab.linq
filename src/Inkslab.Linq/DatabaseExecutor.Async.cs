@@ -231,34 +231,36 @@ namespace Inkslab.Linq
             }
             catch
             {
-                if (reader != null)
-                {
-                    if (!reader.IsClosed)
-                    {
-                        try
-                        {
-                            command?.Cancel();
-                        }
-                        catch { }
-                    }
-
-                    await reader.DisposeAsync();
-                }
-
-                if (command != null)
-                {
-                    await command.DisposeAsync();
-                }
-
-                if (isClosedConnection)
-                {
-                    await dbConnection.CloseAsync();
-                }
-
-                await dbConnection.DisposeAsync();
-
+                await CleanupQueryMultipleResourcesAsync(reader, command, dbConnection, isClosedConnection);
                 throw;
             }
+        }
+
+        /// <summary>
+        /// 执行 QueryMultiple 的异步资源清理
+        /// </summary>
+        private async Task CleanupQueryMultipleResourcesAsync(DbDataReader reader, DbCommand command, DbConnection connection, bool isClosedConnection)
+        {
+            if (reader != null)
+            {
+                if (!reader.IsClosed)
+                {
+                    try { command?.Cancel(); } catch { }
+                }
+                await reader.DisposeAsync();
+            }
+
+            if (command != null)
+            {
+                await command.DisposeAsync();
+            }
+
+            if (isClosedConnection)
+            {
+                await connection.CloseAsync();
+            }
+
+            await connection.DisposeAsync();
         }
 
         /// <inheritdoc/>

@@ -157,6 +157,30 @@ namespace Inkslab.Linq
             throw new InvalidOperationException("The input sequence contains more than one element.");
         }
 
+        /// <summary>
+        /// 执行 QueryMultiple 的资源清理
+        /// </summary>
+        private void CleanupQueryMultipleResources(DbDataReader reader, DbCommand command, DbConnection connection, bool isClosedConnection)
+        {
+            if (reader != null)
+            {
+                if (!reader.IsClosed)
+                {
+                    try { command?.Cancel(); } catch { }
+                }
+                reader.Dispose();
+            }
+
+            command?.Dispose();
+
+            if (isClosedConnection)
+            {
+                connection.Close();
+            }
+
+            connection.Dispose();
+        }
+
         #endregion
 
         /// <inheritdoc/>
@@ -254,29 +278,7 @@ namespace Inkslab.Linq
             }
             catch
             {
-                if (reader != null)
-                {
-                    if (!reader.IsClosed)
-                    {
-                        try
-                        {
-                            command?.Cancel();
-                        }
-                        catch { }
-                    }
-
-                    reader.Dispose();
-                }
-
-                command?.Dispose();
-
-                if (isClosedConnection)
-                {
-                    dbConnection.Close();
-                }
-
-                dbConnection.Dispose();
-
+                CleanupQueryMultipleResources(reader, command, dbConnection, isClosedConnection);
                 throw;
             }
         }

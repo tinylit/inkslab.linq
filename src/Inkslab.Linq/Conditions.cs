@@ -36,24 +36,6 @@ namespace Inkslab.Linq
         public static bool If<T>(T source, bool test, Expression<Func<T, bool>> ifTrue) => throw new NotImplementedException("只能在条件表达式（如：where、on等）中使用！");
 
         /// <summary>
-        /// 根据“<paramref name="test"/>”是否为假，拼接条件。
-        /// </summary>
-        /// <param name="test">为假时，拼接“<paramref name="test"/>”条件，否则忽略条件。</param>
-        /// <param name="ifFalse">条件。</param>
-        /// <returns>是否满足。</returns>
-        public static bool Unless(bool test, bool ifFalse) => throw new NotImplementedException("只能在条件表达式（如：where、on等）中使用！");
-
-        /// <summary>
-        /// 根据“<paramref name="test"/>”是否为假，拼接条件。
-        /// </summary>
-        /// <param name="source">源。</param>
-        /// <param name="test">为假时，拼接“<paramref name="test"/>”条件，否则忽略条件。</param>
-        /// <param name="ifFalse">条件。</param>
-        /// <typeparam name="T">参数类型。</typeparam>
-        /// <returns>是否满足。</returns>
-        public static bool Unless<T>(T source, bool test, Expression<Func<T, bool>> ifFalse) => throw new NotImplementedException("只能在条件表达式（如：where、on等）中使用！");
-
-        /// <summary>
         /// 根据“<paramref name="test"/>”是否为真，拼接条件。
         /// </summary>
         /// <param name="test">为真时，使用“<paramref name="ifTrue"/>”条件，否则使用“<paramref name="ifTrue"/>”条件。</param>

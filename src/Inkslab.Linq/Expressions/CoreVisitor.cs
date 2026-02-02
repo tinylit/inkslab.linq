@@ -136,19 +136,8 @@ namespace Inkslab.Linq.Expressions
                     }
                     break;
 
-                case nameof(Conditions.Unless) when node.Arguments.Count == 2 && IsPlainVariable(node.Arguments[0]):
-                    if (!node.Arguments[0].GetValueFromExpression<bool>())
-                    {
-                        Condition(node.Arguments[1]);
-                    }
-                    break;
-
                 case nameof(Conditions.If) when node.Arguments.Count == 2:
-                    VisitIfDynamic(node.Arguments[0], node.Arguments[1], isIfBranch: true);
-                    break;
-
-                case nameof(Conditions.Unless) when node.Arguments.Count == 2:
-                    VisitIfDynamic(node.Arguments[0], node.Arguments[1], isIfBranch: false);
+                    VisitIfDynamic(node.Arguments[0], node.Arguments[1]);
                     break;
 
                 case nameof(Conditions.If) when node.Arguments.Count == 3 && IsPlainVariable(node.Arguments[1]):
@@ -158,19 +147,8 @@ namespace Inkslab.Linq.Expressions
                     }
                     break;
 
-                case nameof(Conditions.Unless) when node.Arguments.Count == 3 && IsPlainVariable(node.Arguments[1]):
-                    if (!node.Arguments[1].GetValueFromExpression<bool>())
-                    {
-                        VisitWithConditionVisitor(node.Arguments[0], node.Arguments[2]);
-                    }
-                    break;
-
                 case nameof(Conditions.If) when node.Arguments.Count == 3:
-                    VisitIfDynamicWithSource(node.Arguments[0], node.Arguments[1], node.Arguments[2], isIfBranch: true);
-                    break;
-
-                case nameof(Conditions.Unless) when node.Arguments.Count == 3:
-                    VisitIfDynamicWithSource(node.Arguments[0], node.Arguments[1], node.Arguments[2], isIfBranch: false);
+                    VisitIfDynamicWithSource(node.Arguments[0], node.Arguments[1], node.Arguments[2]);
                     break;
 
                 case nameof(Conditions.Conditional) when node.Arguments.Count == 3 && IsPlainVariable(node.Arguments[0]):
@@ -210,45 +188,30 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <summary>
-        /// 处理2参数版本的 If/Not 动态条件分支。
+        /// 处理2参数版本的 If 动态条件分支。
         /// </summary>
-        private void VisitIfDynamic(Expression testArg, Expression branchArg, bool isIfBranch)
+        private void VisitIfDynamic(Expression testArg, Expression branchArg)
         {
             using (var domain = Writer.Domain())
             {
                 Condition(testArg);
 
                 // If: domain.HasValue 时处理; Not: domain.IsEmpty 时处理
-                if (isIfBranch ? domain.HasValue : domain.IsEmpty)
-                {
-                    if (isIfBranch)
-                    {
-                        Writer.Keyword(SqlKeyword.THEN);
-                        WriteBranchExpression(branchArg);
-                        Writer.Keyword(SqlKeyword.ELSE);
-                        Writer.True();
-                        WriteCaseWhenFooter(domain);
-                    }
-                    else
-                    {
-                        Condition(branchArg);
-                    }
-                }
-                else if (!isIfBranch && domain.HasValue)
+                if (domain.HasValue)
                 {
                     Writer.Keyword(SqlKeyword.THEN);
-                    Writer.True();
-                    Writer.Keyword(SqlKeyword.ELSE);
                     WriteBranchExpression(branchArg);
+                    Writer.Keyword(SqlKeyword.ELSE);
+                    Writer.True();
                     WriteCaseWhenFooter(domain);
                 }
             }
         }
 
         /// <summary>
-        /// 处理3参数版本的 If/Not 动态条件分支（带 source）。
+        /// 处理3参数版本的 If 动态条件分支（带 source）。
         /// </summary>
-        private void VisitIfDynamicWithSource(Expression sourceArg, Expression testArg, Expression branchArg, bool isIfBranch)
+        private void VisitIfDynamicWithSource(Expression sourceArg, Expression testArg, Expression branchArg)
         {
             var expressions = new List<Expression>();
             var argVisitor = new ArgExpressionVisitor(expressions);
@@ -260,27 +223,12 @@ namespace Inkslab.Linq.Expressions
             {
                 Condition(testArg);
 
-                if (isIfBranch ? domain.HasValue : domain.IsEmpty)
-                {
-                    if (isIfBranch)
-                    {
-                        Writer.Keyword(SqlKeyword.THEN);
-                        WriteBranchExpression(branchArg, conditionVisitor);
-                        Writer.Keyword(SqlKeyword.ELSE);
-                        Writer.True();
-                        WriteCaseWhenFooter(domain);
-                    }
-                    else
-                    {
-                        conditionVisitor.Visit(branchArg);
-                    }
-                }
-                else if (!isIfBranch && domain.HasValue)
+                if (domain.HasValue)
                 {
                     Writer.Keyword(SqlKeyword.THEN);
-                    Writer.True();
-                    Writer.Keyword(SqlKeyword.ELSE);
                     WriteBranchExpression(branchArg, conditionVisitor);
+                    Writer.Keyword(SqlKeyword.ELSE);
+                    Writer.True();
                     WriteCaseWhenFooter(domain);
                 }
             }

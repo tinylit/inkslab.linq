@@ -1631,29 +1631,6 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// GroupBy + Conditions.Not变量测试。
-        /// </summary>
-        /// <remarks>
-        /// <b>SQL预览</b>：
-        /// <code>
-        /// SELECT MAX(DISTINCT `g`.`Key`) FROM (SELECT `x`.`Name` AS `Key` FROM `fmk_users` AS `x` GROUP BY `x`.`Name` HAVING COUNT(1)&gt;1 AND `x`.`Name` LIKE '%测试%') AS `g`
-        /// </code>
-        /// </remarks>
-        [Fact]
-        public void GroupByConditionNotVariable()
-        {
-            string name = "测试";
-
-            var linq =
-                from x in _users
-                group x by x.Name into g
-                where Conditions.IsTrue(g, x => x.Count() > 1) && Conditions.Unless(g, string.IsNullOrEmpty(name), x => x.Key.Contains(name))
-                select g.Key;
-
-            var max = linq.Distinct().Max();
-        }
-
-        /// <summary>
         /// GroupBy条件为null变量测试。
         /// </summary>
         /// <remarks>

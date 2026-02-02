@@ -413,7 +413,7 @@ namespace Inkslab.Linq.Tests
 
                         _userRpts.Into(user1).Execute();
 
-                        await using (var innerTransaction = new TransactionUnit(TransactionOption.RequiresNew))
+                        await using (var innerTransaction = new TransactionUnit(TransactionOption.RequiresNew)) // 同一个连接时，无法开启嵌套事务
                         {
                             // 内层独立事务操作
                             var user2 = new User
@@ -421,7 +421,7 @@ namespace Inkslab.Linq.Tests
                                 Name = innerName,
                                 DateAt = DateTime.Now
                             };
-                            _userRpts.Into(user2).Execute();
+                            _userRpts.Into(user2).Execute(); // 报错 Transactions may not be nested.
 
                             // 内层事务提交
                             await innerTransaction.CompleteAsync();

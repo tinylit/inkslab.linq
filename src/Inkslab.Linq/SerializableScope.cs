@@ -8,15 +8,29 @@ using System.Threading.Tasks;
 namespace Inkslab.Linq
 {
     /// <summary>
-    /// 可序列化范围。
+    /// 串行化范围（在该范围中，相同连接字符串获取相同数据库连接）。
     /// </summary>
+    /// <remarks>
+    /// 使用示例：
+    /// <code>
+    /// await using (new SerializableScope())
+    /// {
+    ///   // 在该范围内，相同连接字符串获取相同数据库连接。
+    ///   await ...;
+    /// }
+    /// </code>
+    /// 注意事项：
+    /// - 串行化范围内的不能同时存在多个事务。
+    /// - 串行化范围支持嵌套，内层范围共享外层范围的数据库连接。
+    /// - 串行化范围适用于需要在多个操作中共享数据库连接的场景，如事务处理等。
+    /// </remarks>
     public class SerializableScope : IAsyncDisposable, IDisposable
     {
         private readonly Serializable _serializable;
         private readonly Serializable _previousSerializable;
 
         /// <summary>
-        /// 可序列化范围。
+        /// 串行化范围（在该范围中，相同连接字符串获取相同数据库连接）。
         /// </summary>
         public SerializableScope()
         {
@@ -56,7 +70,7 @@ namespace Inkslab.Linq
     }
 
     /// <summary>
-    /// 可序列化。
+    /// 串行化。
     /// </summary>
     public class Serializable : IAsyncDisposable, IDisposable
     {
@@ -114,16 +128,21 @@ namespace Inkslab.Linq
         private readonly Dictionary<string, DbConnection> _connections = new Dictionary<string, DbConnection>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
-        /// 状态。
+        /// 串行化。
         /// </summary>
-        private bool _disposed;
+        public Serializable() => Trusteeship = Transactions.Transaction.Current is null && System.Transactions.Transaction.Current is null;
+
+        /// <summary>
+        /// 托管状态。
+        /// </summary>
+        public bool Trusteeship { private set; get; }
 
         /// <summary>
         /// 获取数据库连接。
         /// </summary>
         /// <param name="connections">数据库连接集合。</param>
         /// <param name="connectionStrings">连接字符串。</param>
-        /// <returns>数据库连接。</returns>
+        /// <returns>是否成功获取数据库连接。</returns>
         public DbConnection Get(IConnections connections, IConnection connectionStrings)
         {
             if (_disposed)
@@ -160,6 +179,11 @@ namespace Inkslab.Linq
 
             return connection;
         }
+
+        /// <summary>
+        /// 状态。
+        /// </summary>
+        private bool _disposed;
 
         /// <inheritdoc/>
         public void Dispose()

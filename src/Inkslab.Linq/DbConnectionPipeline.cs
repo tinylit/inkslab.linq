@@ -134,13 +134,26 @@ namespace Inkslab.Linq
                 {
                     if (!dictionary.TryGetValue(databaseStrings.Strings, out transactionEntry))
                     {
-                        dictionary.Add(databaseStrings.Strings,
-                            transactionEntry = new TransactionEntry(transaction,
-                                serializable is null
-                                ? connections.Get(databaseStrings)
-                                : serializable.Get(connections, databaseStrings)
-                            )
-                        );
+                        if (serializable is null)
+                        {
+                            dictionary.Add(databaseStrings.Strings,
+                                transactionEntry = new TransactionEntry(
+                                    transaction,
+                                    connections.Get(databaseStrings),
+                                    true
+                                )
+                            );
+                        }
+                        else
+                        {
+                            dictionary.Add(databaseStrings.Strings,
+                                transactionEntry = new TransactionEntry(
+                                    transaction,
+                                    serializable.Get(connections, databaseStrings),
+                                    !serializable.Trusteeship
+                                )
+                            );
+                        }
                     }
                 }
 
@@ -179,12 +192,14 @@ namespace Inkslab.Linq
             {
                 private readonly OwnerTransaction _transaction;
                 private readonly DbConnection _connection;
+                private readonly bool _trusteeship;
                 private readonly AsynchronousLock _asynchronousLock = new AsynchronousLock();
 
-                public TransactionEntry(OwnerTransaction transaction, DbConnection connection)
+                public TransactionEntry(OwnerTransaction transaction, DbConnection connection, bool trusteeship = true)
                 {
                     _transaction = transaction ?? throw new ArgumentNullException(nameof(transaction));
                     _connection = connection ?? throw new ArgumentNullException(nameof(connection));
+                    _trusteeship = trusteeship;
                 }
 
                 public DbTransaction Transaction { private set; get; }
@@ -238,12 +253,15 @@ namespace Inkslab.Linq
 
                 public void Dispose()
                 {
-                    if (_connection.State == ConnectionState.Open)
+                    if (_trusteeship)
                     {
-                        _connection.Close();
-                    }
+                        if (_connection.State == ConnectionState.Open)
+                        {
+                            _connection.Close();
+                        }
 
-                    _connection.Dispose();
+                        _connection.Dispose();
+                    }
                 }
 
                 private class LinqTransaction : ITransaction
@@ -518,11 +536,6 @@ namespace Inkslab.Linq
         {
             private static readonly ConcurrentDictionary<Transaction, Dictionary<string, TransactionEntry>> _transactionConnections = new ConcurrentDictionary<Transaction, Dictionary<string, TransactionEntry>>();
 
-            private static DbConnection PrivateGet(Serializable serializable, IConnection databaseStrings, IConnections connections)
-            {
-                return serializable is null ? connections.Get(databaseStrings) : serializable.Get(connections, databaseStrings);
-            }
-
             private static TransactionEntry PrivateGet(Transaction transaction, Serializable serializable, IConnection databaseStrings, IConnections connections)
             {
                 Dictionary<string, TransactionEntry> dictionary = _transactionConnections.GetOrAdd(transaction, transaction =>
@@ -541,7 +554,24 @@ namespace Inkslab.Linq
                 {
                     if (!dictionary.TryGetValue(databaseStrings.Strings, out transactionEntry))
                     {
-                        dictionary.Add(databaseStrings.Strings, transactionEntry = new TransactionEntry(PrivateGet(serializable, databaseStrings, connections)));
+                        if (serializable is null)
+                        {
+                            dictionary.Add(databaseStrings.Strings,
+                                transactionEntry = new TransactionEntry(
+                                    connections.Get(databaseStrings),
+                                    true
+                                )
+                            );
+                        }
+                        else
+                        {
+                            dictionary.Add(databaseStrings.Strings,
+                                transactionEntry = new TransactionEntry(
+                                    serializable.Get(connections, databaseStrings),
+                                    !serializable.Trusteeship
+                                )
+                            );
+                        }
                     }
                 }
 
@@ -572,22 +602,27 @@ namespace Inkslab.Linq
             private class TransactionEntry : IDisposable
             {
                 private readonly DbConnection _connection;
+                private readonly bool _trusteeship;
 
-                public TransactionEntry(DbConnection connection)
+                public TransactionEntry(DbConnection connection, bool trusteeship = true)
                 {
                     _connection = connection ?? throw new ArgumentNullException(nameof(connection));
+                    _trusteeship = trusteeship;
                 }
 
                 public DbConnection GetConnection() => new MyDatabase(_connection);
 
                 public void Dispose()
                 {
-                    if (_connection.State == ConnectionState.Open)
+                    if (_trusteeship)
                     {
-                        _connection.Close();
-                    }
+                        if (_connection.State == ConnectionState.Open)
+                        {
+                            _connection.Close();
+                        }
 
-                    _connection.Dispose();
+                        _connection.Dispose();
+                    }
                 }
             }
             #endregion

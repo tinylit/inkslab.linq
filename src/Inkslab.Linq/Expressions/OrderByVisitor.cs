@@ -303,13 +303,11 @@ namespace Inkslab.Linq.Expressions
         }
 
 
-        private class Rank<TSource> : Rank, IRank<TSource>, IOrderBy<TSource>, IThenBy<TSource>, IDefaultBy<TSource>
+        private class Rank<TSource> : Rank, IOrderBy<TSource>, IThenBy<TSource>
         {
-            private bool initialDefault = true;
+            private bool _initialDefault = true;
 
-            private readonly List<RankExpression> _ranks;
-
-            public Rank() => _ranks = new List<RankExpression>();
+            private readonly List<RankExpression> _ranks = new();
 
             public override List<RankExpression> Ranks => _ranks;
 
@@ -365,7 +363,7 @@ namespace Inkslab.Linq.Expressions
             {
                 if (condition)
                 {
-                    initialDefault = false;
+                    _initialDefault = false;
 
                     return this;
                 }
@@ -380,7 +378,7 @@ namespace Inkslab.Linq.Expressions
                     throw new ArgumentNullException(nameof(rank));
                 }
 
-                if (initialDefault)
+                if (_initialDefault)
                 {
                     Ranks.Add(new RankExpression(rank, false));
                 }
@@ -395,7 +393,7 @@ namespace Inkslab.Linq.Expressions
                     throw new ArgumentNullException(nameof(rank));
                 }
 
-                if (initialDefault)
+                if (_initialDefault)
                 {
                     Ranks.Add(new RankExpression(rank, true));
                 }

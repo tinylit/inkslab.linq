@@ -34,10 +34,16 @@ namespace Inkslab.Linq.Expressions
         }
 
         #region Call
+
         /// <inheritdoc/>
         protected override void MethodCall(MethodCallExpression node)
         {
             var declaringType = node.Method.DeclaringType;
+
+            if (declaringType is null)
+            {
+                throw new NotSupportedException(NotSupportedErrorMsg(node));
+            }
 
             if (declaringType == Types.Queryable || declaringType == Types.QueryableExtentions)
             {
@@ -58,7 +64,7 @@ namespace Inkslab.Linq.Expressions
                     ByList(node);
                 }
                 else if (name == nameof(ICollection<int>.Contains)
-                    && (typeDefinition == typeof(HashSet<>) || typeDefinition.IsLike(typeof(ICollection<>), TypeLikeKind.IsGenericTypeDefinition)))
+                         && (typeDefinition == typeof(HashSet<>) || typeDefinition.IsLike(typeof(ICollection<>), TypeLikeKind.IsGenericTypeDefinition)))
                 {
                     ByContains(node);
                 }
@@ -111,10 +117,12 @@ namespace Inkslab.Linq.Expressions
         {
             if (node.Method.IsStatic)
             {
-                return $"不支持将静态方法（{node.Method.Name}）结果直接作为表达式的一部分！请参考 {node.Method.ReturnType.Name} {{variable}} = *[{node.Method.DeclaringType.Name}.{node.Method.Name}(...args)]; 然后使用 {{variable}} 替换表达式 *.{node.Method.Name}(...args)！";
+                return
+                    $"不支持将静态方法（{node.Method.Name}）结果直接作为表达式的一部分！请参考 {node.Method.ReturnType.Name} {{variable}} = *[{node.Method.DeclaringType?.Name}.{node.Method.Name}(...args)]; 然后使用 {{variable}} 替换表达式 *.{node.Method.Name}(...args)！";
             }
 
-            return $"不支持将方法（{node.Method.Name}）结果直接作为表达式的一部分！请参考 {node.Method.ReturnType.Name} {{variable}} = *[{node.Method.Name}(...args)]; 然后使用 {{variable}} 替换表达式 *.{node.Method.Name}(...args)！";
+            return
+                $"不支持将方法（{node.Method.Name}）结果直接作为表达式的一部分！请参考 {node.Method.ReturnType.Name} {{variable}} = *[{node.Method.Name}(...args)]; 然后使用 {{variable}} 替换表达式 *.{node.Method.Name}(...args)！";
         }
 
         /// <summary>
@@ -134,6 +142,7 @@ namespace Inkslab.Linq.Expressions
                     {
                         Condition(node.Arguments[1]);
                     }
+
                     break;
 
                 case nameof(Conditions.If) when node.Arguments.Count == 2:
@@ -145,6 +154,7 @@ namespace Inkslab.Linq.Expressions
                     {
                         VisitWithConditionVisitor(node.Arguments[0], node.Arguments[2]);
                     }
+
                     break;
 
                 case nameof(Conditions.If) when node.Arguments.Count == 3:
@@ -378,6 +388,7 @@ namespace Inkslab.Linq.Expressions
                     {
                         visitor.Startup(node);
                     }
+
                     break;
                 case nameof(Enumerable.Contains) when body.NodeType is ExpressionType.Constant or ExpressionType.MemberAccess:
 
@@ -439,6 +450,7 @@ namespace Inkslab.Linq.Expressions
                     {
                         visitor.Startup(node);
                     }
+
                     break;
                 case nameof(Enumerable.Contains):
 
@@ -543,6 +555,7 @@ namespace Inkslab.Linq.Expressions
                         default:
                             throw new NotSupportedException($"日期时间的“{node.Method.Name}”方法不被支持！");
                     }
+
                     Writer.Delimiter();
                     Visit(node.Arguments[0]);
                     Writer.Delimiter();
@@ -657,6 +670,11 @@ namespace Inkslab.Linq.Expressions
             {
                 Writer.AlwaysFalse();
             }
+
+            if (enumerator is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
         }
 
         #endregion
@@ -768,6 +786,11 @@ namespace Inkslab.Linq.Expressions
                 else
                 {
                     Writer.AlwaysFalse();
+                }
+
+                if (enumerator is IDisposable disposable)
+                {
+                    disposable.Dispose();
                 }
             }
 

@@ -97,11 +97,11 @@ namespace Inkslab.Linq.Expressions
                         Writer.Keyword(SqlKeyword.DISTINCT);
                     }
 
-                    using (var domian = Writer.Domain())
+                    using (var domain = Writer.Domain())
                     {
                         Visit(node.Arguments[0]);
 
-                        domian.Flyback();
+                        domain.Flyback();
 
                         Select(node.Arguments[1]);
 

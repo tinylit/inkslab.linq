@@ -274,7 +274,10 @@ namespace Inkslab.Linq.Expressions
             base.Constant(value);
         }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// 生成 SELECT 语句。
+        /// </summary>
+        /// <param name="node">The expression node to generate the SELECT statement from.</param>
         protected virtual void Select(Expression node)
         {
             using (var visitor = new SelectListVisitor(this, true))

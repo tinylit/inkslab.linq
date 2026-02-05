@@ -10,9 +10,9 @@ namespace Inkslab.Linq.Expressions
     /// </summary>
     public class ByStringCallVisitor : BaseVisitor
     {
-        private bool ignoreNull;
-        private bool ignoreEmptyString;
-        private bool ignoreWhiteSpace;
+        private bool _ignoreNull;
+        private bool _ignoreEmptyString;
+        private bool _ignoreWhiteSpace;
 
         /// <inheritdoc/>
         public ByStringCallVisitor(BaseVisitor visitor) : base(visitor)
@@ -32,13 +32,13 @@ namespace Inkslab.Linq.Expressions
 
                     using (var domain = Writer.Domain())
                     {
-                        ignoreNull = true;
-                        ignoreEmptyString = true;
+                        _ignoreNull = true;
+                        _ignoreEmptyString = true;
 
                         Visit(node.Arguments[0]);
 
-                        ignoreEmptyString = false;
-                        ignoreNull = false;
+                        _ignoreEmptyString = false;
+                        _ignoreNull = false;
 
                         if (domain.IsEmpty)
                         {
@@ -102,13 +102,13 @@ namespace Inkslab.Linq.Expressions
 
                     using (var domain = Writer.Domain())
                     {
-                        ignoreNull = true;
-                        ignoreEmptyString = true;
+                        _ignoreNull = true;
+                        _ignoreEmptyString = true;
 
                         Visit(node.Arguments[0]);
 
-                        ignoreEmptyString = false;
-                        ignoreNull = false;
+                        _ignoreEmptyString = false;
+                        _ignoreNull = false;
 
                         if (domain.IsEmpty)
                         {
@@ -140,15 +140,15 @@ namespace Inkslab.Linq.Expressions
 
                     using (var domain = Writer.Domain())
                     {
-                        ignoreNull = true;
-                        ignoreEmptyString = true;
-                        ignoreWhiteSpace = true;
+                        _ignoreNull = true;
+                        _ignoreEmptyString = true;
+                        _ignoreWhiteSpace = true;
 
                         Visit(node.Arguments[0]);
 
-                        ignoreWhiteSpace = false;
-                        ignoreEmptyString = false;
-                        ignoreNull = false;
+                        _ignoreWhiteSpace = false;
+                        _ignoreEmptyString = false;
+                        _ignoreNull = false;
 
                         if (domain.IsEmpty)
                         {
@@ -517,12 +517,12 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override void Constant(object value)
         {
-            if (ignoreNull && value is null)
+            if (_ignoreNull && value is null)
             {
             }
-            else if ((ignoreEmptyString || ignoreWhiteSpace)
+            else if ((_ignoreEmptyString || _ignoreWhiteSpace)
                 && value is string text
-                && (ignoreWhiteSpace
+                && (_ignoreWhiteSpace
                     ? string.IsNullOrWhiteSpace(text)
                     : string.IsNullOrEmpty(text)))
             {
@@ -538,12 +538,12 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override void Variable(string name, object value)
         {
-            if (ignoreNull && value is null)
+            if (_ignoreNull && value is null)
             {
             }
-            else if ((ignoreEmptyString || ignoreWhiteSpace)
+            else if ((_ignoreEmptyString || _ignoreWhiteSpace)
                 && value is string text
-                && (ignoreWhiteSpace
+                && (_ignoreWhiteSpace
                     ? string.IsNullOrWhiteSpace(text)
                     : string.IsNullOrEmpty(text)))
             {

@@ -21,16 +21,16 @@ namespace Inkslab.Linq.PostgreSQL
             sb.Append(sql)
                 .Append(' ')
                 .Append(orderBy)
-                .Append(" LIMIT ");
+                .Append(" LIMIT ")
+                .Append(take);
 
             if (skip > 0)
             {
-                sb.Append(skip)
-                    .Append(" OFFSET ");
+                sb.Append(" OFFSET ")
+                    .Append(skip);
             }
 
-            return sb.Append(take)
-                .ToString();
+            return sb.ToString();
         }
     }
 }

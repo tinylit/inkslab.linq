@@ -210,8 +210,8 @@ namespace System.Linq.Expressions
                 ConstantExpression constant => constant.Value,
                 LambdaExpression lambda when lambda.Parameters.Count > 0 => throw new NotSupportedException(),
                 LambdaExpression lambda => lambda.Body is ConstantExpression body
-                                        ? body.Value
-                                        : lambda.Compile().DynamicInvoke(),
+                    ? body.Value
+                    : lambda.Compile().DynamicInvoke(),
                 UnaryExpression unary when unary.NodeType == ExpressionType.Quote => unary.Operand.GetValueFromExpression(),
                 _ => Expression.Lambda(node).Compile().DynamicInvoke(),
             };
@@ -234,8 +234,8 @@ namespace System.Linq.Expressions
                 LambdaExpression => throw new NotSupportedException(),
                 UnaryExpression unary when unary.NodeType == ExpressionType.Quote => unary.Operand.GetValueFromExpression<T>(),
                 _ => Expression.Lambda<Func<T>>(node)
-                                        .Compile()
-                                        .Invoke()
+                    .Compile()
+                    .Invoke()
             };
         }
 
@@ -286,8 +286,8 @@ namespace System.Linq.Expressions
                 : isAnalyzeOnlyOneself
                     ? node.Type.IsGrouping()
                     : node.Expression is MemberExpression member
-                        && member.Member.Name == "Key"
-                        && member.IsGrouping();
+                      && member.Member.Name == "Key"
+                      && member.IsGrouping();
         }
 
         /// <summary>
@@ -309,18 +309,18 @@ namespace System.Linq.Expressions
                 }
 
                 return node.Arguments.Count > 1 && IsGrouping(node.Arguments[1])
-                    || node.Arguments[0].IsGrouping();
+                       || node.Arguments[0].IsGrouping();
             }
 
             if (isAnalyzeOnlyOneself)
             {
                 return node.Arguments.Count > 0
                     ? IsGrouping(node.Arguments[0])
-                    : node.Object.Type.IsGrouping();
+                    : node.Object != null && node.Object.Type.IsGrouping();
             }
 
             return node.Arguments.Count > 0 && IsGrouping(node.Arguments[0])
-                || node.Object.IsGrouping();
+                   || node.Object.IsGrouping();
         }
 
         private static bool IsGrouping(Expression node)

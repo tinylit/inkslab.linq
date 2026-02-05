@@ -46,11 +46,6 @@ namespace Inkslab.Linq.Expressions
         private bool _isGrouping;
 
         /// <summary>
-        /// 是查询表达式。
-        /// </summary>
-        private bool _isQueryable;
-
-        /// <summary>
         /// 聚合统计。
         /// </summary>
         private bool _isAggregateCount;
@@ -95,18 +90,22 @@ namespace Inkslab.Linq.Expressions
         private readonly WhereSwitch _whereSwitch;
 
         private readonly HashSet<string> _uniqueNames = new HashSet<string>();
+
         /// <summary>
         /// 成员关系。
         /// </summary>
         private readonly Dictionary<MemberInfo, ParameterExpression> _memberRelationships = new Dictionary<MemberInfo, ParameterExpression>(2);
+
         /// <summary>
         /// 连表关系。
         /// </summary>
         private readonly Dictionary<(Type, string), SelectVisitor> _joinRelationships = new Dictionary<(Type, string), SelectVisitor>(2);
+
         /// <summary>
         /// 参数关系。
         /// </summary>
         private readonly HashSet<(Type, string)> _parameterRelationships = new HashSet<(Type, string)>(2);
+
         /// <summary>
         /// 自己的参数。
         /// </summary>
@@ -137,8 +136,6 @@ namespace Inkslab.Linq.Expressions
         /// <param name="node">节点。</param>
         protected sealed override void Startup(MethodCallExpression node)
         {
-            string name = node.Method.Name;
-
             switch (node.Method.Name)
             {
                 case nameof(Queryable.Max):
@@ -172,10 +169,6 @@ namespace Inkslab.Linq.Expressions
                     break;
             }
 
-            var declaringType = node.Method.DeclaringType;
-
-            _isQueryable = declaringType == Types.Queryable || declaringType == Types.QueryableExtentions;
-
             base.Startup(node);
         }
 
@@ -186,33 +179,16 @@ namespace Inkslab.Linq.Expressions
         public override void Startup(Expression node)
         {
             if (node.NodeType == ExpressionType.Constant
-                && node is ConstantExpression constant
-                && constant.Value is IQueryable queryable)
+                && node is ConstantExpression { Value: IQueryable queryable })
             {
-                var variable = queryable.Expression ?? node;
+                var variable = queryable.Expression;
 
-                if (variable.NodeType == ExpressionType.Constant)
-                {
-                    base.Startup(node);
-                }
-                else
-                {
-                    base.Startup(variable);
-                }
+                base.Startup(variable.NodeType == ExpressionType.Constant ? node : variable);
             }
             else
             {
                 base.Startup(node);
             }
-        }
-
-        private bool IsGrouping(MethodCallExpression node)
-        {
-            return node.Method.Name switch
-            {
-                nameof(Queryable.Take) or nameof(Queryable.Skip) or nameof(Queryable.TakeLast) when node.Arguments[0].NodeType == ExpressionType.Call => IsGrouping((MethodCallExpression)node.Arguments[0]),
-                _ => node.IsGrouping(true),
-            };
         }
 
         private bool SkipLinqCall(MethodCallExpression node)
@@ -272,11 +248,11 @@ namespace Inkslab.Linq.Expressions
             if (_treatmentPreheating)
             {
                 if (_isGrouping
-                    ? name == nameof(Queryable.GroupBy)
-                    : node.Arguments.Count == (node.Method.IsStatic
-                        ? 2
-                        : 1)
-                    )
+                        ? name == nameof(Queryable.GroupBy)
+                        : node.Arguments.Count == (node.Method.IsStatic
+                            ? 2
+                            : 1)
+                   )
                 {
                     if (Preheat(node))
                     {
@@ -316,7 +292,7 @@ namespace Inkslab.Linq.Expressions
                 switch (name)
                 {
                     case nameof(Queryable.Distinct):
-                        throw new DSyntaxErrorException("使用去重函数需先指定查询字段，如：*.Select(x=>{column-pairt}).Distinct()。");
+                        throw new DSyntaxErrorException("使用去重函数需先指定查询字段，如：*.Select(x=>{column-part}).Distinct()。");
                     case nameof(Enumerable.Max):
                     case nameof(Enumerable.Min):
                     case nameof(Enumerable.Sum):
@@ -344,7 +320,9 @@ namespace Inkslab.Linq.Expressions
             }
         }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// Linq 方法引用。
+        /// </summary>
         protected virtual void LinqRef(MethodCallExpression node, ref bool allowSelect)
         {
             switch (node.Method.Name)
@@ -389,7 +367,8 @@ namespace Inkslab.Linq.Expressions
                         goto default;
                     }
 
-                    throw new DSyntaxErrorException("单个脚步仅支持指定一次查询，请将.Select(x=>{column-pairt})放在过滤、排序和分组等函数之后，如：*.OrderBy(x=>{column-pairt}).Select(x=>{column-pairt}).Skip({skipSize}).Take({TakeSize})！");
+                    throw new DSyntaxErrorException(
+                        "单个脚步仅支持指定一次查询，请将.Select(x=>{column-part})放在过滤、排序和分组等函数之后，如：*.OrderBy(x=>{column-part}).Select(x=>{column-part}).Skip({skipSize}).Take({TakeSize})！");
 
                 //? 跳过字段限制的函数。
                 case nameof(Queryable.Cast):
@@ -408,7 +387,7 @@ namespace Inkslab.Linq.Expressions
                         break;
                     }
 
-                    throw new DSyntaxErrorException("使用去重函数需先指定查询字段，如：*.Select(x=>{column-pairt}).Distinct()。");
+                    throw new DSyntaxErrorException("使用去重函数需先指定查询字段，如：*.Select(x=>{column-part}).Distinct()。");
                 case nameof(Queryable.DefaultIfEmpty):
                     if (this._allowSelect)
                     {
@@ -417,7 +396,7 @@ namespace Inkslab.Linq.Expressions
                         break;
                     }
 
-                    throw new DSyntaxErrorException("使用默认值函数需先指定查询字段，如：*.Select(x=>{column-pairt}).DefaultIfEmpty({default-value})。");
+                    throw new DSyntaxErrorException("使用默认值函数需先指定查询字段，如：*.Select(x=>{column-part}).DefaultIfEmpty({default-value})。");
                 default:
                     this._allowSelect = allowSelect = false;
                     break;
@@ -498,7 +477,10 @@ namespace Inkslab.Linq.Expressions
             }
         }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// 环路处理。
+        /// </summary>
+        /// <param name="node">节点</param>
         protected internal virtual void Circuity(MethodCallExpression node)
         {
             switch (node.Method.Name)
@@ -526,7 +508,10 @@ namespace Inkslab.Linq.Expressions
             }
         }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// 环路处理。
+        /// </summary>
+        /// <param name="node">节点</param>
         protected internal virtual void Circuity(Expression node)
         {
             if (node.NodeType == ExpressionType.Call)
@@ -568,6 +553,7 @@ namespace Inkslab.Linq.Expressions
 
                         Select(node.Arguments[1]); //? 解决 JOIN/GROUP 场景的表别名问题。
                     }
+
                     break;
                 case nameof(Queryable.Distinct):
 
@@ -666,27 +652,27 @@ namespace Inkslab.Linq.Expressions
                     break;
                 case nameof(Queryable.Join):
                 case nameof(Queryable.SelectMany):
+                {
+                    if (_buildSelect)
                     {
-                        if (_buildSelect)
+                        Writer.Keyword(SqlKeyword.SELECT);
+
+                        if (_isDistinct)
                         {
-                            Writer.Keyword(SqlKeyword.SELECT);
-
-                            if (_isDistinct)
-                            {
-                                Writer.Keyword(SqlKeyword.DISTINCT);
-                            }
+                            Writer.Keyword(SqlKeyword.DISTINCT);
                         }
-
-                        var visitor = new JoinVisitor(this, _joinRelationships, _buildSelect);
-
-                        _joinVisitors.Add(visitor);
-
-                        _buildSelect = false;
-
-                        visitor.Startup((Expression)node); //? 分析表信息。
-
-                        break;
                     }
+
+                    var visitor = new JoinVisitor(this, _joinRelationships, _buildSelect);
+
+                    _joinVisitors.Add(visitor);
+
+                    _buildSelect = false;
+
+                    visitor.Startup((Expression)node); //? 分析表信息。
+
+                    break;
+                }
                 case nameof(QueryableExtentions.DataSharding):
 
                     VisitMethodCall(node);
@@ -704,7 +690,9 @@ namespace Inkslab.Linq.Expressions
         /// 查询字段。
         /// </summary>
         /// <param name="node">节点。</param>
-        protected virtual void Select(Expression node) { }
+        protected virtual void Select(Expression node)
+        {
+        }
 
         /// <summary>
         /// 链路回流。
@@ -782,6 +770,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         #region 条件。
+
         /// <summary>
         /// 条件。
         /// </summary>
@@ -951,8 +940,8 @@ namespace Inkslab.Linq.Expressions
                     _whereSwitch.Execute();
                 }
             }
-
         }
+
         /// <summary>
         /// 条件依赖对象。
         /// </summary>
@@ -967,6 +956,7 @@ namespace Inkslab.Linq.Expressions
                 visitor.Startup(node);
             }
         }
+
         #endregion
 
         #region 参数。
@@ -994,7 +984,11 @@ namespace Inkslab.Linq.Expressions
             }
         }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// 参数预热。
+        /// </summary>
+        /// <param name="node">节点</param>
+        /// <returns>是否预热成功。</returns>
         protected virtual bool Preheat(MethodCallExpression node)
         {
             if (_preheatingParameter)
@@ -1037,7 +1031,8 @@ namespace Inkslab.Linq.Expressions
         {
             switch (node.Parameters.Count)
             {
-                case 1: // All/Any/Average/Count/First/FirstOrDefault/GroupBy/GroupJoin/Join/Last/LastOrDefault/LongCount/Max/Min/OrderBy/OrderByDescending/Select/SelectMany/Single/SingleOrDefault/SkipWhile/Sum/TakeWhile/ThenBy/ThenByDescending/Where
+                case 1
+                    : // All/Any/Average/Count/First/FirstOrDefault/GroupBy/GroupJoin/Join/Last/LastOrDefault/LongCount/Max/Min/OrderBy/OrderByDescending/Select/SelectMany/Single/SingleOrDefault/SkipWhile/Sum/TakeWhile/ThenBy/ThenByDescending/Where
                     if (!TryPreparingParameter(node.Parameters[0], out ParameterExpression parameter))
                     {
                         goto default;
@@ -1053,7 +1048,7 @@ namespace Inkslab.Linq.Expressions
                     }
 
                     break;
-                case 2:// GroupBy/GroupJoin/Join/SelectMany/SkipWhile/TakeWhile/Where
+                case 2: // GroupBy/GroupJoin/Join/SelectMany/SkipWhile/TakeWhile/Where
                     var parameterTwo = node.Parameters[1];
 
                     var parameterType = parameterTwo.Type;
@@ -1162,6 +1157,7 @@ namespace Inkslab.Linq.Expressions
                     {
                         return visitor.TryGetSourceParameter(node, out parameterExpression);
                     }
+
                     break;
                 case MemberExpression memberExpression:
 
@@ -1183,6 +1179,7 @@ namespace Inkslab.Linq.Expressions
                     {
                         return visitor.TryGetSourceParameter(node, out parameterExpression);
                     }
+
                     break;
             }
 
@@ -1210,6 +1207,7 @@ namespace Inkslab.Linq.Expressions
                 ? base.TryGetSourceTableInfo(node, out tableInfo)
                 : tableInfo.TypeIs(node.Type) || base.TryGetSourceTableInfo(node, out tableInfo);
         }
+
         #endregion
 
         /// <summary>
@@ -1224,6 +1222,7 @@ namespace Inkslab.Linq.Expressions
         }
 
         #region 嵌套类。
+
         /// <summary>
         /// 条件类型。
         /// </summary>
@@ -1233,14 +1232,17 @@ namespace Inkslab.Linq.Expressions
             /// ON
             /// </summary>
             On,
+
             /// <summary>
             /// WHERE
             /// </summary>
             Where,
+
             /// <summary>
             /// HAVING
             /// </summary>
             Having,
+
             /// <summary>
             /// AND
             /// </summary>
@@ -1286,8 +1288,6 @@ namespace Inkslab.Linq.Expressions
                         default:
                             throw new NotImplementedException();
                     }
-                    ;
-
                 }
                 else
                 {
@@ -1295,6 +1295,7 @@ namespace Inkslab.Linq.Expressions
                 }
             }
         }
+
         private class RelationshipVisitor : ExpressionVisitor
         {
             private readonly Dictionary<MemberInfo, ParameterExpression> _memberRelationships;
@@ -1318,6 +1319,11 @@ namespace Inkslab.Linq.Expressions
 
             protected override Expression VisitNew(NewExpression node)
             {
+                if (node.Members is null)
+                {
+                    return base.VisitNew(node);
+                }
+
                 for (var i = 0; i < node.Arguments.Count; i++)
                 {
                     var argument = node.Arguments[i];
@@ -1359,6 +1365,7 @@ namespace Inkslab.Linq.Expressions
                 base.LinqCore(node);
             }
         }
+
         #endregion
     }
 }

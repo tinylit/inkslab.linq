@@ -20,7 +20,7 @@ namespace Inkslab.Linq.Expressions
         {
             if (node is null)
             {
-                return node;
+                return null;
             }
 
             if (node.NodeType == ExpressionType.Parameter)

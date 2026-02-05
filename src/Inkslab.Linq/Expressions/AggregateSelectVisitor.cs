@@ -50,7 +50,7 @@ namespace Inkslab.Linq.Expressions
         {
             string memberName = node.Member.Name;
 
-            if (memberName == "Key" && node.Expression.Type.IsGrouping())
+            if (memberName == "Key" && node.Expression != null && node.Expression.Type.IsGrouping())
             {
                 bool commaFlag = false;
 
@@ -68,7 +68,7 @@ namespace Inkslab.Linq.Expressions
                     Visit(keyNode);
                 }
             }
-            else if (node.Expression.NodeType == ExpressionType.Parameter)
+            else if (node.Expression?.NodeType == ExpressionType.Parameter)
             {
                 if (_elementExpressions.TryGetValue(memberName, out Expression elementNode))
                 {
@@ -104,7 +104,7 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override void MemberLeavesIsObject(MemberExpression node)
         {
-            if (node.Member.Name == "Key" && node.Expression.Type.IsGrouping())
+            if (node.Member.Name == "Key" && node.Expression != null && node.Expression.Type.IsGrouping())
             {
                 bool commaFlag = false;
 
@@ -218,7 +218,7 @@ namespace Inkslab.Linq.Expressions
         }
         private class MemberEqualityComparer : IEqualityComparer<MemberInfo>
         {
-            public bool Equals(MemberInfo x, MemberInfo y) => string.Equals(x.Name, y.Name);
+            public bool Equals(MemberInfo x, MemberInfo y) => string.Equals(x!.Name, y!.Name);
 
             public int GetHashCode(MemberInfo obj) => obj.Name.GetHashCode();
 

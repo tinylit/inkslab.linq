@@ -12,15 +12,15 @@ namespace Inkslab.Linq
     /// </summary>
     public class QueryVisitor : SelectVisitor, IQueryVisitor
     {
-        private bool userDefined;
+        private bool _userDefined;
 
-        private string noElementError;
+        private string _noElementError;
 
-        private bool hasDefaultValue;
+        private bool _hasDefaultValue;
 
-        private object defaultValue;
+        private object _defaultValue;
 
-        private RowStyle rowStyle = RowStyle.FirstOrDefault;
+        private RowStyle _rowStyle = RowStyle.FirstOrDefault;
 
         /// <inheritdoc/>
         public QueryVisitor(DbStrictAdapter adapter) : base(adapter)
@@ -64,18 +64,18 @@ namespace Inkslab.Linq
                     break;
                 case nameof(Queryable.First):
                 case nameof(Queryable.Last):
-                    rowStyle = RowStyle.First;
+                    _rowStyle = RowStyle.First;
                     goto default;
                 case nameof(Queryable.FirstOrDefault):
                 case nameof(Queryable.LastOrDefault):
-                    rowStyle = RowStyle.FirstOrDefault;
+                    _rowStyle = RowStyle.FirstOrDefault;
                     goto default;
                 case nameof(Queryable.Single):
-                    rowStyle = RowStyle.Single;
+                    _rowStyle = RowStyle.Single;
                     goto default;
                 case nameof(Queryable.SingleOrDefault):
                 case nameof(Queryable.ElementAtOrDefault):
-                    rowStyle = RowStyle.SingleOrDefault;
+                    _rowStyle = RowStyle.SingleOrDefault;
                     goto default;
                 default:
 
@@ -90,9 +90,9 @@ namespace Inkslab.Linq
         {
             TElement elementValue = default;
 
-            if (hasDefaultValue)
+            if (_hasDefaultValue)
             {
-                if (defaultValue is TElement value)
+                if (_defaultValue is TElement value)
                 {
                     elementValue = value;
 
@@ -101,7 +101,7 @@ namespace Inkslab.Linq
 
                 var conversionType = typeof(TElement);
 
-                if (defaultValue is null)
+                if (_defaultValue is null)
                 {
                     if (conversionType.IsValueType && !conversionType.IsNullable())
                     {
@@ -115,28 +115,25 @@ namespace Inkslab.Linq
                 {
                     if (conversionType.IsNullable())
                     {
-                        elementValue = (TElement)Activator.CreateInstance(conversionType, Convert.ChangeType(defaultValue, Nullable.GetUnderlyingType(conversionType)));
+                        elementValue = (TElement)Activator.CreateInstance(conversionType, Convert.ChangeType(_defaultValue, Nullable.GetUnderlyingType(conversionType)!));
                     }
                     else
                     {
-                        elementValue = (TElement)Convert.ChangeType(defaultValue, conversionType);
+                        elementValue = (TElement)Convert.ChangeType(_defaultValue, conversionType);
                     }
-
-                    goto label_core;
                 }
                 catch (Exception e)
                 {
-                    throw new DSyntaxErrorException($"查询结果类型({conversionType})和指定的默认值类型({defaultValue.GetType()})无法进行默认转换!", e);
+                    throw new DSyntaxErrorException($"查询结果类型({conversionType})和指定的默认值类型({_defaultValue.GetType()})无法进行默认转换!", e);
                 }
-
-                throw new DSyntaxErrorException($"查询结果类型({conversionType})和指定的默认值类型({defaultValue.GetType()})无法进行默认转换!");
             }
 
-        label_core:
+            label_core:
+            {
+                var commandSql = ToSQL();
 
-            var commandSql = ToSQL();
-
-            return new CommandSql<TElement>(commandSql, rowStyle, hasDefaultValue, elementValue, userDefined, noElementError);
+                return new CommandSql<TElement>(commandSql, _rowStyle, _hasDefaultValue, elementValue, _userDefined, _noElementError);
+            }
         }
 
         /// <inheritdoc/>
@@ -148,33 +145,33 @@ namespace Inkslab.Linq
             {
                 case nameof(QueryableExtentions.NoElementError):
 
-                    if (rowStyle > 0 && (rowStyle & RowStyle.FirstOrDefault) == RowStyle.FirstOrDefault)
+                    if (_rowStyle > 0 && (_rowStyle & RowStyle.FirstOrDefault) == RowStyle.FirstOrDefault)
                     {
                         throw new NotSupportedException($"函数“{name}”仅在表达式链以“Min”、“Max”、“Average”、“Last”、“First”、“Single”或“ElementAt”结尾时，可用！");
                     }
 
-                    userDefined = true;
+                    _userDefined = true;
 
-                    noElementError = node.Arguments[1].GetValueFromExpression<string>() ?? throw new NotSupportedException($"函数“{name}”错误消息是字符串类型且不能为空！");
+                    _noElementError = node.Arguments[1].GetValueFromExpression<string>() ?? throw new NotSupportedException($"函数“{name}”错误消息是字符串类型且不能为空！");
 
                     visitor.Visit(node.Arguments[0]);
 
                     break;
                 case nameof(Queryable.DefaultIfEmpty):
 
-                    if (hasDefaultValue)
+                    if (_hasDefaultValue)
                     {
                         throw new NotSupportedException($"函数“{name}”仅在表达式链最多只能出现一次！");
                     }
 
-                    if (rowStyle is RowStyle.First or RowStyle.Single)
+                    if (_rowStyle is RowStyle.First or RowStyle.Single)
                     {
                         throw new NotSupportedException($"函数“{name}”仅在表达式链以“FirstOrDefault”、“LastOrDefault”、“SingleOrDefault”或“ElementAtOrDefault”结尾时，可用！");
                     }
 
-                    hasDefaultValue = true;
+                    _hasDefaultValue = true;
 
-                    defaultValue = node.Arguments[1].GetValueFromExpression();
+                    _defaultValue = node.Arguments[1].GetValueFromExpression();
 
                     visitor.Visit(node.Arguments[0]);
 

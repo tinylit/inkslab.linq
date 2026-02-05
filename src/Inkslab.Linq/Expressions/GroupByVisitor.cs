@@ -79,6 +79,11 @@ namespace Inkslab.Linq.Expressions
             /// <inheritdoc />
             protected override Expression VisitNew(NewExpression node)
             {
+                if (node.Members is null)
+                {
+                    return node;
+                }
+                
                 for (int i = 0; i < node.Members.Count; i++)
                 {
                     Member(node.Members[i], node.Arguments[i]);

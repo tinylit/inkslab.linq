@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data.Common;
+using System.Threading;
 using Inkslab.Linq;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -53,6 +54,11 @@ namespace Microsoft.Extensions.DependencyInjection
             return services.UseEngine<TDbAdapter>(engine, connectionString =>
             {
                 var connection = factory.CreateConnection();
+
+                if (connection is null)
+                {
+                    throw new AbandonedMutexException();
+                }
 
                 connection.ConnectionString = connectionString;
 

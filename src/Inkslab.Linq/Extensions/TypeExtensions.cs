@@ -11,9 +11,9 @@ namespace System
     /// </summary>
     internal static class TypeExtensions
     {
-        static readonly Type _queryable_T_Type = typeof(IQueryable<>);
-        static readonly Type _enumerable_T_Type = typeof(IEnumerable<>);
-        static readonly Type _grouping_T1_T2_Type = typeof(IGrouping<,>);
+        static readonly Type _queryableTType = typeof(IQueryable<>);
+        static readonly Type _enumerableTType = typeof(IEnumerable<>);
+        static readonly Type _groupingT1T2Type = typeof(IGrouping<,>);
 
         /// <summary>
         /// 是否为boolean类型或boolean可空类型。
@@ -58,8 +58,13 @@ namespace System
                     return true;
                 }
 
-            label_continue:
+                label_continue:
                 {
+                    if (type is null)
+                    {
+                        break;
+                    }
+                    
                     type = type.BaseType;
                 }
             }
@@ -71,7 +76,7 @@ namespace System
         {
             while (typeSelf != null && typeSelf != typeof(object))
             {
-                if (typeSelf.IsInterface && typeSelf.IsGenericType && typeSelf.GetGenericTypeDefinition() == _queryable_T_Type)
+                if (typeSelf.IsInterface && typeSelf.IsGenericType && typeSelf.GetGenericTypeDefinition() == _queryableTType)
                 {
                     type2Arguments = typeSelf.GetGenericArguments();
 
@@ -101,16 +106,17 @@ namespace System
         /// </summary>
         /// <param name="type">类型。</param>
         /// <returns></returns>
-        public static bool IsGrouping(this Type type) => type.IsInterface && type.IsGenericType && type.GetGenericTypeDefinition() == _grouping_T1_T2_Type;
+        public static bool IsGrouping(this Type type) => type.IsInterface && type.IsGenericType && type.GetGenericTypeDefinition() == _groupingT1T2Type;
 
         /// <summary>
         /// <see cref="IEnumerable{T}"/>
         /// </summary>
         /// <param name="type">类型。</param>
         /// <returns></returns>
-        public static bool IsEnumerable(this Type type) => type.IsInterface && type.IsGenericType && type.GetGenericTypeDefinition() == _enumerable_T_Type;
+        public static bool IsEnumerable(this Type type) => type.IsInterface && type.IsGenericType && type.GetGenericTypeDefinition() == _enumerableTType;
 
-        private static readonly Type[] _simpleTypes = {
+        private static readonly Type[] _simpleTypes =
+        {
             Types.String,
             Types.JsonPayload,
             Types.JsonbPayload

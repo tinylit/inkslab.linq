@@ -186,6 +186,7 @@ namespace Inkslab.Linq.Expressions
                     {
                         _tableInformation ??= TableAnalyzer.Table(queryable.ElementType);
                     }
+
                     break;
             }
         }
@@ -222,19 +223,19 @@ namespace Inkslab.Linq.Expressions
 
                     return IsPlainVariableNs(member.Expression);
                 case MethodCallExpression method
-                                    when method.Object is null || IsPlainVariableNs(method.Object):
+                    when method.Object is null || IsPlainVariableNs(method.Object):
                     return method.Arguments.Count == 0
-                        || method.Arguments.All(IsPlainVariableNs);
+                           || method.Arguments.All(IsPlainVariableNs);
                 case BinaryExpression binary:
                     return IsPlainVariableNs(binary.Left)
-                        && IsPlainVariableNs(binary.Right);
+                           && IsPlainVariableNs(binary.Right);
                 case LambdaExpression { Parameters: { Count: 0 } } lambda:
                     return IsPlainVariableNs(lambda.Body);
-                case NewExpression newExpression when newExpression.Members.Count == 0:
+                case NewExpression { Members: { Count: 0 } } newExpression:
                     return newExpression.Arguments.Count == 0
-                            || newExpression.Arguments.All(IsPlainVariableNs);
+                           || newExpression.Arguments.All(IsPlainVariableNs);
                 case MemberInitExpression memberInit
-                                    when IsPlainVariableNs(memberInit.NewExpression):
+                    when IsPlainVariableNs(memberInit.NewExpression):
                     foreach (var binding in memberInit.Bindings)
                     {
                         if (
@@ -247,12 +248,15 @@ namespace Inkslab.Linq.Expressions
 
                         return false;
                     }
+
                     return true;
                 case ConditionalExpression conditional
-                                    when IsPlainVariableNs(conditional.Test):
+                    when IsPlainVariableNs(conditional.Test):
                     return IsPlainVariableNs(conditional.IfTrue)
-                        && IsPlainVariableNs(conditional.IfFalse);
-                case UnaryExpression { NodeType: ExpressionType.Quote
+                           && IsPlainVariableNs(conditional.IfFalse);
+                case UnaryExpression
+                {
+                    NodeType: ExpressionType.Quote
                     or ExpressionType.Convert
                     or ExpressionType.ConvertChecked
                     or ExpressionType.OnesComplement
@@ -481,6 +485,7 @@ namespace Inkslab.Linq.Expressions
                     {
                         MethodCall(node);
                     }
+
                     break;
             }
 
@@ -526,7 +531,7 @@ namespace Inkslab.Linq.Expressions
             {
                 _tableInformation ??= TableAnalyzer.Table(queryable.ElementType); //? 兼容 LEFT JOIN 导致的函数分析问题。
             }
-            
+
             _dataShardingInvalid = false;
 
             Constant(node);
@@ -680,7 +685,7 @@ namespace Inkslab.Linq.Expressions
                     Visit(node.Expression);
                 }
             }
-            else if (node.Expression.Type == Types.DateTime)
+            else if (node.Expression?.Type == Types.DateTime)
             {
                 DateTimeMember(node);
             }
@@ -1683,6 +1688,7 @@ namespace Inkslab.Linq.Expressions
                     throw new NotSupportedException($"不支持“{name}”日期片段计算!");
             }
         }
+
         #endregion
 
         /// <inheritdoc/>
@@ -1803,7 +1809,7 @@ namespace Inkslab.Linq.Expressions
             {
                 Constant(node.GetValueFromExpression());
             }
-            else if (node.Arguments.Count == 1)
+            else if (node.Arguments.Count == 1 && node.Members?.Count == 1)
             {
                 Member(node.Members[0], node.Arguments[0]);
             }
@@ -1845,7 +1851,7 @@ namespace Inkslab.Linq.Expressions
                     "不支持基础类型的聚合属性，如：(x,y) => new { x.Id, y } 或 x => new { x } 语法。"
                 );
             }
-            else
+            else if (node.Members?.Count > 1)
             {
                 bool flag = false;
 
@@ -2617,8 +2623,8 @@ namespace Inkslab.Linq.Expressions
             }
 
             return _tableInformation
-                ?? _visitor?.Table()
-                ?? throw new DSyntaxErrorException("未能分析到表名称！");
+                   ?? _visitor?.Table()
+                   ?? throw new DSyntaxErrorException("未能分析到表名称！");
         }
 
         #endregion

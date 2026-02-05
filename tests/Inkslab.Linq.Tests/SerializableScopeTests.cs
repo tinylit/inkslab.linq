@@ -32,6 +32,7 @@ namespace Inkslab.Linq.Tests
         /// 验证：同一 SerializableScope 中，多次数据库操作使用同一连接
         /// </summary>
         [Fact]
+        [Step(1)]
         public async Task SerializableScope_ShouldReuseSameConnection_InScopeAsync()
         {
             // Arrange & Act
@@ -57,6 +58,7 @@ namespace Inkslab.Linq.Tests
         /// 验证：Scope 结束后，后续操作使用新的连接
         /// </summary>
         [Fact]
+        [Step(2)]
         public async Task SerializableScope_ShouldReleaseConnection_AfterDisposeAsync()
         {
             // Arrange & Act
@@ -77,6 +79,7 @@ namespace Inkslab.Linq.Tests
         /// 验证：内外层 Scope 共享同一连接实例
         /// </summary>
         [Fact]
+        [Step(3)]
         public async Task NestedSerializableScope_ShouldShareSameConnectionAsync()
         {
             // Arrange & Act
@@ -105,6 +108,7 @@ namespace Inkslab.Linq.Tests
         /// 验证：批量操作在同一连接中执行，性能更优
         /// </summary>
         [Fact]
+        [Step(4)]
         public async Task SerializableScope_ShouldHandleBatchOperationsAsync()
         {
             // Arrange
@@ -143,6 +147,7 @@ namespace Inkslab.Linq.Tests
         /// 验证：在序列化范围内，事务正常提交
         /// </summary>
         [Fact]
+        [Step(5)]
         public async Task SerializableScopeWithTransaction_ShouldCommitAsync()
         {
             // Arrange
@@ -178,6 +183,7 @@ namespace Inkslab.Linq.Tests
         /// 验证：在序列化范围内，事务正常回滚
         /// </summary>
         [Fact]
+        [Step(6)]
         public async Task SerializableScopeWithTransaction_ShouldRollbackAsync()
         {
             // Arrange
@@ -211,6 +217,7 @@ namespace Inkslab.Linq.Tests
         /// 验证：先建立序列化范围，再开启事务
         /// </summary>
         [Fact]
+        [Step(7)]
         public async Task SerializableScope_OuterWithTransaction_InnerAsync()
         {
             // Arrange
@@ -250,6 +257,7 @@ namespace Inkslab.Linq.Tests
         /// 验证：先开启事务，再建立序列化范围
         /// </summary>
         [Fact]
+        [Step(8)]
         public async Task Transaction_OuterWithSerializableScope_InnerAsync()
         {
             // Arrange
@@ -288,6 +296,7 @@ namespace Inkslab.Linq.Tests
         /// 验证：复杂嵌套场景下，连接和事务管理正确
         /// </summary>
         [Fact]
+        [Step(9)]
         public async Task NestedTransactionWithSerializableScopeAsync()
         {
             // Arrange
@@ -338,6 +347,7 @@ namespace Inkslab.Linq.Tests
         /// 验证：复杂嵌套场景下，连接和事务管理正确
         /// </summary>
         [Fact]
+        [Step(10)]
         public async Task NestedTransactionWithSerializableScope2Async()
         {
             // Arrange
@@ -391,6 +401,7 @@ namespace Inkslab.Linq.Tests
         /// 验证：新事务在序列化范围内独立执行
         /// </summary>
         [Fact]
+        [Step(11)]
         public async Task SerializableScope_WithRequiresNewTransactionAsync()
         {
             // Arrange
@@ -438,6 +449,7 @@ namespace Inkslab.Linq.Tests
         /// 验证：抑制事务后，操作在序列化范围内仍正常执行
         /// </summary>
         [Fact]
+        [Step(12)]
         public async Task SerializableScope_WithSuppressTransactionAsync()
         {
             // Arrange
@@ -489,6 +501,7 @@ namespace Inkslab.Linq.Tests
         /// 验证：多个异步任务在各自的 Scope 中独立运行
         /// </summary>
         [Fact]
+        [Step(13)]
         public async Task SerializableScope_ShouldBeThreadSafe_InConcurrentScenariosAsync()
         {
             // Arrange
@@ -524,15 +537,16 @@ namespace Inkslab.Linq.Tests
         /// 验证：复杂异步场景下连接管理正确
         /// </summary>
         [Fact]
+        [Step(14)]
         public async Task SerializableScope_ShouldHandleComplexAsyncOperationsAsync()
         {
             // Arrange & Act
             await using (var scope = new SerializableScope())
             {
                 // 并行执行多个查询
+                var task3 = _users.OrderByDescending(x => x.Id).Take(100).ToListAsync();
                 var task1 = _users.CountAsync();
                 var task2 = _users.Where(x => x.Id > 0).Take(10).OrderBy(x => x.Id).ToListAsync();
-                var task3 = _users.OrderByDescending(x => x.Id).FirstOrDefaultAsync();
 
                 // 串行范围中，不支持并行查询。
                 await Assert.ThrowsAsync<InvalidOperationException>(() => Task.WhenAll(task1, task2, task3));
@@ -548,6 +562,7 @@ namespace Inkslab.Linq.Tests
         /// 验证：空 Scope 不会导致异常
         /// </summary>
         [Fact]
+        [Step(15)]
         public async Task SerializableScope_WithNoOperations_ShouldNotThrowAsync()
         {
             // Act & Assert
@@ -566,6 +581,7 @@ namespace Inkslab.Linq.Tests
         /// 验证：异常不影响 Scope 的正确销毁
         /// </summary>
         [Fact]
+        [Step(16)]
         public async Task SerializableScope_ShouldDisposeCorrectly_OnExceptionAsync()
         {
             // Act & Assert
@@ -590,6 +606,7 @@ namespace Inkslab.Linq.Tests
         /// 验证：资源正确管理，无内存泄漏
         /// </summary>
         [Fact]
+        [Step(17)]
         public async Task SerializableScope_MultipleCreateAndDisposeAsync()
         {
             // Act
@@ -616,6 +633,7 @@ namespace Inkslab.Linq.Tests
         /// 验证：SerializableScope + Transaction 在复杂业务中的应用
         /// </summary>
         [Fact]
+        [Step(18)]
         public async Task RealWorldScenario_OrderCreation_WithSerializableScopeAndTransactionAsync()
         {
             // Arrange
@@ -663,6 +681,7 @@ namespace Inkslab.Linq.Tests
         /// 验证：SerializableScope + Transaction 在复杂业务中的应用
         /// </summary>
         [Fact]
+        [Step(19)]
         public async Task RealWorldScenario_OrderCreation_WithSerializableScopeAndTransactionMultiAsync()
         {
             // Arrange
@@ -738,6 +757,7 @@ namespace Inkslab.Linq.Tests
         /// 验证：SerializableScope 提升批量操作性能
         /// </summary>
         [Fact]
+        [Step(20)]
         public async Task RealWorldScenario_BatchProcessing_WithSerializableScopeAsync()
         {
             // Arrange

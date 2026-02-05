@@ -19,7 +19,6 @@ namespace Inkslab.Linq.Expressions
         private Transverter _transverter = Transverter.Empty;
 
         private readonly ScriptVisitor _visitor;
-        private readonly Dictionary<(Type, string), SelectVisitor> _joinRelationships;
         private readonly bool _buildSelect;
         private readonly TransverterVisitor _transverterVisitor;
 
@@ -32,9 +31,8 @@ namespace Inkslab.Linq.Expressions
             : base(visitor, ConditionType.On)
         {
             _visitor = visitor;
-            _joinRelationships = joinRelationships;
             _buildSelect = buildSelect;
-            _transverterVisitor = new TransverterVisitor(this, _visitor, _joinRelationships);
+            _transverterVisitor = new TransverterVisitor(this, _visitor, joinRelationships);
         }
 
         ///<inheritdoc/>
@@ -254,11 +252,6 @@ namespace Inkslab.Linq.Expressions
 
                 _hashSet.Add((relationshipType, relationshipName));
             }
-
-            /// <summary>
-            /// 未使用。
-            /// </summary>
-            public bool IsEmpty => _isEmpty;
 
             /// <summary>
             /// 中间桥梁。

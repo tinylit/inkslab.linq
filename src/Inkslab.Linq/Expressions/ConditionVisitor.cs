@@ -18,6 +18,7 @@ namespace Inkslab.Linq.Expressions
         /// 忽略可空类型。
         /// </summary>
         private bool _ignoreNull;
+
         private bool _isConditionBalance = true;
 
         private readonly bool _isGroupHaving;
@@ -257,7 +258,15 @@ namespace Inkslab.Linq.Expressions
             }
         }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// Visits the children of the <see cref="BinaryExpression"/>.
+        /// </summary>
+        /// <param name="left">左表达式</param>
+        /// <param name="expressionType">表达式类型</param>
+        /// <param name="right">右表达式</param>
+        /// <exception cref="ArgumentNullException">参数为空</exception>
+        /// <exception cref="DSyntaxErrorException">语法错误</exception>
+        /// <exception cref="NotSupportedException">不支持的操作</exception>
         protected virtual void BinaryCore(Expression left,
             ExpressionType expressionType,
             Expression right
@@ -277,57 +286,57 @@ namespace Inkslab.Linq.Expressions
             {
                 case ExpressionType.Equal
                     when right.NodeType == ExpressionType.Constant
-                        && (left.NodeType == ExpressionType.MemberAccess || left.NodeType == ExpressionType.Parameter)
-                        && !left.Type.IsCell():
+                         && (left.NodeType == ExpressionType.MemberAccess || left.NodeType == ExpressionType.Parameter)
+                         && !left.Type.IsCell():
                 case ExpressionType.NotEqual
                     when right.NodeType == ExpressionType.Constant
-                        && (left.NodeType == ExpressionType.MemberAccess || left.NodeType == ExpressionType.Parameter)
-                        && !left.Type.IsCell():
+                         && (left.NodeType == ExpressionType.MemberAccess || left.NodeType == ExpressionType.Parameter)
+                         && !left.Type.IsCell():
+                {
+                    var constant = (ConstantExpression)right;
+
+                    if (constant.Value is null)
                     {
-                        var constant = (ConstantExpression)right;
-
-                        if (constant.Value is null)
+                        if (
+                            JoinBranchElementIsNull(left, expressionType == ExpressionType.NotEqual)
+                        )
                         {
-                            if (
-                                JoinBranchElementIsNull(left, expressionType == ExpressionType.NotEqual)
-                            )
-                            {
-                                break;
-                            }
-
-                            throw new DSyntaxErrorException($"不支持参数类型“{left.Type}”与“null”的比较！");
+                            break;
                         }
 
-                        throw new DSyntaxErrorException($"不支持参数类型“{left.Type}”与非“null”常量值的比较！");
+                        throw new DSyntaxErrorException($"不支持参数类型“{left.Type}”与“null”的比较！");
                     }
+
+                    throw new DSyntaxErrorException($"不支持参数类型“{left.Type}”与非“null”常量值的比较！");
+                }
                 case ExpressionType.Equal
                     when left.NodeType == ExpressionType.Constant
-                        && (right.NodeType == ExpressionType.MemberAccess || right.NodeType == ExpressionType.Parameter)
-                        && !right.Type.IsCell():
+                         && (right.NodeType == ExpressionType.MemberAccess || right.NodeType == ExpressionType.Parameter)
+                         && !right.Type.IsCell():
                 case ExpressionType.NotEqual
                     when left.NodeType == ExpressionType.Constant
-                        && (right.NodeType == ExpressionType.MemberAccess || right.NodeType == ExpressionType.Parameter)
-                        && !right.Type.IsCell():
+                         && (right.NodeType == ExpressionType.MemberAccess || right.NodeType == ExpressionType.Parameter)
+                         && !right.Type.IsCell():
+                {
+                    var constant = (ConstantExpression)left;
+
+                    if (constant.Value is null)
                     {
-                        var constant = (ConstantExpression)left;
-
-                        if (constant.Value is null)
-                        {
-                            if (
-                                JoinBranchElementIsNull(
-                                    right,
-                                    expressionType == ExpressionType.NotEqual
-                                )
+                        if (
+                            JoinBranchElementIsNull(
+                                right,
+                                expressionType == ExpressionType.NotEqual
                             )
-                            {
-                                break;
-                            }
-
-                            throw new DSyntaxErrorException($"不支持参数类型“{right.Type}”与“null”的比较！");
+                        )
+                        {
+                            break;
                         }
 
-                        throw new DSyntaxErrorException($"不支持参数类型“{right.Type}”与非“null”常量值的比较！");
+                        throw new DSyntaxErrorException($"不支持参数类型“{right.Type}”与“null”的比较！");
                     }
+
+                    throw new DSyntaxErrorException($"不支持参数类型“{right.Type}”与非“null”常量值的比较！");
+                }
                 case ExpressionType.Equal when IsConvertToNull(left) ^ IsConvertToNull(right):
                 case ExpressionType.NotEqual when IsConvertToNull(left) ^ IsConvertToNull(right):
                 case ExpressionType.GreaterThan when IsConvertToNull(left) ^ IsConvertToNull(right):
@@ -371,14 +380,13 @@ namespace Inkslab.Linq.Expressions
                             Writer.Operator(expressionType.GetOperator());
                         }
                     }
+
                     break;
                 case ExpressionType.Equal:
                 case ExpressionType.NotEqual:
 
                     //? 重置对称条件。
-                    _isConditionBalance &= false;
-
-                    bool writeNull = false;
+                    _isConditionBalance = false;
 
                     using (var domain = Writer.Domain())
                     {
@@ -400,8 +408,6 @@ namespace Inkslab.Linq.Expressions
                             {
                                 break;
                             }
-
-                            writeNull = true;
                         }
                         else
                         {
@@ -421,22 +427,17 @@ namespace Inkslab.Linq.Expressions
 
                                 break;
                             }
-
-                            writeNull = true;
                         }
                     }
 
-                    if (writeNull)
+                    Writer.Keyword(SqlKeyword.IS);
+
+                    if (expressionType == ExpressionType.NotEqual)
                     {
-                        Writer.Keyword(SqlKeyword.IS);
-
-                        if (expressionType == ExpressionType.NotEqual)
-                        {
-                            Writer.Keyword(SqlKeyword.NOT);
-                        }
-
-                        Writer.Keyword(SqlKeyword.NULL);
+                        Writer.Keyword(SqlKeyword.NOT);
                     }
+
+                    Writer.Keyword(SqlKeyword.NULL);
 
                     break;
                 case ExpressionType.GreaterThan:
@@ -445,7 +446,7 @@ namespace Inkslab.Linq.Expressions
                 case ExpressionType.GreaterThanOrEqual:
 
                     //? 重置对称条件。
-                    _isConditionBalance &= false;
+                    _isConditionBalance = false;
 
                     Visit(left);
 
@@ -457,12 +458,11 @@ namespace Inkslab.Linq.Expressions
                 case ExpressionType.And:
                 case ExpressionType.Or:
                 case ExpressionType.ExclusiveOr:
-
-
+                    
                     //? 外存。
                     var conditionBalanceFlag = _isConditionBalance;
 
-                    _isConditionBalance &= false;
+                    _isConditionBalance = false;
 
                     using (var domain = Writer.Domain())
                     {
@@ -513,7 +513,7 @@ namespace Inkslab.Linq.Expressions
                 case ExpressionType.LeftShift:
                 case ExpressionType.RightShift:
 
-                    _isConditionBalance &= false;
+                    _isConditionBalance = false;
 
                     bool isStringConcat =
                         expressionType == ExpressionType.Add
@@ -575,7 +575,7 @@ namespace Inkslab.Linq.Expressions
                 case ExpressionType.Power:
 
                     //? 重置对称条件。
-                    _isConditionBalance &= false;
+                    _isConditionBalance = false;
 
                     using (var domain = Writer.Domain())
                     {
@@ -626,8 +626,8 @@ namespace Inkslab.Linq.Expressions
                         if (domain.IsEmpty)
                         {
                             if (Writer.IsConditionReversal
-                                ? expressionType == ExpressionType.OrElse
-                                : expressionType == ExpressionType.AndAlso)
+                                    ? expressionType == ExpressionType.OrElse
+                                    : expressionType == ExpressionType.AndAlso)
                             {
                                 Condition(right);
                             }
@@ -636,7 +636,6 @@ namespace Inkslab.Linq.Expressions
                         {
                             using (var domainSub = Writer.Domain())
                             {
-
                                 _isConditionBalance = RequiresConditionalEscape();
 
                                 Condition(right);
@@ -821,7 +820,6 @@ namespace Inkslab.Linq.Expressions
                     }
 
                     return !node.Type.IsNullable();
-
                 } while (node.NodeType is ExpressionType.Convert or ExpressionType.ConvertChecked or ExpressionType.TypeAs);
             }
 
@@ -915,9 +913,11 @@ namespace Inkslab.Linq.Expressions
 
             return true;
         }
+
         #endregion
 
         #region nested
+
         private class MyNewExpressionVisitor : ExpressionVisitor
         {
             private readonly Dictionary<MemberInfo, Expression> _keyValues;
@@ -949,6 +949,11 @@ namespace Inkslab.Linq.Expressions
             /// <inheritdoc />
             protected override Expression VisitNew(NewExpression node)
             {
+                if (node.Members is null || node.Members.Count == 0)
+                {
+                    return node;
+                }
+
                 for (int i = 0; i < node.Members.Count; i++)
                 {
                     _keyValues[node.Members[i]] = node.Arguments[i];
@@ -957,6 +962,7 @@ namespace Inkslab.Linq.Expressions
                 return node;
             }
         }
+
         #endregion
     }
 }

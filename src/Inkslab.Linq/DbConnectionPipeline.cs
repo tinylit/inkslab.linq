@@ -118,9 +118,9 @@ namespace Inkslab.Linq
 
             private static TransactionEntry PrivateGet(OwnerTransaction transaction, Serializable serializable, IConnection databaseStrings, IConnections connections)
             {
-                Dictionary<string, TransactionEntry> dictionary = _transactionConnections.GetOrAdd(transaction, transaction =>
+                Dictionary<string, TransactionEntry> dictionary = _transactionConnections.GetOrAdd(transaction, trans =>
                 {
-                    transaction.TransactionCompleted += OnTransactionCompleted;
+                    trans.TransactionCompleted += OnTransactionCompleted;
 
                     return new Dictionary<string, TransactionEntry>();
                 });

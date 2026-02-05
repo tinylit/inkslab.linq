@@ -226,6 +226,22 @@ public class UserService
             });
     }
 
+    
+    // 更新用户 - 条件更新
+    public async Task UpdateUserNullAsync(long userId, string name)
+    {
+        bool? nullable = true;
+        await _userRepository
+            .Timeout(500)
+            .Where(x => x.Id == userId)
+            .UpdateAsync(x => new User
+            {
+                Name = name,
+                CreatedAt = DateTime.Now,
+                IsActive = nullable ?? false
+            });
+    }
+
     // 批量插入
     public async Task<int> BatchInsertAsync(List<User> users)
     {

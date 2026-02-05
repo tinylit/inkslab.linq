@@ -4,9 +4,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
+using XunitPlus;
 
 namespace Inkslab.Linq.Tests
 {
+    [TestPriority(50)]
     public class TransactionTests
     {
         private readonly IDatabase _database;

@@ -637,20 +637,7 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected sealed override Expression VisitMember(MemberExpression node)
         {
-            if (IsPlainVariable(node.Expression, false))
-            {
-                var value = node.GetValueFromExpression();
-
-                if (value is IQueryable queryable)
-                {
-                    Visit(queryable.Expression);
-                }
-                else
-                {
-                    Constant(value);
-                }
-            }
-            else if (node.IsLength())
+            if (node.IsLength())
             {
                 switch (Engine)
                 {
@@ -685,6 +672,19 @@ namespace Inkslab.Linq.Expressions
                     Visit(node.Expression);
                 }
             }
+            else if (IsPlainVariable(node.Expression, false))
+            {
+                var value = node.GetValueFromExpression();
+
+                if (value is IQueryable queryable)
+                {
+                    Visit(queryable.Expression);
+                }
+                else
+                {
+                    Constant(value);
+                }
+            }
             else if (node.Expression?.Type == Types.DateTime)
             {
                 DateTimeMember(node);
@@ -697,19 +697,6 @@ namespace Inkslab.Linq.Expressions
             {
                 VisitParameter(parameterExpression);
             }
-            /*             else if (IsPlainVariable(node, true))
-                        {
-                            var constant = node.GetValueFromExpression();
-
-                            if (constant is IQueryable queryable)
-                            {
-                                Visit(queryable.Expression);
-                            }
-                            else
-                            {
-                                Variable(node.Member.Name.ToCamelCase(), constant);
-                            }
-                        } */
             else
             {
                 Member(node);

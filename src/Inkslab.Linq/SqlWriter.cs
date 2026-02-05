@@ -28,9 +28,6 @@ namespace Inkslab.Linq
             // 跟踪最后写入的字符是否为空格，用于 NOT 前置空格判断
             private bool _lastIsWhitespace = false;
 
-            // 跟踪是否刚刚写入 DELETE，用于 FROM 跳过前置空格
-            private bool _justWrittenWhiteDelete = false;
-
             public Writer(SqlWriter writer, int capacity)
             {
                 _sb = new StringBuilder(capacity);
@@ -57,7 +54,15 @@ namespace Inkslab.Linq
             /// <summary>
             /// 写入一个空格。
             /// </summary>
-            public void WhiteSpace() => Write(WHITESPACE);
+            public void WhiteSpace()
+            {
+                if (!_lastIsWhitespace)
+                {
+                    Write(WHITESPACE);
+
+                    _lastIsWhitespace = true;
+                }
+            }
 
             public void Keyword(SqlKeyword keyword)
             {
@@ -74,11 +79,7 @@ namespace Inkslab.Linq
 
                             if (!_ignoreNOT)
                             {
-                                // 检查最后写入的字符是否为空格，如果不是则添加前置空格
-                                if (!_lastIsWhitespace)
-                                {
-                                    WhiteSpace();
-                                }
+                                WhiteSpace();
                                 Write(keyword.ToString());
                                 WhiteSpace();
                             }
@@ -86,6 +87,9 @@ namespace Inkslab.Linq
                         break;
                     // 语句开头的关键字：只在后面加空格
                     case SqlKeyword.SELECT:
+                        Write(keyword.ToString());
+                        WhiteSpace();
+                        break;
                     case SqlKeyword.DISTINCT:
                     case SqlKeyword.UPDATE:
                     case SqlKeyword.INSERT:
@@ -101,7 +105,6 @@ namespace Inkslab.Linq
                     case SqlKeyword.DELETE:
                         Write(keyword.ToString());
                         WhiteSpace();
-                        _justWrittenWhiteDelete = true;
                         break;
 
                     // WHEN：如果前面是 CASE，不加前置空格
@@ -119,10 +122,7 @@ namespace Inkslab.Linq
 
                     // FROM：前后都加空格，但如果前面是 DELETE 则跳过前置空格
                     case SqlKeyword.FROM:
-                        if (!_justWrittenWhiteDelete)
-                        {
-                            WhiteSpace();
-                        }
+                        WhiteSpace();
                         Write(keyword.ToString());
                         WhiteSpace();
                         break;
@@ -155,7 +155,6 @@ namespace Inkslab.Linq
                         break;
 
                     // 这些关键字只在前面加空格
-                    case SqlKeyword.EXISTS:
                     case SqlKeyword.CROSS:
                     case SqlKeyword.INNER:
                     case SqlKeyword.LEFT:
@@ -171,7 +170,9 @@ namespace Inkslab.Linq
                         WhiteSpace();
                         Write(keyword.ToString());
                         break;
-
+                    case SqlKeyword.EXISTS:
+                        Write(keyword.ToString());
+                        break;
                     default:
                         throw new NotImplementedException($"未处理的关键字: {keyword}");
                 }
@@ -184,15 +185,8 @@ namespace Inkslab.Linq
                     _writtenNOT = true;
 
                     _writer.Keyword(SqlKeyword.NOT);
-
-                    // NOT 写入后已包含后置空格，如果触发它的是空格则跳过避免双空格
-                    if (value == WHITESPACE)
-                    {
-                        return;
-                    }
                 }
-
-                if (_cursorPosition > -1)
+                else if (_cursorPosition > -1)
                 {
                     _sb.Insert(_cursorPosition, value);
 
@@ -202,14 +196,10 @@ namespace Inkslab.Linq
                 {
                     _sb.Append(value);
                 }
-
-                _lastIsWhitespace = value == WHITESPACE;
             }
 
             public void Write(string value)
             {
-                _justWrittenWhiteDelete = false;
-
                 if (_ignoreNOT)
                 {
                     _writtenNOT = true;
@@ -233,8 +223,6 @@ namespace Inkslab.Linq
 
             public void Insert(int index, string value)
             {
-                _justWrittenWhiteDelete = false;
-
                 int offset = 0;
 
                 if (_ignoreNOT)
@@ -254,6 +242,11 @@ namespace Inkslab.Linq
                 {
                     _cursorPosition += value.Length; //? 插入位置在光标前面，光标后移，NOT 已在 Write 方法中添加，不能重复添加。
                 }
+            }
+
+            private void Flyback(int cursorPosition, int length)
+            {
+                CursorPosition = cursorPosition > -1 ? cursorPosition : length;
             }
 
             public ISqlDomain Domain() => new SqlDomain(this, _sb, _sb.Length, _cursorPosition);
@@ -310,7 +303,7 @@ namespace Inkslab.Linq
                 }
 
                 public void Flyback() =>
-                    _writer.CursorPosition = _cursorPosition > -1 ? _cursorPosition : _length;
+                    _writer.Flyback(_cursorPosition, _length);
 
                 public override string ToString() =>
                     _sb.ToString(_cursorPosition > -1 ? _cursorPosition : _length, Length);
@@ -819,7 +812,6 @@ namespace Inkslab.Linq
         /// </summary>
         public virtual void False()
         {
-
             Variable("__const_false", false);
         }
 

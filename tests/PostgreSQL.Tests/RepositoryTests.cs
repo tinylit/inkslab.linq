@@ -3,13 +3,14 @@ using System.Linq;
 using System.Threading.Tasks;
 using Inkslab.Linq;
 using Xunit;
+using XunitPlus;
 
 namespace PostgreSQL.Tests
 {
-
     /// <summary>
     /// 查询测试。
     /// </summary>
+    [TestPriority(60)]
     public class RepositoryTests
     {
         private readonly IRepository<UserContentsOfJsonbPayload> _repositoryOfJsonbPayload;

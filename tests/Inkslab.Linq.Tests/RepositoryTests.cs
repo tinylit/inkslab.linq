@@ -85,6 +85,7 @@ namespace Inkslab.Linq.Tests
         }
 
         private readonly IRepository<User> _userRpo;
+        private readonly IRepository<UserEx> _userExRpo;
         private readonly IRepository<UserSharding> _userShardingRpo;
         private readonly IQueryable<User> _users;
         private readonly IQueryable<UserEx> _userExes;
@@ -95,14 +96,15 @@ namespace Inkslab.Linq.Tests
             IRepository<UserSharding> userShardingRpo,
             IQueryable<User> users,
             IQueryable<UserEx> userExes,
-            IRepository<ChannelConfig> channelConfigRpo
-        )
+            IRepository<ChannelConfig> channelConfigRpo,
+            IRepository<UserEx> userExRpo)
         {
             _userRpo = userRpo;
             _userShardingRpo = userShardingRpo;
             _users = users;
             _userExes = userExes;
             _channelConfigRpo = channelConfigRpo;
+            _userExRpo = userExRpo;
         }
 
         /// <summary>
@@ -180,6 +182,46 @@ namespace Inkslab.Linq.Tests
                 .Timeout(500)
                 .Where(x => _userExes.Where(y => y.RoleType == 2).Any(y => x.Id == y.Id))
                 .Update(x => new User { DateAt = DateTime.Now, Nullable = nullable ?? false });
+        }
+
+        /// <summary>
+        /// 条件更新。
+        /// </summary>
+        /// <remarks>
+        /// 生成SQL预览:
+        /// <code>
+        /// UPDATE `user` AS `x` SET `x`.date = NOW(), `x`.nullable = IFNULL(1, 0) WHERE EXISTS(SELECT `id`, `role`, `age`, `date` FROM `user_ex` AS `y` WHERE `y`.`role` = 2 AND `x`.`id` = `y`.`id`)
+        /// </code>
+        /// </remarks>
+        [Fact]
+        public void UpdateNullLinq()
+        {
+            bool? nullable = null;
+
+            _userRpo
+                .Timeout(500)
+                .Where(x => _userExes.Where(y => y.RoleType == 2).Any(y => x.Id == y.Id))
+                .Update(x => new User { DateAt = DateTime.Now, Nullable = nullable ?? false });
+        }
+
+        /// <summary>
+        /// 条件更新。
+        /// </summary>
+        /// <remarks>
+        /// 生成SQL预览:
+        /// <code>
+        /// UPDATE `user` AS `x` SET `x`.date = NOW(), `x`.nullable = IFNULL(1, 0) WHERE EXISTS(SELECT `id`, `role`, `age`, `date` FROM `user_ex` AS `y` WHERE `y`.`role` = 2 AND `x`.`id` = `y`.`id`)
+        /// </code>
+        /// </remarks>
+        [Fact]
+        public void UpdateAddNullLinq()
+        {
+            int? roleType = null;
+
+            _userExRpo
+                .Timeout(500)
+                .Where(x => x.RoleType == 2)
+                .Update(x => new UserEx { DateAt = DateTime.Now, RoleType = x.RoleType + (roleType ?? 0), Age = 18 });
         }
 
         /// <summary>

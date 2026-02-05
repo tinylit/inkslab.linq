@@ -11,7 +11,7 @@ namespace Inkslab.Linq.Tests
     /// 元素访问方法单元测试
     /// 核心功能：测试 ElementAt、Last、Single 等查询入口方法
     /// </summary>
-    [TestPriority(3)]
+    [TestPriority(30)]
     public class ElementAccessTests
     {
         private readonly IQueryable<User> _users;
@@ -290,6 +290,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             var orderedQuery = _users.OrderBy(x => x.Id);
+
             var allUsers = await orderedQuery.ToListAsync();
 
             if (allUsers.Count == 0)
@@ -1049,6 +1050,929 @@ namespace Inkslab.Linq.Tests
             // Act & Assert
             Assert.ThrowsAny<Exception>(() => _users.Single(x => x.Id < -99999));
         }
+
+        #endregion
+
+        #region DefaultIfEmpty 测试
+
+        /// <summary>
+        /// 测试：DefaultIfEmpty(指定默认值) + FirstOrDefault 有数据时返回第一条
+        /// 注意：DefaultIfEmpty 仅支持 FirstOrDefault、LastOrDefault、SingleOrDefault、ElementAtOrDefault 结尾
+        /// </summary>
+        [Fact]
+        [Step(47)]
+        public void DefaultIfEmpty_FirstOrDefault_WithData_ReturnsFirstElement()
+        {
+            // Arrange
+            var defaultUser = new User { Id = -1, Name = "Default", DateAt = DateTime.Now };
+            var query = _users.OrderBy(x => x.Id);
+            var allUsers = query.ToList();
+
+            if (allUsers.Count == 0)
+            {
+                return;
+            }
+
+            // Act
+            var result = query.DefaultIfEmpty(defaultUser).FirstOrDefault();
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(allUsers[0].Id, result.Id);
+        }
+
+        /// <summary>
+        /// 测试：DefaultIfEmpty(指定默认值) + FirstOrDefault 无数据时返回指定默认值
+        /// </summary>
+        [Fact]
+        [Step(48)]
+        public void DefaultIfEmpty_FirstOrDefault_NoData_ReturnsSpecifiedDefault()
+        {
+            // Arrange
+            var defaultUser = new User { Id = -1, Name = "DefaultUser", DateAt = DateTime.Now };
+            var query = _users.Where(x => x.Id < -99999).OrderBy(x => x.Id);
+
+            // Act
+            var result = query.DefaultIfEmpty(defaultUser).FirstOrDefault();
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(-1, result.Id);
+            Assert.Equal("DefaultUser", result.Name);
+        }
+
+        /// <summary>
+        /// 测试：DefaultIfEmpty(指定默认值) + LastOrDefault 有数据时返回最后一条
+        /// </summary>
+        [Fact]
+        [Step(49)]
+        public void DefaultIfEmpty_LastOrDefault_WithData_ReturnsLastElement()
+        {
+            // Arrange
+            var defaultUser = new User { Id = -2, Name = "Default", DateAt = DateTime.Now };
+            var query = _users.OrderBy(x => x.Id);
+            var allUsers = query.ToList();
+
+            if (allUsers.Count == 0)
+            {
+                return;
+            }
+
+            // Act
+            var result = query.DefaultIfEmpty(defaultUser).LastOrDefault();
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(allUsers.Last().Id, result.Id);
+        }
+
+        /// <summary>
+        /// 测试：DefaultIfEmpty(指定默认值) + LastOrDefault 无数据时返回指定默认值
+        /// </summary>
+        [Fact]
+        [Step(50)]
+        public void DefaultIfEmpty_LastOrDefault_NoData_ReturnsSpecifiedDefault()
+        {
+            // Arrange
+            var defaultUser = new User { Id = -2, Name = "LastDefault", DateAt = DateTime.Now };
+            var query = _users.Where(x => x.Id < -99999).OrderBy(x => x.Id);
+
+            // Act
+            var result = query.DefaultIfEmpty(defaultUser).LastOrDefault();
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(-2, result.Id);
+            Assert.Equal("LastDefault", result.Name);
+        }
+
+        /// <summary>
+        /// 测试：DefaultIfEmpty(指定默认值) + ElementAtOrDefault 有数据时返回指定索引元素
+        /// </summary>
+        [Fact]
+        [Step(51)]
+        public void DefaultIfEmpty_ElementAtOrDefault_WithData_ReturnsElementAtIndex()
+        {
+            // Arrange
+            var defaultUser = new User { Id = -3, Name = "Default", DateAt = DateTime.Now };
+            var query = _users.OrderBy(x => x.Id);
+            var allUsers = query.ToList();
+
+            if (allUsers.Count == 0)
+            {
+                return;
+            }
+
+            // Act
+            var result = query.DefaultIfEmpty(defaultUser).ElementAtOrDefault(0);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(allUsers[0].Id, result.Id);
+        }
+
+        /// <summary>
+        /// 测试：DefaultIfEmpty(指定默认值) + ElementAtOrDefault 无数据时返回指定默认值
+        /// </summary>
+        [Fact]
+        [Step(52)]
+        public void DefaultIfEmpty_ElementAtOrDefault_NoData_ReturnsSpecifiedDefault()
+        {
+            // Arrange
+            var defaultUser = new User { Id = -3, Name = "ElementAtDefault", DateAt = DateTime.Now };
+            var query = _users.Where(x => x.Id < -99999).OrderBy(x => x.Id);
+
+            // Act
+            var result = query.DefaultIfEmpty(defaultUser).ElementAtOrDefault(0);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(-3, result.Id);
+            Assert.Equal("ElementAtDefault", result.Name);
+        }
+
+        /// <summary>
+        /// 测试：DefaultIfEmpty(指定默认值) + SingleOrDefault 有唯一数据时返回该元素
+        /// </summary>
+        [Fact]
+        [Step(53)]
+        public void DefaultIfEmpty_SingleOrDefault_WithSingleData_ReturnsSingleElement()
+        {
+            // Arrange
+            var defaultUser = new User { Id = -4, Name = "Default", DateAt = DateTime.Now };
+            var allUsers = _users.OrderBy(x => x.Id).ToList();
+
+            if (allUsers.Count == 0)
+            {
+                return;
+            }
+
+            var targetId = allUsers[0].Id;
+            var query = _users.Where(x => x.Id == targetId);
+
+            // Act
+            var result = query.DefaultIfEmpty(defaultUser).SingleOrDefault();
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(targetId, result.Id);
+        }
+
+        /// <summary>
+        /// 测试：DefaultIfEmpty(指定默认值) + SingleOrDefault 无数据时返回指定默认值
+        /// </summary>
+        [Fact]
+        [Step(54)]
+        public void DefaultIfEmpty_SingleOrDefault_NoData_ReturnsSpecifiedDefault()
+        {
+            // Arrange
+            var defaultUser = new User { Id = -4, Name = "SingleDefault", DateAt = DateTime.Now };
+            var query = _users.Where(x => x.Id < -99999);
+
+            // Act
+            var result = query.DefaultIfEmpty(defaultUser).SingleOrDefault();
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(-4, result.Id);
+            Assert.Equal("SingleDefault", result.Name);
+        }
+
+        #region DefaultIfEmpty 异步测试
+
+        /// <summary>
+        /// 测试：DefaultIfEmpty(指定默认值) + FirstOrDefaultAsync 有数据时返回第一条
+        /// </summary>
+        [Fact]
+        [Step(55)]
+        public async Task DefaultIfEmpty_FirstOrDefaultAsync_WithData_ReturnsFirstElementAsync()
+        {
+            // Arrange
+            var defaultUser = new User { Id = -1, Name = "Default", DateAt = DateTime.Now };
+            var query = _users.OrderBy(x => x.Id);
+            var allUsers = await query.ToListAsync();
+
+            if (allUsers.Count == 0)
+            {
+                return;
+            }
+
+            // Act
+            var result = await query.DefaultIfEmpty(defaultUser).FirstOrDefaultAsync();
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(allUsers[0].Id, result.Id);
+        }
+
+        /// <summary>
+        /// 测试：DefaultIfEmpty(指定默认值) + FirstOrDefaultAsync 无数据时返回指定默认值
+        /// </summary>
+        [Fact]
+        [Step(56)]
+        public async Task DefaultIfEmpty_FirstOrDefaultAsync_NoData_ReturnsSpecifiedDefaultAsync()
+        {
+            // Arrange
+            var defaultUser = new User { Id = -1, Name = "AsyncDefault", DateAt = DateTime.Now };
+            var query = _users.Where(x => x.Id < -99999).OrderBy(x => x.Id);
+
+            // Act
+            var result = await query.DefaultIfEmpty(defaultUser).FirstOrDefaultAsync();
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(-1, result.Id);
+            Assert.Equal("AsyncDefault", result.Name);
+        }
+
+        /// <summary>
+        /// 测试：DefaultIfEmpty(指定默认值) + LastOrDefaultAsync 有数据时返回最后一条
+        /// </summary>
+        [Fact]
+        [Step(57)]
+        public async Task DefaultIfEmpty_LastOrDefaultAsync_WithData_ReturnsLastElementAsync()
+        {
+            // Arrange
+            var defaultUser = new User { Id = -2, Name = "Default", DateAt = DateTime.Now };
+            var query = _users.OrderBy(x => x.Id);
+            var allUsers = await query.ToListAsync();
+
+            if (allUsers.Count == 0)
+            {
+                return;
+            }
+
+            // Act
+            var result = await query.DefaultIfEmpty(defaultUser).LastOrDefaultAsync();
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(allUsers.Last().Id, result.Id);
+        }
+
+        /// <summary>
+        /// 测试：DefaultIfEmpty(指定默认值) + LastOrDefaultAsync 无数据时返回指定默认值
+        /// </summary>
+        [Fact]
+        [Step(58)]
+        public async Task DefaultIfEmpty_LastOrDefaultAsync_NoData_ReturnsSpecifiedDefaultAsync()
+        {
+            // Arrange
+            var defaultUser = new User { Id = -2, Name = "LastAsyncDefault", DateAt = DateTime.Now };
+            var query = _users.Where(x => x.Id < -99999).OrderBy(x => x.Id);
+
+            // Act
+            var result = await query.DefaultIfEmpty(defaultUser).LastOrDefaultAsync();
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(-2, result.Id);
+            Assert.Equal("LastAsyncDefault", result.Name);
+        }
+
+        /// <summary>
+        /// 测试：DefaultIfEmpty(指定默认值) + SingleOrDefaultAsync 有数据时返回该元素
+        /// </summary>
+        [Fact]
+        [Step(59)]
+        public async Task DefaultIfEmpty_SingleOrDefaultAsync_WithData_ReturnsSingleElementAsync()
+        {
+            // Arrange
+            var defaultUser = new User { Id = -4, Name = "Default", DateAt = DateTime.Now };
+            var allUsers = await _users.OrderBy(x => x.Id).ToListAsync();
+
+            if (allUsers.Count == 0)
+            {
+                return;
+            }
+
+            var targetId = allUsers[0].Id;
+            var query = _users.Where(x => x.Id == targetId);
+
+            // Act
+            var result = await query.DefaultIfEmpty(defaultUser).SingleOrDefaultAsync();
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(targetId, result.Id);
+        }
+
+        /// <summary>
+        /// 测试：DefaultIfEmpty(指定默认值) + SingleOrDefaultAsync 无数据时返回指定默认值
+        /// </summary>
+        [Fact]
+        [Step(60)]
+        public async Task DefaultIfEmpty_SingleOrDefaultAsync_NoData_ReturnsSpecifiedDefaultAsync()
+        {
+            // Arrange
+            var defaultUser = new User { Id = -4, Name = "SingleAsyncDefault", DateAt = DateTime.Now };
+            var query = _users.Where(x => x.Id < -99999);
+
+            // Act
+            var result = await query.DefaultIfEmpty(defaultUser).SingleOrDefaultAsync();
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(-4, result.Id);
+            Assert.Equal("SingleAsyncDefault", result.Name);
+        }
+
+        #endregion
+
+        #region DefaultIfEmpty 与 Where/OrderBy 组合测试
+
+        /// <summary>
+        /// 测试：DefaultIfEmpty(指定默认值) + Where + FirstOrDefault 组合
+        /// </summary>
+        [Fact]
+        [Step(61)]
+        public void DefaultIfEmpty_WithWhere_FirstOrDefault_ReturnsMatchingOrDefault()
+        {
+            // Arrange
+            var defaultUser = new User { Id = -5, Name = "WhereDefault", DateAt = DateTime.Now };
+            var allUsers = _users.OrderBy(x => x.Id).ToList();
+
+            if (allUsers.Count == 0)
+            {
+                return;
+            }
+
+            var targetId = allUsers[0].Id;
+
+            // Act - 必须使用 OrderBy
+            var result = _users.Where(x => x.Id == targetId).OrderBy(x => x.Id).DefaultIfEmpty(defaultUser).FirstOrDefault();
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(targetId, result.Id);
+        }
+
+        /// <summary>
+        /// 测试：DefaultIfEmpty(指定默认值) + OrderByDescending + LastOrDefault 组合
+        /// </summary>
+        [Fact]
+        [Step(62)]
+        public void DefaultIfEmpty_WithOrderByDescending_LastOrDefault_ReturnsLastOrDefault()
+        {
+            // Arrange
+            var defaultUser = new User { Id = -6, Name = "OrderDefault", DateAt = DateTime.Now };
+            var query = _users.OrderByDescending(x => x.Id);
+            var allUsers = query.ToList();
+
+            if (allUsers.Count == 0)
+            {
+                return;
+            }
+
+            // Act
+            var result = query.DefaultIfEmpty(defaultUser).LastOrDefault();
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(allUsers.Last().Id, result.Id);
+        }
+
+        /// <summary>
+        /// 测试：DefaultIfEmpty(指定默认值) + 复杂条件无匹配时返回默认值
+        /// </summary>
+        [Fact]
+        [Step(63)]
+        public async Task DefaultIfEmpty_ComplexCondition_NoMatch_ReturnsSpecifiedDefaultAsync()
+        {
+            // Arrange
+            var defaultUser = new User { Id = -7, Name = "ComplexDefault", DateAt = DateTime.Now };
+            var query = _users
+                .Where(x => x.Id < -99999 && x.Name == "NonExistent")
+                .OrderBy(x => x.Id);
+
+            // Act
+            var result = await query.DefaultIfEmpty(defaultUser).FirstOrDefaultAsync();
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(-7, result.Id);
+            Assert.Equal("ComplexDefault", result.Name);
+        }
+
+        /// <summary>
+        /// 测试：DefaultIfEmpty(指定默认值) + ElementAtOrDefault 中间索引有数据
+        /// </summary>
+        [Fact]
+        [Step(64)]
+        public void DefaultIfEmpty_ElementAtOrDefault_MiddleIndex_ReturnsElement()
+        {
+            // Arrange
+            var defaultUser = new User { Id = -8, Name = "MiddleDefault", DateAt = DateTime.Now };
+            var query = _users.OrderBy(x => x.Id);
+            var allUsers = query.ToList();
+
+            if (allUsers.Count < 3)
+            {
+                return;
+            }
+
+            // Act
+            var result = query.DefaultIfEmpty(defaultUser).ElementAtOrDefault(2);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(allUsers[2].Id, result.Id);
+        }
+
+        /// <summary>
+        /// 测试：DefaultIfEmpty(null 默认值) + FirstOrDefault 无数据时返回 null
+        /// </summary>
+        [Fact]
+        [Step(65)]
+        public void DefaultIfEmpty_NullDefault_FirstOrDefault_NoData_ReturnsNull()
+        {
+            // Arrange
+            var query = _users.Where(x => x.Id < -99999).OrderBy(x => x.Id);
+
+            // Act
+            var result = query.DefaultIfEmpty(null).FirstOrDefault();
+
+            // Assert
+            Assert.Null(result);
+        }
+
+        /// <summary>
+        /// 测试：DefaultIfEmpty(null 默认值) + LastOrDefault 无数据时返回 null
+        /// </summary>
+        [Fact]
+        [Step(66)]
+        public void DefaultIfEmpty_NullDefault_LastOrDefault_NoData_ReturnsNull()
+        {
+            // Arrange
+            var query = _users.Where(x => x.Id < -99999).OrderBy(x => x.Id);
+
+            // Act
+            var result = query.DefaultIfEmpty(null).LastOrDefault();
+
+            // Assert
+            Assert.Null(result);
+        }
+
+        /// <summary>
+        /// 测试：DefaultIfEmpty(null 默认值) + SingleOrDefault 无数据时返回 null
+        /// </summary>
+        [Fact]
+        [Step(67)]
+        public void DefaultIfEmpty_NullDefault_SingleOrDefault_NoData_ReturnsNull()
+        {
+            // Arrange
+            var query = _users.Where(x => x.Id < -99999);
+
+            // Act
+            var result = query.DefaultIfEmpty(null).SingleOrDefault();
+
+            // Assert
+            Assert.Null(result);
+        }
+
+        /// <summary>
+        /// 测试：DefaultIfEmpty(null 默认值) + ElementAtOrDefault 无数据时返回 null
+        /// </summary>
+        [Fact]
+        [Step(68)]
+        public void DefaultIfEmpty_NullDefault_ElementAtOrDefault_NoData_ReturnsNull()
+        {
+            // Arrange
+            var query = _users.Where(x => x.Id < -99999).OrderBy(x => x.Id);
+
+            // Act
+            var result = query.DefaultIfEmpty(null).ElementAtOrDefault(0);
+
+            // Assert
+            Assert.Null(result);
+        }
+
+        #endregion
+
+        #endregion
+
+        #region NoElementError 测试
+
+        /// <summary>
+        /// 测试：NoElementError + First 有数据时正常返回
+        /// </summary>
+        [Fact]
+        [Step(69)]
+        public void NoElementError_First_WithData_ReturnsElement()
+        {
+            // Arrange
+            var query = _users.OrderBy(x => x.Id);
+            var allUsers = query.ToList();
+
+            if (allUsers.Count == 0)
+            {
+                return;
+            }
+
+            // Act
+            var result = query.NoElementError("自定义错误消息").First();
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(allUsers[0].Id, result.Id);
+        }
+
+        /// <summary>
+        /// 测试：NoElementError + First 无数据时抛出指定错误消息的异常
+        /// </summary>
+        [Fact]
+        [Step(70)]
+        public void NoElementError_First_NoData_ThrowsNoElementException()
+        {
+            // Arrange
+            var errorMessage = "未找到符合条件的用户数据";
+            var query = _users.Where(x => x.Id < -99999).OrderBy(x => x.Id).NoElementError(errorMessage);
+
+            // Act & Assert
+            var exception = Assert.Throws<NoElementException>(() => query.First());
+            Assert.Equal(errorMessage, exception.Message);
+        }
+
+        /// <summary>
+        /// 测试：NoElementError + First(predicate) 无数据时抛出指定错误消息的异常
+        /// </summary>
+        [Fact]
+        [Step(71)]
+        public void NoElementError_FirstWithPredicate_NoData_ThrowsNoElementException()
+        {
+            // Arrange
+            var errorMessage = "条件查询未找到数据";
+            var query = _users.OrderBy(x => x.Id).NoElementError(errorMessage);
+
+            // Act & Assert
+            var exception = Assert.Throws<NoElementException>(() => query.First(x => x.Id < -99999));
+            Assert.Equal(errorMessage, exception.Message);
+        }
+
+        /// <summary>
+        /// 测试：NoElementError + Last 有数据时正常返回
+        /// </summary>
+        [Fact]
+        [Step(72)]
+        public void NoElementError_Last_WithData_ReturnsElement()
+        {
+            // Arrange
+            var query = _users.OrderBy(x => x.Id);
+            var allUsers = query.ToList();
+
+            if (allUsers.Count == 0)
+            {
+                return;
+            }
+
+            // Act
+            var result = query.NoElementError("自定义错误消息").Last();
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(allUsers.Last().Id, result.Id);
+        }
+
+        /// <summary>
+        /// 测试：NoElementError + Last 无数据时抛出指定错误消息的异常
+        /// </summary>
+        [Fact]
+        [Step(73)]
+        public void NoElementError_Last_NoData_ThrowsNoElementException()
+        {
+            // Arrange
+            var errorMessage = "未找到最后一条用户数据";
+            var query = _users.Where(x => x.Id < -99999).OrderBy(x => x.Id).NoElementError(errorMessage);
+
+            // Act & Assert
+            var exception = Assert.Throws<NoElementException>(() => query.Last());
+            Assert.Equal(errorMessage, exception.Message);
+        }
+
+        /// <summary>
+        /// 测试：NoElementError + Last(predicate) 无数据时抛出指定错误消息的异常
+        /// </summary>
+        [Fact]
+        [Step(74)]
+        public void NoElementError_LastWithPredicate_NoData_ThrowsNoElementException()
+        {
+            // Arrange
+            var errorMessage = "Last条件查询未找到数据";
+            var query = _users.OrderBy(x => x.Id).NoElementError(errorMessage);
+
+            // Act & Assert
+            var exception = Assert.Throws<NoElementException>(() => query.Last(x => x.Id < -99999));
+            Assert.Equal(errorMessage, exception.Message);
+        }
+
+        /// <summary>
+        /// 测试：NoElementError + Single 有数据时正常返回
+        /// </summary>
+        [Fact]
+        [Step(75)]
+        public void NoElementError_Single_WithData_ReturnsElement()
+        {
+            // Arrange
+            var allUsers = _users.OrderBy(x => x.Id).ToList();
+
+            if (allUsers.Count == 0)
+            {
+                return;
+            }
+
+            var targetId = allUsers[0].Id;
+            var query = _users.Where(x => x.Id == targetId);
+
+            // Act
+            var result = query.NoElementError("自定义错误消息").Single();
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(targetId, result.Id);
+        }
+
+        /// <summary>
+        /// 测试：NoElementError + Single 无数据时抛出指定错误消息的异常
+        /// </summary>
+        [Fact]
+        [Step(76)]
+        public void NoElementError_Single_NoData_ThrowsNoElementException()
+        {
+            // Arrange
+            var errorMessage = "未找到唯一用户数据";
+            var query = _users.Where(x => x.Id < -99999).NoElementError(errorMessage);
+
+            // Act & Assert
+            var exception = Assert.Throws<NoElementException>(() => query.Single());
+            Assert.Equal(errorMessage, exception.Message);
+        }
+
+        /// <summary>
+        /// 测试：NoElementError + Single(predicate) 无数据时抛出指定错误消息的异常
+        /// </summary>
+        [Fact]
+        [Step(77)]
+        public void NoElementError_SingleWithPredicate_NoData_ThrowsNoElementException()
+        {
+            // Arrange
+            var errorMessage = "Single条件查询未找到数据";
+            var query = _users.NoElementError(errorMessage);
+
+            // Act & Assert
+            var exception = Assert.Throws<NoElementException>(() => query.Single(x => x.Id < -99999));
+            Assert.Equal(errorMessage, exception.Message);
+        }
+
+        /// <summary>
+        /// 测试：NoElementError + Select + First 组合
+        /// </summary>
+        [Fact]
+        [Step(78)]
+        public void NoElementError_Select_First_NoData_ThrowsNoElementException()
+        {
+            // Arrange
+            var errorMessage = "选择查询未找到数据";
+            var query = _users.Where(x => x.Id < -99999).OrderBy(x => x.Id).Select(x => x.Name).NoElementError(errorMessage);
+
+            // Act & Assert
+            var exception = Assert.Throws<NoElementException>(() => query.First());
+            Assert.Equal(errorMessage, exception.Message);
+        }
+
+        /// <summary>
+        /// 测试：NoElementError + First 带 Skip 组合
+        /// </summary>
+        [Fact]
+        [Step(79)]
+        public void NoElementError_Skip_First_NoData_ThrowsNoElementException()
+        {
+            // Arrange
+            var errorMessage = "跳过后未找到第一条数据";
+            var query = _users.Where(x => x.Id < -99999).OrderBy(x => x.Id).Skip(0).NoElementError(errorMessage);
+
+            // Act & Assert
+            var exception = Assert.Throws<NoElementException>(() => query.First());
+            Assert.Equal(errorMessage, exception.Message);
+        }
+
+        #region NoElementError 异步测试
+
+        /// <summary>
+        /// 测试：NoElementError + FirstAsync 有数据时正常返回
+        /// </summary>
+        [Fact]
+        [Step(80)]
+        public async Task NoElementError_FirstAsync_WithData_ReturnsElementAsync()
+        {
+            // Arrange
+            var query = _users.OrderBy(x => x.Id);
+            var allUsers = await query.ToListAsync();
+
+            if (allUsers.Count == 0)
+            {
+                return;
+            }
+
+            // Act
+            var result = await query.NoElementError("自定义错误消息").FirstAsync();
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(allUsers[0].Id, result.Id);
+        }
+
+        /// <summary>
+        /// 测试：NoElementError + FirstAsync 无数据时抛出指定错误消息的异常
+        /// </summary>
+        [Fact]
+        [Step(81)]
+        public async Task NoElementError_FirstAsync_NoData_ThrowsNoElementExceptionAsync()
+        {
+            // Arrange
+            var errorMessage = "异步查询未找到第一条数据";
+            var query = _users.Where(x => x.Id < -99999).OrderBy(x => x.Id).NoElementError(errorMessage);
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<NoElementException>(() => query.FirstAsync());
+            Assert.Equal(errorMessage, exception.Message);
+        }
+
+        /// <summary>
+        /// 测试：NoElementError + LastAsync 无数据时抛出指定错误消息的异常
+        /// </summary>
+        [Fact]
+        [Step(82)]
+        public async Task NoElementError_LastAsync_NoData_ThrowsNoElementExceptionAsync()
+        {
+            // Arrange
+            var errorMessage = "异步查询未找到最后一条数据";
+            var query = _users.Where(x => x.Id < -99999).OrderBy(x => x.Id).NoElementError(errorMessage);
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<NoElementException>(() => query.LastAsync());
+            Assert.Equal(errorMessage, exception.Message);
+        }
+
+        /// <summary>
+        /// 测试：NoElementError + SingleAsync 无数据时抛出指定错误消息的异常
+        /// </summary>
+        [Fact]
+        [Step(83)]
+        public async Task NoElementError_SingleAsync_NoData_ThrowsNoElementExceptionAsync()
+        {
+            // Arrange
+            var errorMessage = "异步查询未找到唯一数据";
+            var query = _users.Where(x => x.Id < -99999).NoElementError(errorMessage);
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<NoElementException>(() => query.SingleAsync());
+            Assert.Equal(errorMessage, exception.Message);
+        }
+
+        #endregion
+
+        #region NoElementError 与其他方法组合测试
+
+        /// <summary>
+        /// 测试：NoElementError + Where + OrderBy + First 组合
+        /// </summary>
+        [Fact]
+        [Step(84)]
+        public void NoElementError_WithWhereOrderBy_First_NoData_ThrowsException()
+        {
+            // Arrange
+            var errorMessage = "复杂查询未找到数据";
+            var query = _users
+                .Where(x => x.Id < -99999 && x.Name == "NonExistent")
+                .OrderBy(x => x.Id)
+                .NoElementError(errorMessage);
+
+            // Act & Assert
+            var exception = Assert.Throws<NoElementException>(() => query.First());
+            Assert.Equal(errorMessage, exception.Message);
+        }
+
+        /// <summary>
+        /// 测试：NoElementError 使用中文错误消息
+        /// </summary>
+        [Fact]
+        [Step(85)]
+        public void NoElementError_ChineseMessage_ThrowsWithCorrectMessage()
+        {
+            // Arrange
+            var errorMessage = "用户不存在，请检查查询条件！";
+            var query = _users.Where(x => x.Id < -99999).OrderBy(x => x.Id).NoElementError(errorMessage);
+
+            // Act & Assert
+            var exception = Assert.Throws<NoElementException>(() => query.First());
+            Assert.Equal(errorMessage, exception.Message);
+        }
+
+        /// <summary>
+        /// 测试：NoElementError 使用英文错误消息
+        /// </summary>
+        [Fact]
+        [Step(86)]
+        public void NoElementError_EnglishMessage_ThrowsWithCorrectMessage()
+        {
+            // Arrange
+            var errorMessage = "User not found, please check your query conditions!";
+            var query = _users.Where(x => x.Id < -99999).OrderBy(x => x.Id).NoElementError(errorMessage);
+
+            // Act & Assert
+            var exception = Assert.Throws<NoElementException>(() => query.First());
+            Assert.Equal(errorMessage, exception.Message);
+        }
+
+        /// <summary>
+        /// 测试：NoElementError 使用带特殊字符的错误消息
+        /// </summary>
+        [Fact]
+        [Step(87)]
+        public void NoElementError_SpecialCharactersMessage_ThrowsWithCorrectMessage()
+        {
+            // Arrange
+            var errorMessage = "查询失败！错误码：E001 (用户ID < 0)";
+            var query = _users.Where(x => x.Id < -99999).OrderBy(x => x.Id).NoElementError(errorMessage);
+
+            // Act & Assert
+            var exception = Assert.Throws<NoElementException>(() => query.First());
+            Assert.Equal(errorMessage, exception.Message);
+        }
+
+        /// <summary>
+        /// 测试：NoElementError + Skip + First 组合
+        /// </summary>
+        [Fact]
+        [Step(88)]
+        public void NoElementError_Skip_First_NoData_ThrowsException()
+        {
+            // Arrange
+            var errorMessage = "跳过后未找到数据";
+            var query = _users.Where(x => x.Id < -99999).OrderBy(x => x.Id).Skip(5).NoElementError(errorMessage);
+
+            // Act & Assert
+            var exception = Assert.Throws<NoElementException>(() => query.First());
+            Assert.Equal(errorMessage, exception.Message);
+        }
+
+        /// <summary>
+        /// 测试：NoElementError 对 FirstOrDefault 不生效（抛出 NotSupportedException）
+        /// </summary>
+        [Fact]
+        [Step(89)]
+        public void NoElementError_FirstOrDefault_ThrowsNotSupportedException()
+        {
+            // Arrange
+            var query = _users.Where(x => x.Id < -99999).OrderBy(x => x.Id).NoElementError("错误消息");
+
+            // Act & Assert - NoElementError 不支持 *OrDefault 方法
+            Assert.Throws<NotSupportedException>(() => query.FirstOrDefault());
+        }
+
+        /// <summary>
+        /// 测试：NoElementError 对 LastOrDefault 不生效（抛出 NotSupportedException）
+        /// </summary>
+        [Fact]
+        [Step(90)]
+        public void NoElementError_LastOrDefault_ThrowsNotSupportedException()
+        {
+            // Arrange
+            var query = _users.Where(x => x.Id < -99999).OrderBy(x => x.Id).NoElementError("错误消息");
+
+            // Act & Assert - NoElementError 不支持 *OrDefault 方法
+            Assert.Throws<NotSupportedException>(() => query.LastOrDefault());
+        }
+
+        /// <summary>
+        /// 测试：NoElementError 对 SingleOrDefault 不生效（抛出 NotSupportedException）
+        /// </summary>
+        [Fact]
+        [Step(91)]
+        public void NoElementError_SingleOrDefault_ThrowsNotSupportedException()
+        {
+            // Arrange
+            var query = _users.Where(x => x.Id < -99999).NoElementError("错误消息");
+
+            // Act & Assert - NoElementError 不支持 *OrDefault 方法
+            Assert.Throws<NotSupportedException>(() => query.SingleOrDefault());
+        }
+
+        /// <summary>
+        /// 测试：NoElementError 对 ElementAtOrDefault 不生效（抛出 NotSupportedException）
+        /// </summary>
+        [Fact]
+        [Step(92)]
+        public void NoElementError_ElementAtOrDefault_ThrowsNotSupportedException()
+        {
+            // Arrange
+            var query = _users.Where(x => x.Id < -99999).OrderBy(x => x.Id).NoElementError("错误消息");
+
+            // Act & Assert - NoElementError 不支持 *OrDefault 方法
+            Assert.Throws<NotSupportedException>(() => query.ElementAtOrDefault(0));
+        }
+
+        #endregion
 
         #endregion
     }

@@ -14,7 +14,7 @@ namespace Inkslab.Linq.MySql
         /// <inheritdoc/>
         public virtual string ToSQL(string sql, int take, int skip, string orderBy)
         {
-            var sb = new StringBuilder(sql.Length + 15);
+            var sb = new StringBuilder(sql.Length + orderBy.Length + 18);
 
             sb.Append(sql)
                 .Append(' ')

@@ -16,7 +16,7 @@ namespace Inkslab.Linq.PostgreSQL
         /// <inheritdoc/>
         public string ToSQL(string sql, int take, int skip, string orderBy)
         {
-            var sb = new StringBuilder(sql.Length + 15);
+            var sb = new StringBuilder(sql.Length + orderBy.Length + 25);
 
             sb.Append(sql)
                 .Append(' ')

@@ -16,7 +16,7 @@ namespace Inkslab.Linq.SqlServer
         /// <inheritdoc/>
         public virtual string ToSQL(string sql, int take, int skip, string orderBy)
         {
-            var sb = new StringBuilder(sql.Length + (take > 0 ? 40 : 18));
+            var sb = new StringBuilder(sql.Length + orderBy.Length + (take > 0 ? 40 : 18));
 
             sb.Append(sql)
                .Append(' ')

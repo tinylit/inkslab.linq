@@ -351,6 +351,7 @@ namespace Inkslab.Linq
 
                 /// <summary>
                 /// 检查Flyback后写入内容的结束位置是否需要空格分隔，如需要则插入空格。
+                /// 如果检测到连续两个空格，则删除一个，避免双空格问题。
                 /// </summary>
                 /// <returns>是否插入了空格。</returns>
                 private bool ReadyFlyback(int currentWriterPos, char prevChar, char nextChar)
@@ -360,6 +361,14 @@ namespace Inkslab.Linq
                     //? 特殊处理：
                     //?   1. 反引号后跟反引号（字段之间），不插入空格，由 Delimiter 处理
                     //?   2. 反引号后跟逗号（字段结束时），不插入空格，Delimiter 会插入逗号和空格
+                    //?   3. 如果前后都是空格（双空格），删除一个空格
+                    if (prevChar == ' ' && nextChar == ' ')
+                    {
+                        //? 连续两个空格，删除一个
+                        _sb.Remove(currentWriterPos, 1);
+                        return false;
+                    }
+
                     if (prevChar != ' ' && nextChar != ' ' 
                         && prevChar != '(' && nextChar != ')' 
                         && prevChar != ')' && nextChar != '(' 

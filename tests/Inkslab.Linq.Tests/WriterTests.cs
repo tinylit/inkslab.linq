@@ -1432,6 +1432,63 @@ namespace Inkslab.Linq.Tests
             Assert.DoesNotContain("  ", result.Replace("= ", "=").Replace(" =", "=")); // 排除 = 两边的空格后检查
         }
 
+        /// <summary>
+        /// 测试 AND + NOT 关键字之间不出现双空格。
+        /// 模拟 !(_userExes.Contains(x.Id) || _userExes.Any(...)) 场景：
+        /// 在条件反转模式下 OR → AND，Any → NOT EXISTS。
+        /// AND 后面有空格，NOT 前面也有空格，应该合并为一个空格。
+        /// </summary>
+        /// <remarks>
+        /// 之前的bug会产生: AND  NOT EXISTS (双空格)
+        /// 修复后应该是: AND NOT EXISTS (单空格)
+        /// </remarks>
+        [Fact]
+        public void AndNotKeywordNoDoubleSpace()
+        {
+            var writer = new SqlWriter(new MySqlCorrectSettings());
+
+            // 模拟 WHERE (condition1 AND NOT EXISTS(...))
+            writer.Keyword(Enums.SqlKeyword.SELECT);
+            writer.Write("*");
+            writer.Keyword(Enums.SqlKeyword.WHERE);
+
+            // 外层括号
+            using (var outerDomain = writer.Domain())
+            {
+                // 左表达式：`x`.`id` NOT IN(...)
+                writer.Write("`x`.`id` NOT IN(...)");
+
+                // 右表达式域
+                using (var rightDomain = writer.Domain())
+                {
+                    // 模拟条件反转模式下写入 NOT EXISTS
+                    // NOT 前面会加空格，EXISTS 前面不加空格
+                    writer.WhiteSpace();
+                    writer.Write("NOT");
+                    writer.WhiteSpace();
+                    writer.Write("EXISTS(...)");
+
+                    writer.CloseBrace();
+
+                    rightDomain.Flyback();
+
+                    // 写入 AND（在条件反转模式下 OR → AND）
+                    // AND 前后都有空格
+                    writer.Keyword(Enums.SqlKeyword.AND);
+                }
+
+                outerDomain.Flyback();
+
+                writer.OpenBrace();
+            }
+
+            string result = writer.ToString();
+
+            // 验证结果：AND NOT 之间应该只有一个空格
+            Assert.Equal("SELECT * WHERE (`x`.`id` NOT IN(...) AND NOT EXISTS(...))", result);
+            Assert.DoesNotContain("AND  NOT", result); // 不应包含双空格
+        }
+
         #endregion
     }
 }

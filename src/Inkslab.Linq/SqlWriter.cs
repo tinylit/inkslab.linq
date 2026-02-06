@@ -46,7 +46,14 @@ namespace Inkslab.Linq
 
                     return _cursorPosition;
                 }
-                private set => _cursorPosition = value;
+                private set
+                {
+                    _cursorPosition = value;
+
+                    //? 同步更新 _lastIsWhitespace 状态，确保关键字两边空格判断正确。
+                    int pos = value > -1 ? value : _sb.Length;
+                    _lastIsWhitespace = pos > 0 && _sb[pos - 1] == WHITESPACE;
+                }
             }
 
             public int Length => _sb.Length;
@@ -59,8 +66,6 @@ namespace Inkslab.Linq
                 if (!_lastIsWhitespace)
                 {
                     Write(WHITESPACE);
-
-                    _lastIsWhitespace = true;
                 }
             }
 
@@ -84,6 +89,7 @@ namespace Inkslab.Linq
                                 WhiteSpace();
                             }
                         }
+
                         break;
                     // 语句开头的关键字：只在后面加空格
                     case SqlKeyword.SELECT:
@@ -185,8 +191,14 @@ namespace Inkslab.Linq
                     _writtenNOT = true;
 
                     _writer.Keyword(SqlKeyword.NOT);
+
+                    if (value == WHITESPACE)
+                    {
+                        return;
+                    }
                 }
-                else if (_cursorPosition > -1)
+
+                if (_cursorPosition > -1)
                 {
                     _sb.Insert(_cursorPosition, value);
 
@@ -196,6 +208,8 @@ namespace Inkslab.Linq
                 {
                     _sb.Append(value);
                 }
+
+                _lastIsWhitespace = value == WHITESPACE;
             }
 
             public void Write(string value)
@@ -218,7 +232,7 @@ namespace Inkslab.Linq
                     _sb.Append(value);
                 }
 
-                _lastIsWhitespace = false;
+                _lastIsWhitespace = value[value.Length - 1] == WHITESPACE;
             }
 
             public void Insert(int index, string value)
@@ -294,11 +308,48 @@ namespace Inkslab.Linq
                 {
                     if (_cursorPosition == -1)
                     {
+                        //? 检查是否进行了Flyback操作（当前writer的CursorPosition > -1时说明进行了Flyback）
+                        int currentWriterPos = _writer.CursorPosition;
+                        if (currentWriterPos > 0 && currentWriterPos < _sb.Length)
+                        {
+                            char prevChar = _sb[currentWriterPos - 1];
+                            char nextChar = _sb[currentWriterPos];
+
+                            ReadyFlyback(currentWriterPos, prevChar, nextChar);
+                        }
+
                         _writer.CursorPosition = -1;
                     }
                     else
                     {
+                        int newPos = _cursorPosition + Length;
+
+                        //? 检查 Domain 内容结束位置后面是否有内容需要空格分隔
+                        //? 条件：Domain 有内容、游标位置后面有字符、后面不是空格、前面也不是空格
+                        //? 排除：前面是左括号、后面是右括号或逗号
+                        if (HasValue && newPos < _sb.Length)
+                        {
+                            char prevChar = _sb[newPos - 1];
+                            char nextChar = _sb[newPos];
+
+                            ReadyFlyback(newPos, prevChar, nextChar);
+                        }
+
                         _writer.CursorPosition = _cursorPosition + Length;
+                    }
+                }
+
+                private void ReadyFlyback(int currentWriterPos, char prevChar, char nextChar)
+                {
+                    //? Flyback后写入内容的结束位置需要检查是否需要空格分隔
+                    //? 排除：前后已有空格、前面是左括号、后面是右括号或逗号
+                    //? 条件：Domain 有内容、游标位置有字符、后面不是空格、前面也不是空格
+                    if (prevChar != ' ' && nextChar != ' ' 
+                        && prevChar != '(' && nextChar != ')' 
+                        && prevChar != ')' && nextChar != '(' 
+                        && nextChar != ',')
+                    {
+                        _sb.Insert(currentWriterPos, ' ');
                     }
                 }
 
@@ -725,6 +776,7 @@ namespace Inkslab.Linq
                     {
                         False();
                     }
+
                     break;
                 case string text:
                     if (text.Length == 0)

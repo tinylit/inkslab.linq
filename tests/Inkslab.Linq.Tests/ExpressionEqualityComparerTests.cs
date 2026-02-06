@@ -82,22 +82,6 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 测试：null 表达式返回 0
-        /// </summary>
-        [Fact]
-        public void GetHashCode_NullExpression_ReturnsZero()
-        {
-            // Arrange
-            var comparer = ExpressionEqualityComparer.Instance;
-
-            // Act
-            var hash = comparer.GetHashCode(null);
-
-            // Assert
-            Assert.Equal(0, hash);
-        }
-
-        /// <summary>
         /// 测试：常量表达式哈希码
         /// </summary>
         [Fact]

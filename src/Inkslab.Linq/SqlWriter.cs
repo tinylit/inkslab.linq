@@ -310,12 +310,19 @@ namespace Inkslab.Linq
                     {
                         //? 检查是否进行了Flyback操作（当前writer的CursorPosition > -1时说明进行了Flyback）
                         int currentWriterPos = _writer.CursorPosition;
-                        if (currentWriterPos > 0 && currentWriterPos < _sb.Length)
+
+                        //? 只有当 Flyback 后确实在 Flyback 点写入了新内容时才考虑插入分隔空格
+                        //? 如果 currentWriterPos == _length，说明 Flyback 回到了 Domain 开始位置且没有写入任何新内容
+                        //? 这种情况下不需要插入空格，因为后续可能还有外层 Flyback 会回到更早的位置
+                        if (currentWriterPos > 0 && currentWriterPos < _sb.Length && currentWriterPos != _length)
                         {
                             char prevChar = _sb[currentWriterPos - 1];
                             char nextChar = _sb[currentWriterPos];
 
-                            ReadyFlyback(currentWriterPos, prevChar, nextChar);
+                            if (ReadyFlyback(currentWriterPos, prevChar, nextChar))
+                            {
+                                _writer._lastIsWhitespace = true;
+                            }
                         }
 
                         _writer.CursorPosition = -1;
@@ -332,25 +339,39 @@ namespace Inkslab.Linq
                             char prevChar = _sb[newPos - 1];
                             char nextChar = _sb[newPos];
 
-                            ReadyFlyback(newPos, prevChar, nextChar);
+                            if (ReadyFlyback(newPos, prevChar, nextChar))
+                            {
+                                _writer._lastIsWhitespace = true;
+                            }
                         }
 
                         _writer.CursorPosition = _cursorPosition + Length;
                     }
                 }
 
-                private void ReadyFlyback(int currentWriterPos, char prevChar, char nextChar)
+                /// <summary>
+                /// 检查Flyback后写入内容的结束位置是否需要空格分隔，如需要则插入空格。
+                /// </summary>
+                /// <returns>是否插入了空格。</returns>
+                private bool ReadyFlyback(int currentWriterPos, char prevChar, char nextChar)
                 {
                     //? Flyback后写入内容的结束位置需要检查是否需要空格分隔
-                    //? 排除：前后已有空格、前面是左括号、后面是右括号或逗号
-                    //? 条件：Domain 有内容、游标位置有字符、后面不是空格、前面也不是空格
+                    //? 排除：前后已有空格、括号组合、后面是逗号
+                    //? 特殊处理：
+                    //?   1. 反引号后跟反引号（字段之间），不插入空格，由 Delimiter 处理
+                    //?   2. 反引号后跟逗号（字段结束时），不插入空格，Delimiter 会插入逗号和空格
                     if (prevChar != ' ' && nextChar != ' ' 
                         && prevChar != '(' && nextChar != ')' 
                         && prevChar != ')' && nextChar != '(' 
-                        && nextChar != ',')
+                        && nextChar != ','
+                        && !(prevChar == '`' && nextChar == '`')
+                        && !(prevChar == '`' && nextChar == ','))
                     {
                         _sb.Insert(currentWriterPos, ' ');
+                        return true;
                     }
+
+                    return false;
                 }
 
                 public void Flyback() =>

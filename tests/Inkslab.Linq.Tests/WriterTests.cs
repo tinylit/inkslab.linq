@@ -1335,6 +1335,103 @@ namespace Inkslab.Linq.Tests
             Assert.Equal("SELECT a1 c1b2 c2 FROM `user`", writer.ToString());
         }
 
+        /// <summary>
+        /// 测试嵌套Domain + Flyback后AND关键字的空格问题。
+        /// 模拟 SkipWhile 场景：外层Domain内嵌套条件Domain，条件Domain Flyback后Dispose会插入空格，
+        /// 然后外层Domain Flyback后写入AND，应该只有一个空格，不应出现双空格。
+        /// </summary>
+        /// <remarks>
+        /// 模拟SQL: SELECT * WHERE `x`.`status` = 0 AND `x`.`expires_at` IS NULL
+        /// 之前的bug会产生: SELECT * WHERE `x`.`status` = 0 AND  `x`.`expires_at` IS NULL (AND后有双空格)
+        /// </remarks>
+        [Fact]
+        public void NestedDomainFlybackAndKeywordNoDoubleSpace()
+        {
+            var writer = new SqlWriter(new MySqlCorrectSettings());
+
+            // 模拟 SELECT *
+            writer.Keyword(Enums.SqlKeyword.SELECT);
+            writer.Write("*");
+
+            // 模拟 WHERE `x`.`status` = 0
+            writer.Keyword(Enums.SqlKeyword.WHERE);
+            writer.Write("`x`.`status` = 0");
+
+            // 模拟 SkipWhile 的 domain1
+            using (var domain1 = writer.Domain())
+            {
+                // 模拟条件处理的内部 domain2
+                using (var domain2 = writer.Domain())
+                {
+                    // 模拟 Visit(right) 写入字段内容
+                    writer.Write("`x`.`expires_at`");
+
+                    // 模拟 domain2.Flyback()
+                    domain2.Flyback();
+
+                    // 模拟 Visit(left) 被忽略，什么都不写
+                }
+
+                // domain2.Dispose() 会在此处调用 ReadyFlyback，可能插入空格
+
+                // 模拟写入 IS NULL
+                writer.Keyword(Enums.SqlKeyword.IS);
+                writer.Keyword(Enums.SqlKeyword.NULL);
+
+                // 模拟 domain1.Flyback()
+                domain1.Flyback();
+
+                // 模拟 WhereSwitch.Execute() 写入 AND
+                writer.Keyword(Enums.SqlKeyword.AND);
+            }
+
+            // 验证结果：AND后应该只有一个空格，不应出现双空格
+            string result = writer.ToString();
+            Assert.Equal("SELECT * WHERE `x`.`status` = 0 AND `x`.`expires_at` IS NULL", result);
+            Assert.DoesNotContain("AND  ", result); // 不应包含双空格
+        }
+
+        /// <summary>
+        /// 测试多层嵌套Domain + Flyback后AND/OR关键字的空格问题。
+        /// 验证修复后不会出现双空格。
+        /// </summary>
+        [Fact]
+        public void MultipleNestedDomainFlybackNoDoubleSpace()
+        {
+            var writer = new SqlWriter(new MySqlCorrectSettings());
+
+            writer.Keyword(Enums.SqlKeyword.WHERE);
+            
+            // 模拟条件组合：condition1 AND condition2
+            using (var outerDomain = writer.Domain())
+            {
+                // 写入第一个条件
+                writer.Write("`a` = 1");
+
+                // 模拟第二个条件处理
+                using (var innerDomain = writer.Domain())
+                {
+                    writer.Write("`b` = 2");
+
+                    innerDomain.Flyback();
+
+                    // 不写任何内容，模拟条件被忽略的情况
+                }
+
+                // 模拟外层 Flyback
+                outerDomain.Flyback();
+
+                // 写入括号
+                writer.OpenBrace();
+            }
+
+            writer.CloseBrace();
+
+            string result = writer.ToString();
+            // 验证没有双空格
+            Assert.DoesNotContain("  ", result.Replace("= ", "=").Replace(" =", "=")); // 排除 = 两边的空格后检查
+        }
+
         #endregion
     }
 }

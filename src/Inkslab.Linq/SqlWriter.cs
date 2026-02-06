@@ -345,14 +345,19 @@ namespace Inkslab.Linq
                             }
                         }
 
-                        _writer.CursorPosition = _cursorPosition + Length;
+                        //? 使用 ReadyFlyback 前计算的 newPos，避免 ReadyFlyback 插入空格后
+                        //? Length 属性（_sb.Length - _length）随之增大，导致游标越过插入的空格，
+                        //? 使后续写入（如 CloseBrace）出现在空格之后而非之前。
+                        _writer.CursorPosition = newPos;
                     }
                 }
 
                 /// <summary>
                 /// 检查Flyback后写入内容的结束位置是否需要空格分隔，如需要则插入空格。
-                /// 如果检测到连续两个空格，则删除一个，避免双空格问题。
                 /// </summary>
+                /// <param name="currentWriterPos">游标位置。</param>
+                /// <param name="prevChar">前一个字符。</param>
+                /// <param name="nextChar">后一个字符。</param>
                 /// <returns>是否插入了空格。</returns>
                 private bool ReadyFlyback(int currentWriterPos, char prevChar, char nextChar)
                 {
@@ -361,16 +366,12 @@ namespace Inkslab.Linq
                     //? 特殊处理：
                     //?   1. 反引号后跟反引号（字段之间），不插入空格，由 Delimiter 处理
                     //?   2. 反引号后跟逗号（字段结束时），不插入空格，Delimiter 会插入逗号和空格
-                    //?   3. 如果前后都是空格（双空格），删除一个空格
-                    if (prevChar == ' ' && nextChar == ' ')
+                    if (prevChar == ' ' || nextChar == ' ')
                     {
-                        //? 连续两个空格，删除一个
-                        _sb.Remove(currentWriterPos, 1);
                         return false;
                     }
 
-                    if (prevChar != ' ' && nextChar != ' ' 
-                        && prevChar != '(' && nextChar != ')' 
+                    if (prevChar != '(' && nextChar != ')' 
                         && prevChar != ')' && nextChar != '(' 
                         && nextChar != ','
                         && !(prevChar == '`' && nextChar == '`')
@@ -1020,8 +1021,8 @@ namespace Inkslab.Linq
         /// <inheritdoc/>
         public override string ToString()
         {
-            string mainSql = _main.ToString();
-            string rankSql = _rank.ToString();
+            string mainSql = NormalizeSpaces(_main.ToString());
+            string rankSql = NormalizeSpaces(_rank.ToString());
 
             if (_takeSize > 0)
             {
@@ -1029,6 +1030,47 @@ namespace Inkslab.Linq
             }
 
             return string.Concat(mainSql, rankSql);
+        }
+
+        /// <summary>
+        /// 规范化SQL中的空格，移除连续多个空格。
+        /// </summary>
+        private static string NormalizeSpaces(string sql)
+        {
+            if (string.IsNullOrEmpty(sql))
+            {
+                return sql;
+            }
+
+            // 快速检查是否有连续空格
+            if (!sql.Contains("  "))
+            {
+                return sql;
+            }
+
+            // 使用 StringBuilder 高效处理
+            var sb = new StringBuilder(sql.Length);
+            bool lastWasSpace = false;
+
+            foreach (char c in sql)
+            {
+                if (c == ' ')
+                {
+                    if (!lastWasSpace)
+                    {
+                        sb.Append(c);
+                        lastWasSpace = true;
+                    }
+                    // 跳过连续空格
+                }
+                else
+                {
+                    sb.Append(c);
+                    lastWasSpace = false;
+                }
+            }
+
+            return sb.ToString();
         }
 
         /// <summary>

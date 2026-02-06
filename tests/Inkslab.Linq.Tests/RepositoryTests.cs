@@ -125,7 +125,10 @@ namespace Inkslab.Linq.Tests
                 orderby x.Id descending
                 select new User { Name = x.Name, DateAt = DateTime.Now };
 
-            _userRpo.Timeout(10).Ignore().Insert(linq);
+            using (var tran = new TransactionUnit())
+            {
+                _userRpo.Timeout(10).Ignore().Insert(linq);
+            }
         }
 
         /// <summary>
@@ -146,7 +149,10 @@ namespace Inkslab.Linq.Tests
                 orderby x.Id descending
                 select new UserSharding { Name = x.Name, DateAt = DateTime.Now };
 
-            _userShardingRpo.DataSharding("2025").Timeout(10).Ignore().Insert(linq);
+            using (var tran = new TransactionUnit())
+            {
+                _userShardingRpo.DataSharding("2025").Timeout(10).Ignore().Insert(linq);
+            }
         }
 
         /// <summary>
@@ -291,8 +297,12 @@ namespace Inkslab.Linq.Tests
             {
                 users.Add(new User { Name = $"测试：{i:000}", DateAt = DateTime.Now });
             }
+            using (var tran = new TransactionUnit())
+            {
+                int rows = _userRpo.Ignore().Into(users).Execute();
 
-            int rows = _userRpo.Ignore().Into(users).Execute();
+                Assert.True(rows == length, $"预期插入 {length} 行，实际插入 {rows} 行。");
+            }
         }
 
         /// <summary>
@@ -315,8 +325,12 @@ namespace Inkslab.Linq.Tests
             {
                 users.Add(new UserSharding { Name = $"测试：{i:000}", DateAt = DateTime.Now });
             }
+            using (var tran = new TransactionUnit())
+            {
+                int rows = _userShardingRpo.DataSharding("2025").Ignore().Into(users).Execute();
 
-            int rows = _userShardingRpo.DataSharding("2025").Ignore().Into(users).Execute();
+                Assert.True(rows == length, $"预期插入 {length} 行，实际插入 {rows} 行。");
+            }
         }
 
         /// <summary>
@@ -402,7 +416,12 @@ namespace Inkslab.Linq.Tests
                 users.Add(new User { Name = $"测试：{i:000}", DateAt = DateTime.Now });
             }
 
-            int rows = _userRpo.Timeout(100).Ignore().Into(users).Execute();
+            using (var tran = new TransactionUnit())
+            {
+                int rows = _userRpo.Timeout(100).Ignore().Into(users).Execute();
+                
+                Assert.True(rows == length, $"预期插入 {length} 行，实际插入 {rows} 行。");
+            }
         }
 
         /// <summary>

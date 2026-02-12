@@ -11,66 +11,6 @@ namespace System.Linq.Expressions
     internal static class ExpressionExtensions
     {
         /// <summary>
-        /// 是否为boolean表达式。
-        /// </summary>
-        /// <param name="node">表达式。</param>
-        /// <returns></returns>
-        internal static bool IsBoolean(this Expression node)
-        {
-            if (node is null)
-            {
-                return false;
-            }
-
-            return node.Type.IsBoolean();
-        }
-
-        /// <summary>
-        /// 是否是HasValue属性。
-        /// </summary>
-        /// <param name="node">表达式。</param>
-        /// <returns></returns>
-        internal static bool IsHasValue(this MemberExpression node)
-        {
-            if (node is null || node.Expression is null)
-            {
-                return false;
-            }
-
-            return node.Member.Name == "HasValue" && node.Expression.IsNullable();
-        }
-
-        /// <summary>
-        /// 是否是Value属性。
-        /// </summary>
-        /// <param name="node">表达式。</param>
-        /// <returns></returns>
-        internal static bool IsValue(this MemberExpression node)
-        {
-            if (node is null || node.Expression is null)
-            {
-                return false;
-            }
-
-            return node.Member.Name == "Value" && node.Expression.IsNullable();
-        }
-
-        /// <summary>
-        /// 是否是Length属性。
-        /// </summary>
-        /// <param name="node">表达式。</param>
-        /// <returns></returns>
-        internal static bool IsLength(this MemberExpression node)
-        {
-            if (node is null)
-            {
-                return false;
-            }
-
-            return node.Member.Name == "Length" && node.Member.DeclaringType == Types.String;
-        }
-
-        /// <summary>
         /// 是否为可空类型。
         /// </summary>
         /// <param name="member">表达式。</param>
@@ -84,22 +24,6 @@ namespace System.Linq.Expressions
 
             return member.Type.IsNullable();
         }
-
-        /// <summary>
-        /// Where条件（不包含And或Or）。
-        /// </summary>
-        /// <param name="nodeType">节点类型。</param>
-        /// <returns></returns>
-        internal static ExpressionType Reverse(this ExpressionType nodeType) => nodeType switch
-        {
-            ExpressionType.GreaterThan => ExpressionType.LessThanOrEqual,
-            ExpressionType.GreaterThanOrEqual => ExpressionType.LessThan,
-            ExpressionType.LessThan => ExpressionType.GreaterThanOrEqual,
-            ExpressionType.LessThanOrEqual => ExpressionType.GreaterThan,
-            ExpressionType.Equal => ExpressionType.NotEqual,
-            ExpressionType.NotEqual => ExpressionType.Equal,
-            _ => nodeType,
-        };
 
         /// <summary>
         /// 获取操作符。

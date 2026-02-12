@@ -637,7 +637,9 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected sealed override Expression VisitMember(MemberExpression node)
         {
-            if (node.IsLength())
+            string memberName = node.Member.Name;
+
+            if (memberName == nameof(string.Length) && node.Member.DeclaringType == Types.String)
             {
                 switch (Engine)
                 {
@@ -661,16 +663,13 @@ namespace Inkslab.Linq.Expressions
 
                 Writer.CloseBrace();
             }
-            else if (node.Expression.IsNullable())
+            else if (memberName == "HasValue" && node.Expression.IsNullable())
             {
-                if (node.Member.Name == "HasValue")
-                {
-                    MemberHasValue(node.Expression);
-                }
-                else
-                {
-                    Visit(node.Expression);
-                }
+                MemberHasValue(node.Expression);
+            }
+            else if (memberName == "Value" && node.Expression.IsNullable())
+            {
+                Visit(node.Expression);
             }
             else if (IsPlainVariable(node.Expression, false))
             {

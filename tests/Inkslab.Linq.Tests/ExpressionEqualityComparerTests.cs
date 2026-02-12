@@ -228,9 +228,9 @@ namespace Inkslab.Linq.Tests
         [Fact]
         public void Equals_DifferentExpressions_ReturnsFalse()
         {
-            // Arrange
+            // Arrange - 使用不同结构的表达式
             Expression<Func<int, int>> expr1 = x => x + 1;
-            Expression<Func<int, int>> expr2 = x => x + 2;
+            Expression<Func<int, int>> expr2 = x => x * 1;
             var comparer = ExpressionEqualityComparer.Instance;
 
             // Act
@@ -368,11 +368,29 @@ namespace Inkslab.Linq.Tests
         /// 测试：常量表达式不同值
         /// </summary>
         [Fact]
-        public void Equals_ConstantExpressions_WithDifferentValue_AreNotEqual()
+        public void Equals_ConstantExpressions_WithDifferentValue_SameTypeAreEqual()
+        {
+            // Arrange - 新逻辑：同类型常量值视为相等（支持参数化查询缓存）
+            var expr1 = Expression.Constant(42);
+            var expr2 = Expression.Constant(43);
+            var comparer = ExpressionEqualityComparer.Instance;
+
+            // Act
+            var result = comparer.Equals(expr1, expr2);
+
+            // Assert - 同类型常量视为相等
+            Assert.True(result);
+        }
+
+        /// <summary>
+        /// 测试：不同类型的常量表达式不相等
+        /// </summary>
+        [Fact]
+        public void Equals_ConstantExpressions_WithDifferentType_AreNotEqual()
         {
             // Arrange
             var expr1 = Expression.Constant(42);
-            var expr2 = Expression.Constant(43);
+            var expr2 = Expression.Constant(42L); // long 类型
             var comparer = ExpressionEqualityComparer.Instance;
 
             // Act

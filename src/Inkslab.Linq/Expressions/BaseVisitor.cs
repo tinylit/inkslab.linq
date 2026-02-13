@@ -197,8 +197,6 @@ namespace Inkslab.Linq.Expressions
         /// <param name="node">节点。</param>
         protected virtual void StartupCore(MethodCallExpression node) => MethodCall(node);
 
-        private static readonly Lfu<Expression, bool> _lfu = new Lfu<Expression, bool>(10000, ExpressionEqualityComparer.Instance, IsPlainVariableNs);
-
         private static bool IsPlainVariableNs(Expression node)
         {
             if (node is null)
@@ -302,7 +300,7 @@ namespace Inkslab.Linq.Expressions
 
                     return IsPlainVariable(member.Expression, depthVerification);
                 default:
-                    return depthVerification && _lfu.Get(node);
+                    return depthVerification && IsPlainVariableNs(node);
             }
         }
 

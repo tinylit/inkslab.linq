@@ -13,7 +13,7 @@ namespace Inkslab.Linq.Expressions
     /// 基础访问器（负责条件处理和基础访问器结构管理）。
     /// </summary>
     [DebuggerDisplay("Base")]
-    public abstract class BaseVisitor : ExpressionVisitor, IDisposable
+    public abstract partial class BaseVisitor : ExpressionVisitor, IDisposable
     {
         private bool _disposedValue;
 
@@ -435,14 +435,6 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected sealed override Expression VisitInvocation(InvocationExpression node)
-        {
-            Invocation(node);
-
-            return node;
-        }
-
-        /// <inheritdoc/>
         protected sealed override Expression VisitMethodCall(MethodCallExpression node)
         {
             PrepareTableInformation(node);
@@ -554,38 +546,6 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected sealed override Expression VisitBinary(BinaryExpression node)
-        {
-            Binary(node);
-
-            return node;
-        }
-
-        /// <inheritdoc/>
-        protected sealed override Expression VisitConditional(ConditionalExpression node)
-        {
-            Conditional(node);
-
-            return node;
-        }
-
-        /// <inheritdoc/>
-        protected sealed override Expression VisitBlock(BlockExpression node)
-        {
-            Block(node);
-
-            return node;
-        }
-
-        /// <inheritdoc/>
-        protected sealed override CatchBlock VisitCatchBlock(CatchBlock node)
-        {
-            CatchBlock(node);
-
-            return node;
-        }
-
-        /// <inheritdoc/>
         protected sealed override Expression VisitConstant(ConstantExpression node)
         {
             if (node.Value is IQueryable queryable)
@@ -601,14 +561,6 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected sealed override Expression VisitDebugInfo(DebugInfoExpression node)
-        {
-            DebugInfo(node);
-
-            return node;
-        }
-
-        /// <inheritdoc/>
         protected sealed override Expression VisitDefault(DefaultExpression node)
         {
             if (node.Type.IsValueType)
@@ -619,78 +571,6 @@ namespace Inkslab.Linq.Expressions
             {
                 Writer.Keyword(SqlKeyword.NULL);
             }
-
-            return node;
-        }
-
-        /// <inheritdoc/>
-        protected sealed override Expression VisitDynamic(DynamicExpression node)
-        {
-            Dynamic(node);
-
-            return node;
-        }
-
-        /// <inheritdoc/>
-        protected sealed override ElementInit VisitElementInit(ElementInit node)
-        {
-            ElementInit(node);
-
-            return node;
-        }
-
-        /// <inheritdoc/>
-        protected sealed override Expression VisitExtension(Expression node)
-        {
-            Extension(node);
-
-            return node;
-        }
-
-        /// <inheritdoc/>
-        protected sealed override Expression VisitGoto(GotoExpression node)
-        {
-            Goto(node);
-
-            return node;
-        }
-
-        /// <inheritdoc/>
-        protected sealed override Expression VisitIndex(IndexExpression node)
-        {
-            Index(node);
-
-            return node;
-        }
-
-        /// <inheritdoc/>
-        protected sealed override Expression VisitLabel(LabelExpression node)
-        {
-            Label(node);
-
-            return node;
-        }
-
-        /// <inheritdoc/>
-        protected sealed override LabelTarget VisitLabelTarget(LabelTarget node)
-        {
-            LabelTarget(node);
-
-            return node;
-        }
-
-        /// <inheritdoc/>
-        protected sealed override Expression VisitListInit(ListInitExpression node)
-        {
-            ListInit(node);
-
-            return node;
-        }
-
-        /// <inheritdoc/>
-        protected sealed override Expression VisitLoop(LoopExpression node)
-        {
-            Loop(node);
 
             return node;
         }
@@ -1739,22 +1619,6 @@ namespace Inkslab.Linq.Expressions
         #endregion
 
         /// <inheritdoc/>
-        protected sealed override MemberAssignment VisitMemberAssignment(MemberAssignment node)
-        {
-            MemberAssignment(node);
-
-            return node;
-        }
-
-        /// <inheritdoc/>
-        protected sealed override MemberBinding VisitMemberBinding(MemberBinding node)
-        {
-            MemberBinding(node);
-
-            return node;
-        }
-
-        /// <inheritdoc/>
         protected sealed override Expression VisitMemberInit(MemberInitExpression node)
         {
             if (node.Bindings.Count > 0)
@@ -1794,24 +1658,6 @@ namespace Inkslab.Linq.Expressions
                     }
                 }
             }
-
-            return node;
-        }
-
-        /// <inheritdoc/>
-        protected sealed override MemberListBinding VisitMemberListBinding(MemberListBinding node)
-        {
-            MemberListBinding(node);
-
-            return node;
-        }
-
-        /// <inheritdoc/>
-        protected sealed override MemberMemberBinding VisitMemberMemberBinding(
-            MemberMemberBinding node
-        )
-        {
-            MemberMemberBinding(node);
 
             return node;
         }
@@ -1935,62 +1781,6 @@ namespace Inkslab.Linq.Expressions
         /// </summary>
         /// <param name="node">节点。</param>
         protected virtual void Version(NewExpression node) => Version(0, node.Arguments);
-
-        /// <inheritdoc/>
-        protected sealed override Expression VisitNewArray(NewArrayExpression node)
-        {
-            NewArray(node);
-
-            return node;
-        }
-
-        /// <inheritdoc/>
-        protected sealed override Expression VisitParameter(ParameterExpression node)
-        {
-            Parameter(node);
-
-            return node;
-        }
-
-        /// <inheritdoc/>
-        protected sealed override Expression VisitRuntimeVariables(RuntimeVariablesExpression node)
-        {
-            RuntimeVariables(node);
-
-            return node;
-        }
-
-        /// <inheritdoc/>
-        protected sealed override Expression VisitSwitch(SwitchExpression node)
-        {
-            Switch(node);
-
-            return node;
-        }
-
-        /// <inheritdoc/>
-        protected sealed override SwitchCase VisitSwitchCase(SwitchCase node)
-        {
-            SwitchCase(node);
-
-            return node;
-        }
-
-        /// <inheritdoc/>
-        protected sealed override Expression VisitTry(TryExpression node)
-        {
-            Try(node);
-
-            return node;
-        }
-
-        /// <inheritdoc/>
-        protected sealed override Expression VisitTypeBinary(TypeBinaryExpression node)
-        {
-            TypeBinary(node);
-
-            return node;
-        }
 
         /// <inheritdoc/>
         protected sealed override Expression VisitUnary(UnaryExpression node)

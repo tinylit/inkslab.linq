@@ -36,11 +36,9 @@ namespace Inkslab.Linq.SqlServer
         /// <inheritdoc/>
         public int WriteToServer(DataTable dt)
         {
-            for (int i = 0; i < dt.Columns.Count; i++)
+            foreach (DataColumn column in dt.Columns)
             {
-                var column = dt.Columns[i];
-
-                _bulkCopy.ColumnMappings.Add(new SqlBulkCopyColumnMapping(i, column.ColumnName));
+                _bulkCopy.ColumnMappings.Add(new SqlBulkCopyColumnMapping(column.ColumnName, column.ColumnName));
             }
 
             _bulkCopy.DestinationTableName = dt.TableName;
@@ -53,11 +51,9 @@ namespace Inkslab.Linq.SqlServer
         /// <inheritdoc/>
         public async Task<int> WriteToServerAsync(DataTable dt, CancellationToken cancellationToken = default)
         {
-            for (int i = 0; i < dt.Columns.Count; i++)
+            foreach (DataColumn column in dt.Columns)
             {
-                var column = dt.Columns[i];
-
-                _bulkCopy.ColumnMappings.Add(new SqlBulkCopyColumnMapping(i, column.ColumnName));
+                _bulkCopy.ColumnMappings.Add(new SqlBulkCopyColumnMapping(column.ColumnName, column.ColumnName));
             }
 
             _bulkCopy.DestinationTableName = dt.TableName;

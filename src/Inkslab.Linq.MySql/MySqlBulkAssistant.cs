@@ -37,11 +37,9 @@ namespace Inkslab.Linq.MySql
         /// </remarks>
         public int WriteToServer(DataTable dt)
         {
-            for (int i = 0; i < dt.Columns.Count; i++)
+            foreach (DataColumn column in dt.Columns)
             {
-                var column = dt.Columns[i];
-
-                _bulkCopy.ColumnMappings.Add(new MySqlBulkCopyColumnMapping(i, column.ColumnName));
+                _bulkCopy.ColumnMappings.Add(new MySqlBulkCopyColumnMapping(column.Ordinal, column.ColumnName));
             }
 
             _bulkCopy.DestinationTableName = dt.TableName;
@@ -59,11 +57,9 @@ namespace Inkslab.Linq.MySql
         /// </remarks>
         public async Task<int> WriteToServerAsync(DataTable dt, CancellationToken cancellationToken = default)
         {
-            for (int i = 0; i < dt.Columns.Count; i++)
+            foreach (DataColumn column in dt.Columns)
             {
-                var column = dt.Columns[i];
-
-                _bulkCopy.ColumnMappings.Add(new MySqlBulkCopyColumnMapping(i, column.ColumnName));
+                _bulkCopy.ColumnMappings.Add(new MySqlBulkCopyColumnMapping(column.Ordinal, column.ColumnName));
             }
             
             _bulkCopy.DestinationTableName = dt.TableName;

@@ -52,21 +52,21 @@ namespace Inkslab.Linq
             _node = node;
         }
 
-        private IAsyncEnumerable<T> asyncEnumerable;
+        private IAsyncEnumerable<T> _asyncEnumerable;
 
         /// <inheritdoc/>
         public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default)
         {
             if (_alwaysAccessDatabase)
             {
-                asyncEnumerable = _executor.QueryAsync<T>(_node);
+                _asyncEnumerable = _executor.QueryAsync<T>(_node);
             }
             else
             {
-                asyncEnumerable ??= _executor.QueryAsync<T>(_node);
+                _asyncEnumerable ??= _executor.QueryAsync<T>(_node);
             }
 
-            return asyncEnumerable.GetAsyncEnumerator(cancellationToken);
+            return _asyncEnumerable.GetAsyncEnumerator(cancellationToken);
         }
 
         private IEnumerable<T> enumerable;

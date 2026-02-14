@@ -350,7 +350,7 @@ namespace Inkslab.Linq.Expressions
                 case nameof(Queryable.Count) when node.Arguments.Count == 1:
                 case nameof(Queryable.LongCount) when node.Arguments.Count == 1:
 
-                    allowSelect = this._allowSelect;
+                    allowSelect = _allowSelect;
                     break;
                 //? 跳过组合函数。
                 case nameof(Queryable.Union):
@@ -358,11 +358,11 @@ namespace Inkslab.Linq.Expressions
                 case nameof(Queryable.Except):
                 case nameof(Queryable.Intersect):
 
-                    allowSelect = this._allowSelect;
+                    allowSelect = _allowSelect;
                     break;
                 case nameof(Queryable.Select):
 
-                    if (this._allowSelect)
+                    if (_allowSelect)
                     {
                         goto default;
                     }
@@ -373,14 +373,14 @@ namespace Inkslab.Linq.Expressions
                 //? 跳过字段限制的函数。
                 case nameof(Queryable.Cast):
                 case nameof(Queryable.OfType):
-                    allowSelect = this._allowSelect;
+                    allowSelect = _allowSelect;
                     break;
                 //? 跳过生成 SELECT 的函数。
                 case nameof(Queryable.Join):
                 case nameof(Queryable.SelectMany):
                     goto default;
                 case nameof(Queryable.Distinct):
-                    if (this._allowSelect)
+                    if (_allowSelect)
                     {
                         allowSelect = true;
 
@@ -389,7 +389,7 @@ namespace Inkslab.Linq.Expressions
 
                     throw new DSyntaxErrorException("使用去重函数需先指定查询字段，如：*.Select(x=>{column-part}).Distinct()。");
                 case nameof(Queryable.DefaultIfEmpty):
-                    if (this._allowSelect)
+                    if (_allowSelect)
                     {
                         allowSelect = true;
 
@@ -398,7 +398,7 @@ namespace Inkslab.Linq.Expressions
 
                     throw new DSyntaxErrorException("使用默认值函数需先指定查询字段，如：*.Select(x=>{column-part}).DefaultIfEmpty({default-value})。");
                 default:
-                    this._allowSelect = allowSelect = false;
+                    _allowSelect = allowSelect = false;
                     break;
             }
         }
@@ -1254,7 +1254,7 @@ namespace Inkslab.Linq.Expressions
         /// </summary>
         private class WhereSwitch
         {
-            private bool isFirst = true;
+            private bool _isFirst = true;
 
             private readonly SqlWriter _writer;
             private readonly ConditionType _conditionType;
@@ -1267,9 +1267,9 @@ namespace Inkslab.Linq.Expressions
 
             public void Execute()
             {
-                if (isFirst)
+                if (_isFirst)
                 {
-                    isFirst = false;
+                    _isFirst = false;
 
                     switch (_conditionType)
                     {

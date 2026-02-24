@@ -807,6 +807,12 @@ namespace Inkslab.Linq
                     .Append(" FROM ")
                     .Append(Settings.Name(temporaryName));
 
+                if (Ignore && Engine == DatabaseEngine.PostgreSQL)
+                {
+                    sb.AppendLine()
+                        .Append("ON CONFLICT DO NOTHING");
+                }
+
                 #endregion
 
                 string insertSql = sb.ToString();
@@ -827,7 +833,9 @@ namespace Inkslab.Linq
                     sb.Append("TEMP ");
                 }
 
-                sb.Append("TABLE ").Append(Settings.Name(temporaryName)).Append('(');
+                sb.Append("TABLE ")
+                    .Append(Settings.Name(temporaryName))
+                    .Append('(');
 
                 for (int i = 0; i < entries.Length; i++)
                 {
@@ -852,12 +860,6 @@ namespace Inkslab.Linq
 
                 sb.Append(')');
 
-                if (Ignore && Engine == DatabaseEngine.PostgreSQL)
-                {
-                    sb.AppendLine()
-                        .Append("ON CONFLICT DO NOTHING");
-                }
-
                 #endregion
 
                 string createSql = sb.ToString();
@@ -873,7 +875,9 @@ namespace Inkslab.Linq
                     sb.Append("TEMPORARY ");
                 }
 
-                sb.Append("TABLE ").Append(Settings.Name(temporaryName)).Append(';');
+                sb.Append("TABLE ")
+                    .Append(Settings.Name(temporaryName))
+                    .Append(';');
 
                 #endregion
 

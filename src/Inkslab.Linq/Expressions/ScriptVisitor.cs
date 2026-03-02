@@ -534,7 +534,7 @@ namespace Inkslab.Linq.Expressions
 
             switch (name)
             {
-                case nameof(Queryable.Select):
+                case nameof(Queryable.Select) when _buildSelect:
 
                     _buildSelect = false;
 
@@ -553,6 +553,11 @@ namespace Inkslab.Linq.Expressions
 
                         Select(node.Arguments[1]); //? 解决 JOIN/GROUP 场景的表别名问题。
                     }
+
+                    break;
+                case nameof(Queryable.Select):
+
+                    Visit(node.Arguments[0]);
 
                     break;
                 case nameof(Queryable.Distinct):
@@ -652,27 +657,27 @@ namespace Inkslab.Linq.Expressions
                     break;
                 case nameof(Queryable.Join):
                 case nameof(Queryable.SelectMany):
-                {
-                    if (_buildSelect)
                     {
-                        Writer.Keyword(SqlKeyword.SELECT);
-
-                        if (_isDistinct)
+                        if (_buildSelect)
                         {
-                            Writer.Keyword(SqlKeyword.DISTINCT);
+                            Writer.Keyword(SqlKeyword.SELECT);
+
+                            if (_isDistinct)
+                            {
+                                Writer.Keyword(SqlKeyword.DISTINCT);
+                            }
                         }
+
+                        var visitor = new JoinVisitor(this, _joinRelationships, _buildSelect);
+
+                        _joinVisitors.Add(visitor);
+
+                        _buildSelect = false;
+
+                        visitor.Startup((Expression)node); //? 分析表信息。
+
+                        break;
                     }
-
-                    var visitor = new JoinVisitor(this, _joinRelationships, _buildSelect);
-
-                    _joinVisitors.Add(visitor);
-
-                    _buildSelect = false;
-
-                    visitor.Startup((Expression)node); //? 分析表信息。
-
-                    break;
-                }
                 case nameof(QueryableExtentions.DataSharding):
 
                     VisitMethodCall(node);
@@ -1144,6 +1149,12 @@ namespace Inkslab.Linq.Expressions
             switch (node)
             {
                 case ParameterExpression parameter:
+
+                    if (_joinRelationships.TryGetValue((parameter.Type, parameter.Name), out var visitor))
+                    {
+                        return visitor.TryGetSourceParameter(node, out parameterExpression);
+                    }
+
                     if (_parameterOwners.Contains((parameter.Type, parameter.Name)))
                     {
                         parameterExpression = _parameterRel;
@@ -1151,11 +1162,6 @@ namespace Inkslab.Linq.Expressions
                         _parameterRef = false;
 
                         return true;
-                    }
-
-                    if (_joinRelationships.TryGetValue((parameter.Type, parameter.Name), out var visitor))
-                    {
-                        return visitor.TryGetSourceParameter(node, out parameterExpression);
                     }
 
                     break;
@@ -1166,6 +1172,11 @@ namespace Inkslab.Linq.Expressions
                         return TryGetSourceParameter(parameterExpression, out parameterExpression);
                     }
 
+                    if (_joinRelationships.TryGetValue((memberExpression.Type, memberExpression.Member.Name), out visitor))
+                    {
+                        return visitor.TryGetSourceParameter(node, out parameterExpression);
+                    }
+
                     if (_parameterOwners.Contains((memberExpression.Type, memberExpression.Member.Name)))
                     {
                         parameterExpression = _parameterRel;
@@ -1173,11 +1184,6 @@ namespace Inkslab.Linq.Expressions
                         _parameterRef = false;
 
                         return true;
-                    }
-
-                    if (_joinRelationships.TryGetValue((memberExpression.Type, memberExpression.Member.Name), out visitor))
-                    {
-                        return visitor.TryGetSourceParameter(node, out parameterExpression);
                     }
 
                     break;
@@ -1206,6 +1212,24 @@ namespace Inkslab.Linq.Expressions
             return tableInfo is null
                 ? base.TryGetSourceTableInfo(node, out tableInfo)
                 : tableInfo.TypeIs(node.Type) || base.TryGetSourceTableInfo(node, out tableInfo);
+        }
+
+        private void UnSorted(MethodCallExpression node)
+        {
+            if (!_unsorted)
+            {
+                return;
+            }
+
+            switch (node.Method.Name)
+            {
+                case nameof(Queryable.OrderBy):
+                case nameof(Queryable.ThenBy):
+                case nameof(Queryable.OrderByDescending):
+                case nameof(Queryable.ThenByDescending):
+                    _unsorted = false;
+                    break;
+            }
         }
 
         #endregion
@@ -1349,18 +1373,7 @@ namespace Inkslab.Linq.Expressions
 
             protected override void LinqCore(MethodCallExpression node)
             {
-                if (_scriptVisitor._unsorted)
-                {
-                    switch (node.Method.Name)
-                    {
-                        case nameof(Queryable.OrderBy):
-                        case nameof(Queryable.ThenBy):
-                        case nameof(Queryable.OrderByDescending):
-                        case nameof(Queryable.ThenByDescending):
-                            _scriptVisitor._unsorted = false;
-                            break;
-                    }
-                }
+                _scriptVisitor.UnSorted(node);
 
                 base.LinqCore(node);
             }

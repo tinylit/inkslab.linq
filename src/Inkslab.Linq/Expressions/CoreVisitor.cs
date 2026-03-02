@@ -38,13 +38,8 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override void MethodCall(MethodCallExpression node)
         {
-            var declaringType = node.Method.DeclaringType;
-
-            if (declaringType is null)
-            {
-                throw new NotSupportedException(NotSupportedErrorMsg(node));
-            }
-
+            var declaringType = node.Method.DeclaringType ?? throw new NotSupportedException(NotSupportedErrorMsg(node));
+            
             if (declaringType == Types.Queryable || declaringType == Types.QueryableExtentions)
             {
                 LinqCall(node);

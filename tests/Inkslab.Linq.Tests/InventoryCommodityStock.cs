@@ -61,7 +61,7 @@ namespace Inkslab.Linq.Tests
         /// <summary>
         /// ERP商品Code
         /// </summary>
-        [Required]
+        [Required(AllowEmptyStrings = true)]
         [Field("erp_product_code")]
         [StringLength(20)]
         public string ErpProductCode { get; set; } = default!;
@@ -103,7 +103,7 @@ namespace Inkslab.Linq.Tests
         public int LockOffsetStock { get; set; }
 
         /// <summary>
-        /// 效期库存
+        /// 效期开展时分配的库存，除非效期活动取消则不会变
         /// </summary>
         [Field("lock_validity_period_stock")]
         public int LockValidityPeriodStock { get; set; }
@@ -115,7 +115,7 @@ namespace Inkslab.Linq.Tests
         public int LockValidityPeriodLockStock { get; set; }
 
         /// <summary>
-        /// 效期分配占用：给某一个效期活动 单独划分出 库存时的总数量
+        /// 效期独占,当前效期可用总库存
         /// </summary>
         [Field("lock_validity_period_allocation_stock")]
         public int LockValidityPeriodAllocationStock { get; set; }
@@ -127,10 +127,22 @@ namespace Inkslab.Linq.Tests
         public DateTime SyncTime { get; set; }
 
         /// <summary>
+        /// 校准差异
+        /// </summary>
+        [Field("is_sync_diff")]
+        public bool IsSyncDiff { get; set; }
+
+        /// <summary>
+        /// 仓储校准时间
+        /// </summary>
+        [Field("storage_sync_time")]
+        public DateTime StorageSyncTime { get; set; }
+
+        /// <summary>
         /// 版本号（乐观锁）
         /// </summary>
         [Field("version")]
-        public int Version { get; set; }
+        public long Version { get; set; }
 
         /// <summary>
         /// 更新时间
@@ -155,23 +167,5 @@ namespace Inkslab.Linq.Tests
         /// </summary>
         [Field("create_by")]
         public long CreateBy { get; set; }
-
-        /// <summary>
-        /// 普通商品可用库存
-        /// </summary>
-        /// <returns></returns>
-        public int NormalAvailableStock()
-        {
-            return Stock + VirtualStock - LockStock - LockVirtualWarehouseStock - LockOutboundStock - LockValidityPeriodAllocationStock;
-        }
-
-        /// <summary>
-        /// 效期商品可用库存
-        /// </summary>
-        /// <returns></returns>
-        public int PeriodAvailableStock()
-        {
-            return LockValidityPeriodStock - LockValidityPeriodLockStock;
-        }
     }
 }

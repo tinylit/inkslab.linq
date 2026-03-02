@@ -345,7 +345,7 @@ namespace Inkslab.Linq.Expressions
 
         private class TransverterVisitor : BaseVisitor
         {
-            private bool readyComplete;
+            private bool _readyComplete;
 
             private readonly JoinVisitor _visitor;
             private readonly ScriptVisitor _scriptVisitor;
@@ -383,12 +383,12 @@ namespace Inkslab.Linq.Expressions
 
                 Startup(node); //? 分析主表达式表别名。
 
-                readyComplete = true;
+                _readyComplete = true;
             }
 
             protected override void PreparingParameter(LambdaExpression node)
             {
-                if (!readyComplete)
+                if (!_readyComplete)
                 {
                     base.PreparingParameter(node); //? 准备主查询表别名。
                 }
@@ -401,7 +401,7 @@ namespace Inkslab.Linq.Expressions
 
             protected override void Lambda<T>(Expression<T> node)
             {
-                if (readyComplete)
+                if (_readyComplete)
                 {
                     _scriptVisitor.Visit(node.Body);//? 生成查询字段。
                 }

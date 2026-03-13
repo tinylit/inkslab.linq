@@ -64,20 +64,9 @@ namespace Inkslab.Transactions
 
             set
             {
-                var holder = _transactionCurrent.Value;
-
-                if (holder is null)
-                {
-
-                }
-                else
-                {
-                    holder.Transaction = null;
-                }
-
                 if (value is null)
                 {
-
+                    _transactionCurrent.Value = null;
                 }
                 else
                 {

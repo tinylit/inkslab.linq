@@ -11,6 +11,12 @@ namespace Combination.Tests
         public string Strings { get; } = "Server=sqlserver.local.com,1435;database=HysEMall_Promotion;uid=sa;pwd=yyy@123*;MultipleActiveResultSets=True;TrustServerCertificate=true";
     }
 
+        public class PostgreSqlPromotionConnectionStrings : IConnectionStrings
+    {
+        public string Strings { get; } = "Host=postgresql.local.com;Port=5432;Database=hys_envent_bus;User Id=root;Password=pgsql@123;Timezone=Asia/Shanghai;";
+    }
+
+
     public class Startup : XunitPlus.Startup
     {
         public Startup(Type serviceType) : base(serviceType)
@@ -24,6 +30,9 @@ namespace Combination.Tests
 
             services.UseSqlServer()
                 .UseDatabase<SqlServerPromotionConnectionStrings>();
+
+            services.UsePostgreSQL()
+                .UseDatabase<PostgreSqlPromotionConnectionStrings>();
 
             services.AddLogging(builder => builder.AddDebug().SetMinimumLevel(LogLevel.Debug));
 

@@ -21,6 +21,7 @@ namespace Inkslab.Transactions
 
         private readonly List<IDelivery> _deliveries = new List<IDelivery>();
         private readonly List<ITransaction> _transactions = new List<ITransaction>(1);
+        private readonly object _syncRoot = new object();
 
         /// <summary>
         /// 事务。
@@ -110,7 +111,20 @@ namespace Inkslab.Transactions
                 throw new ArgumentNullException(nameof(delivery));
             }
 
-            _deliveries.Add(delivery);
+            if (_disposed)
+            {
+                throw new ObjectDisposedException(nameof(Transaction));
+            }
+
+            if (_complete)
+            {
+                throw new InvalidOperationException("事务已完成，无法注册新的交付。");
+            }
+
+            lock (_syncRoot)
+            {
+                _deliveries.Add(delivery);
+            }
         }
 
         /// <summary>
@@ -149,7 +163,15 @@ namespace Inkslab.Transactions
                 throw new ObjectDisposedException(nameof(Transaction));
             }
 
-            _transactions.Add(transaction);
+            if (_complete)
+            {
+                throw new InvalidOperationException("事务已完成，无法签署新的子事务。");
+            }
+
+            lock (_syncRoot)
+            {
+                _transactions.Add(transaction);
+            }
         }
 
         private bool _complete;
@@ -185,9 +207,16 @@ namespace Inkslab.Transactions
                 }
                 catch (Exception)
                 {
-                    for (; i < length; i++)
+                    for (int j = i; j < length; j++)
                     {
-                        await _transactions[i].RollbackAsync(cancellationToken);
+                        try
+                        {
+                            await _transactions[j].RollbackAsync(cancellationToken);
+                        }
+                        catch
+                        {
+                            // 回滚失败时不应阻止后续事务的回滚。
+                        }
                     }
 
                     throw;
@@ -195,9 +224,24 @@ namespace Inkslab.Transactions
 
                 if (_deliveries.Count > 0)
                 {
+                    List<Exception> deliveryExceptions = null;
+
                     foreach (var delivery in _deliveries)
                     {
-                        delivery.Done();
+                        try
+                        {
+                            delivery.Done();
+                        }
+                        catch (Exception ex)
+                        {
+                            deliveryExceptions ??= new List<Exception>();
+                            deliveryExceptions.Add(ex);
+                        }
+                    }
+
+                    if (deliveryExceptions is { Count: > 0 })
+                    {
+                        throw new AggregateException("一个或多个交付执行失败。", deliveryExceptions);
                     }
                 }
             }
@@ -227,11 +271,21 @@ namespace Inkslab.Transactions
 
             _complete = true;
 
+            List<Exception> exceptions = null;
+
             try
             {
                 for (int i = 0, length = _transactions.Count; i < length; i++)
                 {
-                    await _transactions[i].RollbackAsync(cancellationToken);
+                    try
+                    {
+                        await _transactions[i].RollbackAsync(cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        exceptions ??= new List<Exception>();
+                        exceptions.Add(ex);
+                    }
                 }
             }
             finally
@@ -239,6 +293,11 @@ namespace Inkslab.Transactions
                 Status = TransactionStatus.Aborted;
 
                 TransactionCompleted?.Invoke(this, new TransactionEventArgs(this));
+            }
+
+            if (exceptions is { Count: > 0 })
+            {
+                throw new AggregateException("回滚过程中发生一个或多个错误。", exceptions);
             }
         }
 
@@ -259,11 +318,21 @@ namespace Inkslab.Transactions
 
             _complete = true;
 
+            List<Exception> exceptions = null;
+
             try
             {
                 for (int i = 0, length = _transactions.Count; i < length; i++)
                 {
-                    _transactions[i].Rollback();
+                    try
+                    {
+                        _transactions[i].Rollback();
+                    }
+                    catch (Exception ex)
+                    {
+                        exceptions ??= new List<Exception>();
+                        exceptions.Add(ex);
+                    }
                 }
             }
             finally
@@ -271,6 +340,11 @@ namespace Inkslab.Transactions
                 Status = TransactionStatus.Aborted;
 
                 TransactionCompleted?.Invoke(this, new TransactionEventArgs(this));
+            }
+
+            if (exceptions is { Count: > 0 })
+            {
+                throw new AggregateException("回滚过程中发生一个或多个错误。", exceptions);
             }
         }
 
@@ -285,6 +359,8 @@ namespace Inkslab.Transactions
             {
                 _disposed = true;
 
+                List<Exception> exceptions = null;
+
                 try
                 {
                     for (int i = 0, length = _transactions.Count; i < length; i++)
@@ -293,10 +369,26 @@ namespace Inkslab.Transactions
 
                         if (!_complete)
                         {
-                            await transaction.RollbackAsync();
+                            try
+                            {
+                                await transaction.RollbackAsync();
+                            }
+                            catch (Exception ex)
+                            {
+                                exceptions ??= new List<Exception>();
+                                exceptions.Add(ex);
+                            }
                         }
 
-                        await transaction.DisposeAsync();
+                        try
+                        {
+                            await transaction.DisposeAsync();
+                        }
+                        catch (Exception ex)
+                        {
+                            exceptions ??= new List<Exception>();
+                            exceptions.Add(ex);
+                        }
                     }
                 }
                 finally
@@ -309,6 +401,11 @@ namespace Inkslab.Transactions
 
                         TransactionCompleted?.Invoke(this, new TransactionEventArgs(this));
                     }
+                }
+
+                if (exceptions is { Count: > 0 })
+                {
+                    throw new AggregateException("事务释放过程中发生一个或多个错误。", exceptions);
                 }
             }
         }
@@ -328,6 +425,8 @@ namespace Inkslab.Transactions
             {
                 _disposed = true;
 
+                List<Exception> exceptions = null;
+
                 try
                 {
                     for (int i = 0, length = _transactions.Count; i < length; i++)
@@ -336,10 +435,26 @@ namespace Inkslab.Transactions
 
                         if (!_complete)
                         {
-                            transaction.Rollback();
+                            try
+                            {
+                                transaction.Rollback();
+                            }
+                            catch (Exception ex)
+                            {
+                                exceptions ??= new List<Exception>();
+                                exceptions.Add(ex);
+                            }
                         }
 
-                        transaction.Dispose();
+                        try
+                        {
+                            transaction.Dispose();
+                        }
+                        catch (Exception ex)
+                        {
+                            exceptions ??= new List<Exception>();
+                            exceptions.Add(ex);
+                        }
                     }
                 }
                 finally
@@ -352,6 +467,11 @@ namespace Inkslab.Transactions
 
                         TransactionCompleted?.Invoke(this, new TransactionEventArgs(this));
                     }
+                }
+
+                if (exceptions is { Count: > 0 })
+                {
+                    throw new AggregateException("事务释放过程中发生一个或多个错误。", exceptions);
                 }
             }
         }

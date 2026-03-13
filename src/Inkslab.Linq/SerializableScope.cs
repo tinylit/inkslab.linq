@@ -98,18 +98,9 @@ namespace Inkslab.Linq
 
             set
             {
-                var holder = _serializableCurrent.Value;
-
-                if (holder is null)
-                {
-                }
-                else
-                {
-                    holder.Serializable = null;
-                }
-
                 if (value is null)
                 {
+                    _serializableCurrent.Value = null;
                 }
                 else
                 {
@@ -201,7 +192,7 @@ namespace Inkslab.Linq
                     connection.Dispose();
                 }
             }
-            
+
             _connections.Clear();
 
             GC.SuppressFinalize(this);
@@ -229,9 +220,9 @@ namespace Inkslab.Linq
                     await connection.DisposeAsync();
                 }
             }
-            
+
             _connections.Clear();
-            
+
             GC.SuppressFinalize(this);
         }
 

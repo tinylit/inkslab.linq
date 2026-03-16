@@ -112,21 +112,21 @@ namespace Inkslab.Transactions
 
             Transaction.Current = _previousTransaction;
 
-            if (_complete)
-            {
-                if (_transactionOption == TransactionOption.RequiresNew || _previousTransaction is null)
-                {
-                    _transaction.Dispose();
-                }
-            }
-            else if (_transactionOption == TransactionOption.Suppress)
+            if (_transactionOption == TransactionOption.Suppress)
             {
 
             }
             else
             {
-                _transaction.Rollback();
-                _transaction.Dispose();
+                if (!_complete && _transaction.Status == TransactionStatus.Active)
+                {
+                    _transaction.Rollback();
+                }
+
+                if (_transactionOption == TransactionOption.RequiresNew || _previousTransaction is null)
+                {
+                    _transaction.Dispose();
+                }
             }
 
             GC.SuppressFinalize(this);
@@ -144,21 +144,21 @@ namespace Inkslab.Transactions
 
             Transaction.Current = _previousTransaction;
 
-            if (_complete)
-            {
-                if (_transactionOption == TransactionOption.RequiresNew || _previousTransaction is null)
-                {
-                    await _transaction.DisposeAsync();
-                }
-            }
-            else if (_transactionOption == TransactionOption.Suppress)
+            if (_transactionOption == TransactionOption.Suppress)
             {
 
             }
             else
             {
-                await _transaction.RollbackAsync();
-                await _transaction.DisposeAsync();
+                if (!_complete && _transaction.Status == TransactionStatus.Active)
+                {
+                    await _transaction.RollbackAsync();
+                }
+
+                if (_transactionOption == TransactionOption.RequiresNew || _previousTransaction is null)
+                {
+                    await _transaction.DisposeAsync();
+                }
             }
 
             GC.SuppressFinalize(this);

@@ -117,5 +117,32 @@ namespace Inkslab.Linq.Tests
                 await transaction.CompleteAsync();
             }
         }
+
+        [Fact]
+        public async Task TransactionRollbackAsync()
+        {
+            await Assert.ThrowsAsync<Exception>(async () =>
+            {
+                await using (var transaction = new TransactionUnit())
+                {
+                    throw new Exception("测试事务回滚");
+                }
+            });
+        }
+
+        [Fact]
+        public async Task NestedTransactionRollbackAsync()
+        {
+            await Assert.ThrowsAsync<Exception>(async () =>
+            {
+                await using (var transaction = new TransactionUnit())
+                {
+                    await using (new TransactionUnit())
+                    {
+                        throw new Exception("测试事务回滚");
+                    }
+                }
+            });
+        }
     }
 }

@@ -30,7 +30,7 @@ namespace Inkslab.Linq
 
             public Writer(SqlWriter writer, int capacity)
             {
-                _sb = new StringBuilder(capacity);
+                _sb = StringBuilderPool.Get(capacity);
 
                 _writer = writer;
             }
@@ -293,7 +293,10 @@ namespace Inkslab.Linq
 
             public override string ToString() => _sb.ToString();
 
-            public void Dispose() => _sb.Clear();
+            public void Dispose()
+            {
+                StringBuilderPool.Return(_sb);
+            }
 
             private sealed class SqlDomain : ISqlDomain
             {

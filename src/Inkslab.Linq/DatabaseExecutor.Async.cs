@@ -34,7 +34,7 @@ namespace Inkslab.Linq
 
             if (isClosedConnection)
             {
-                await dbConnection.OpenAsync(cancellationToken);
+                await dbConnection.OpenAsync(cancellationToken).ConfigureAwait(false);
             }
 
             try
@@ -54,7 +54,7 @@ namespace Inkslab.Linq
                         LookupDb.AddParameterAuto(command, databaseStrings.Engine, name, value);
                     }
 
-                    var result = await command.ExecuteNonQueryAsync(cancellationToken);
+                    var result = await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
 
                     commandSql.Callback(command);
 
@@ -65,7 +65,7 @@ namespace Inkslab.Linq
             {
                 if (isClosedConnection)
                 {
-                    await dbConnection.CloseAsync();
+                    await dbConnection.CloseAsync().ConfigureAwait(false);
                 }
             }
         }
@@ -107,7 +107,7 @@ namespace Inkslab.Linq
             {
                 behavior |= CommandBehavior.CloseConnection;
 
-                await dbConnection.OpenAsync(cancellationToken);
+                await dbConnection.OpenAsync(cancellationToken).ConfigureAwait(false);
             }
 
             await using (var command = dbConnection.CreateCommand())
@@ -127,7 +127,7 @@ namespace Inkslab.Linq
 
                 try
                 {
-                    await using (var reader = await command.ExecuteReaderAsync(behavior, cancellationToken))
+                    await using (var reader = await command.ExecuteReaderAsync(behavior, cancellationToken).ConfigureAwait(false))
                     {
                         if (reader.HasRows)
                         {
@@ -138,12 +138,12 @@ namespace Inkslab.Linq
 
                             var map = adaper.CreateMap<T>();
 
-                            if (await reader.ReadAsync(cancellationToken))
+                            if (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
                             {
                                 var result = map.Map(reader);
 
                                 if (commandSql.RowStyle >= RowStyle.Single
-                                    && await reader.ReadAsync(cancellationToken))
+                                    && await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
                                 {
                                     ThrowMultipleRows(commandSql.RowStyle);
                                 }
@@ -366,7 +366,7 @@ namespace Inkslab.Linq
                 {
                     behavior |= CommandBehavior.CloseConnection;
 
-                    await connection.OpenAsync(cancellationToken);
+                    await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 }
 
                 await using (var command = connection.CreateCommand())
@@ -384,7 +384,7 @@ namespace Inkslab.Linq
                         LookupDb.AddParameterAuto(command, _connectionStrings.Engine, name, value);
                     }
 
-                    await using (var reader = await command.ExecuteReaderAsync(behavior, cancellationToken))
+                    await using (var reader = await command.ExecuteReaderAsync(behavior, cancellationToken).ConfigureAwait(false))
                     {
                         if (reader.HasRows)
                         {
@@ -395,9 +395,9 @@ namespace Inkslab.Linq
 
                             var map = adaper.CreateMap<T>();
 
-                            while (await reader.ReadAsync(cancellationToken))
+                            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
                             {
-                                if (await map.IsInvalidAsync(reader, cancellationToken))
+                                if (await map.IsInvalidAsync(reader, cancellationToken).ConfigureAwait(false))
                                 {
                                     continue;
                                 }

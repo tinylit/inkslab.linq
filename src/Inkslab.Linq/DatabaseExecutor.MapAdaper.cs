@@ -2,11 +2,11 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data.Common;
-using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Inkslab.Collections;
 using static System.Linq.Expressions.Expression;
 
 namespace Inkslab.Linq
@@ -237,12 +237,41 @@ namespace Inkslab.Linq
                 _typeCode = type.GetMethod(nameof(Type.GetTypeCode), BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly, null, new[] { type }, null);
             }
 
-            private int _refCount;
+            /// <summary>
+            /// 编译好的 Mapper 工厂委托缓存（消除反射开销）。
+            /// Key: 实体类型，Value: (MapAdaper) => IDbMapper 工厂委托。
+            /// </summary>
+            private static readonly ConcurrentDictionary<Type, Func<MapAdaper, IDbMapper>> _mapperFactories =
+                new ConcurrentDictionary<Type, Func<MapAdaper, IDbMapper>>();
 
-            private volatile bool _recovering;
+            /// <summary>
+            /// 为指定类型编译 Mapper 工厂方法（使用表达式树，避免运行时反射）。
+            /// </summary>
+            private static Func<MapAdaper, IDbMapper> CompileMapperFactory(Type entityType)
+            {
+                // 构建表达式树: adapter => new DbMapperGen<T>(adapter).CreateMap()
+                var adapterParam = Parameter(typeof(MapAdaper), "adapter");
 
-            private readonly ConcurrentDictionary<Type, IDbMapper> _mappers =
-                new ConcurrentDictionary<Type, IDbMapper>(100, 2 * COLLECT_PER_ITEMS);
+                // DbMapperGen<T>
+                var genType = typeof(DbMapperGen<>).MakeGenericType(entityType);
+
+                // new DbMapperGen<T>(adapter)
+                var genCtor = genType.GetConstructor(new[] { typeof(MapAdaper) });
+                var newGen = New(genCtor, adapterParam);
+
+                // .CreateMap()
+                var createMapMethod = genType.GetMethod("CreateMap");
+                var callCreateMap = Call(newGen, createMapMethod);
+
+                // 转换为 IDbMapper
+                var converted = Expression.Convert(callCreateMap, typeof(IDbMapper));
+
+                // 编译成委托
+                var lambda = Lambda<Func<MapAdaper, IDbMapper>>(converted, adapterParam);
+                return lambda.Compile();
+            }
+
+            private readonly Lfu<Type, IDbMapper> _mappers;
 
             private readonly Type _type;
             private readonly MethodInfo _isDbNull;
@@ -291,6 +320,16 @@ namespace Inkslab.Linq
                         _typeMap.TryAdd(methodInfo.ReturnType, methodInfo);
                     }
                 }
+
+                // 初始化 Lfu 缓存（使用编译的委托工厂，避免运行时反射）
+                _mappers = new Lfu<Type, IDbMapper>(entityType =>
+                {
+                    // 获取或编译工厂委托（首次编译后缓存）
+                    var factory = _mapperFactories.GetOrAdd(entityType, CompileMapperFactory);
+
+                    // 调用委托创建 Mapper（无反射开销）
+                    return factory(this);
+                });
             }
 
             public static MethodInfo IgnoreCaseEquals => _equals;
@@ -506,59 +545,7 @@ namespace Inkslab.Linq
             public Expression GetName(ParameterExpression dbVar, Expression iVar) =>
                 Call(dbVar, _getName, iVar);
 
-            public DbMapper<T> CreateMap<T>() =>
-                (DbMapper<T>)
-                    _mappers.GetOrAdd(
-                        typeof(T),
-                        type =>
-                        {
-                            if (Interlocked.Increment(ref _refCount) >= COLLECT_PER_ITEMS)
-                            {
-                                if (_recovering) { }
-                                else
-                                {
-                                    _recovering = true;
-
-                                    new Timer(
-                                        render =>
-                                        {
-                                            var r = new Random();
-
-                                            var keys = (ICollection<Type>)render;
-
-                                            int offset = keys.Count / 2;
-
-                                            var count = r.Next(offset, keys.Count); //? 随机移除一半以上的数据。
-
-                                            var skipSize = r.Next(0, offset); //? 随机开始移除的位置。
-
-                                            try
-                                            {
-                                                foreach (
-                                                    var key in keys.Skip(skipSize).Take(offset)
-                                                )
-                                                {
-                                                    _mappers.TryRemove(key, out _);
-                                                }
-                                            }
-                                            catch { }
-                                            finally
-                                            {
-                                                _recovering = false;
-
-                                                Interlocked.Exchange(ref _refCount, _mappers.Count);
-                                            }
-                                        },
-                                        _mappers.Keys,
-                                        100,
-                                        Timeout.Infinite
-                                    );
-                                }
-                            }
-
-                            return new DbMapperGen<T>(this).CreateMap();
-                        }
-                    );
+            public DbMapper<T> CreateMap<T>() => (DbMapper<T>)_mappers.Get(typeof(T));
         }
 
         #region ORM适配器

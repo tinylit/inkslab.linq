@@ -322,7 +322,7 @@ namespace Inkslab.Linq
                 }
 
                 // 初始化 Lfu 缓存（使用编译的委托工厂，避免运行时反射）
-                _mappers = new Lfu<Type, IDbMapper>(entityType =>
+                _mappers = new Lfu<Type, IDbMapper>(10000, entityType =>
                 {
                     // 获取或编译工厂委托（首次编译后缓存）
                     var factory = _mapperFactories.GetOrAdd(entityType, CompileMapperFactory);

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using Inkslab.Linq.Options;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -13,6 +14,7 @@ namespace Inkslab.Linq
         private readonly DatabaseEngine _engine;
         private readonly Type _dbAdapterType;
         private readonly IServiceCollection _services;
+        private readonly DatabaseExecutorOptions _sharedOptions;
 
         /// <summary>
         /// 数据库构建器。
@@ -20,17 +22,46 @@ namespace Inkslab.Linq
         /// <param name="engine">数据库引擎。</param>
         /// <param name="dbAdapterType">数据库适配器类型。</param>
         /// <param name="services">服务集合。</param>
-        public DatabaseLinqBuilder(DatabaseEngine engine, Type dbAdapterType, IServiceCollection services)
+        /// <param name="sharedOptions">共享的执行器配置项。</param>
+        public DatabaseLinqBuilder(DatabaseEngine engine, Type dbAdapterType, IServiceCollection services, DatabaseExecutorOptions sharedOptions)
         {
             _engine = engine;
             _dbAdapterType = dbAdapterType;
             _services = services;
+            _sharedOptions = sharedOptions;
         }
 
         /// <summary>
         /// 服务池。
         /// </summary>
         public IServiceCollection Services => _services;
+
+        /// <summary>
+        /// 配置当前引擎的数据库执行器选项（如实体映射缓存容量），应在项目启动时调用。
+        /// <para>若未调用，将使用默认容量（<see cref="DatabaseExecutorOptions.DefaultMappingCapacity"/>）。</para>
+        /// </summary>
+        /// <param name="configure">配置委托，其中的配置项仅对当前引擎生效。</param>
+        /// <returns>数据库构建器。</returns>
+        public DatabaseLinqBuilder Configure(Action<DatabaseEngineOptions> configure)
+        {
+            if (configure is null)
+            {
+                throw new ArgumentNullException(nameof(configure));
+            }
+
+            var engineOptions = new DatabaseEngineOptions();
+
+            configure(engineOptions);
+
+            if (engineOptions.MappingCapacity <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(engineOptions.MappingCapacity), "MappingCapacity 必须大于 0。");
+            }
+
+            _sharedOptions.SetMappingCapacity(_engine, engineOptions.MappingCapacity);
+
+            return this;
+        }
 
         /// <summary>
         /// 使用 Linq 语法（全局只能注册一次）。

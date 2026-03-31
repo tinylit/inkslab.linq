@@ -15,8 +15,6 @@ namespace Inkslab.Linq
     {
         private class MapAdaper
         {
-            private const int COLLECT_PER_ITEMS = 1000;
-
             private static readonly MethodInfo _equals;
             private static readonly MethodInfo _concat;
             private static readonly MethodInfo _typeCode;
@@ -285,7 +283,7 @@ namespace Inkslab.Linq
                 return string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
             }
 
-            public MapAdaper(Type type)
+            public MapAdaper(Type type, int capacity)
             {
                 var types = new[] { Types.Int32 };
 
@@ -322,7 +320,7 @@ namespace Inkslab.Linq
                 }
 
                 // 初始化 Lfu 缓存（使用编译的委托工厂，避免运行时反射）
-                _mappers = new Lfu<Type, IDbMapper>(10000, entityType =>
+                _mappers = new Lfu<Type, IDbMapper>(capacity, entityType =>
                 {
                     // 获取或编译工厂委托（首次编译后缓存）
                     var factory = _mapperFactories.GetOrAdd(entityType, CompileMapperFactory);

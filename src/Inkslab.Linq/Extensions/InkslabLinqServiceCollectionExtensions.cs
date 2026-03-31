@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Data.Common;
+using System.Linq;
 using System.Threading;
 using Inkslab.Linq;
+using Inkslab.Linq.Options;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 #pragma warning disable IDE0130 // 命名空间与文件夹结构不匹配
@@ -86,14 +88,27 @@ namespace Microsoft.Extensions.DependencyInjection
             }
 
             services.AddSingleton<IDbConnectionFactory>(new DbConnectionFactory(engine, factory));
-            
+
+            // 获取或创建共享的 DatabaseExecutorOptions 单例
+            var optionsDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(DatabaseExecutorOptions));
+            DatabaseExecutorOptions sharedOptions;
+            if (optionsDescriptor?.ImplementationInstance is DatabaseExecutorOptions existing)
+            {
+                sharedOptions = existing;
+            }
+            else
+            {
+                sharedOptions = new DatabaseExecutorOptions();
+                services.AddSingleton(sharedOptions);
+            }
+
             services.TryAddSingleton<TDbAdapter>();
             services.TryAddSingleton<IDbConnectionPipeline, DbConnectionPipeline>();
             services.TryAddSingleton(typeof(IDatabase<>), typeof(Database<>));
             services.TryAddSingleton<IDatabaseExecutor, DatabaseExecutor>();
             services.TryAddSingleton<IConnections, DefaultConnections>();
 
-            return new DatabaseLinqBuilder(engine, typeof(TDbAdapter), services);
+            return new DatabaseLinqBuilder(engine, typeof(TDbAdapter), services, sharedOptions);
         }
     }
 }

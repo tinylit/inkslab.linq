@@ -5,13 +5,9 @@ using System.Data;
 using System.Data.Common;
 using System.Diagnostics;
 using System.Linq;
-using System.Linq.Expressions;
-using System.Reflection;
-using System.Threading;
-using System.Threading.Tasks;
 using Inkslab.Linq.Exceptions;
+using Inkslab.Linq.Options;
 using Microsoft.Extensions.Logging;
-using static System.Linq.Expressions.Expression;
 
 namespace Inkslab.Linq
 {
@@ -22,6 +18,7 @@ namespace Inkslab.Linq
     {
         private static readonly ConcurrentDictionary<Type, MapAdaper> _adapters = new ConcurrentDictionary<Type, MapAdaper>();
         private readonly IDbConnectionPipeline _connectionPipeline;
+        private readonly DatabaseExecutorOptions _options;
         private readonly ILogger<DatabaseExecutor> _logger;
 
         private const string LinqBinary = "System.Data.Linq.Binary";
@@ -30,14 +27,29 @@ namespace Inkslab.Linq
         /// 数据库链接。
         /// </summary>
         /// <param name="connectionPipeline">链接管道。</param>
+        /// <param name="options">执行器配置项。</param>
         /// <param name="logger">日志。</param>
-        public DatabaseExecutor(IDbConnectionPipeline connectionPipeline, ILogger<DatabaseExecutor> logger)
+        public DatabaseExecutor(IDbConnectionPipeline connectionPipeline, DatabaseExecutorOptions options, ILogger<DatabaseExecutor> logger)
         {
             _connectionPipeline = connectionPipeline;
+            _options = options;
             _logger = logger;
         }
 
         #region 通用辅助方法
+
+        /// <summary>
+        /// 获取或创建指定 reader 类型对应的 MapAdaper，使用当前引擎的配置容量。
+        /// </summary>
+        private MapAdaper GetOrAddAdaper(Type readerType, DatabaseEngine engine)
+        {
+            return _adapters.GetOrAdd(readerType, type =>
+            {
+                var capacity = _options.GetMappingCapacity(engine);
+
+                return new MapAdaper(type, capacity);
+            });
+        }
 
         /// <summary>
         /// 记录命令调试日志
@@ -98,13 +110,13 @@ namespace Inkslab.Linq
         /// <summary>
         /// 从 Reader 中读取并映射数据列表
         /// </summary>
-        private List<T> MapReaderToList<T>(DbDataReader reader)
+        private List<T> MapReaderToList<T>(DbDataReader reader, DatabaseEngine engine)
         {
             var results = new List<T>();
 
             if (reader.HasRows)
             {
-                var adaper = _adapters.GetOrAdd(reader.GetType(), type => new MapAdaper(type));
+                var adaper = GetOrAddAdaper(reader.GetType(), engine);
                 var map = adaper.CreateMap<T>();
 
                 while (reader.Read())
@@ -124,11 +136,11 @@ namespace Inkslab.Linq
         /// <summary>
         /// 从 Reader 中读取单个结果
         /// </summary>
-        private T ReadSingleFromReader<T>(DbDataReader reader, CommandSql<T> commandSql)
+        private T ReadSingleFromReader<T>(DbDataReader reader, CommandSql<T> commandSql, DatabaseEngine engine)
         {
             if (reader.HasRows)
             {
-                var adaper = _adapters.GetOrAdd(reader.GetType(), type => new MapAdaper(type));
+                var adaper = GetOrAddAdaper(reader.GetType(), engine);
                 var map = adaper.CreateMap<T>();
 
                 if (reader.Read())
@@ -219,7 +231,7 @@ namespace Inkslab.Linq
             ConfigureCommand(command, databaseStrings, commandSql);
 
             using var reader = command.ExecuteReader(behavior);
-            var results = MapReaderToList<T>(reader);
+            var results = MapReaderToList<T>(reader, databaseStrings.Engine);
 
             commandSql.Callback(command);
 
@@ -269,10 +281,7 @@ namespace Inkslab.Linq
 
                 reader = command.ExecuteReader(behavior);
 
-                var adaper = _adapters.GetOrAdd(
-                        reader.GetType(),
-                        type => new MapAdaper(type)
-                    );
+                var adaper = GetOrAddAdaper(reader.GetType(), databaseStrings.Engine);
 
                 return new DbGridReader(dbConnection, command, reader, commandSql, adaper);
             }
@@ -309,7 +318,7 @@ namespace Inkslab.Linq
             try
             {
                 using var reader = command.ExecuteReader(behavior);
-                return ReadSingleFromReader(reader, commandSql);
+                return ReadSingleFromReader(reader, commandSql, databaseStrings.Engine);
             }
             finally
             {

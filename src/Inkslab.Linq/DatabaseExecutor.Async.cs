@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
@@ -78,7 +77,7 @@ namespace Inkslab.Linq
                 _logger.LogDebug(commandSql.ToString());
             }
 
-            return new AsyncEnumerable<T>(databaseStrings, _connectionPipeline, commandSql);
+            return new AsyncEnumerable<T>(databaseStrings, _connectionPipeline, commandSql, _options);
         }
 
         /// <inheritdoc/>
@@ -131,9 +130,9 @@ namespace Inkslab.Linq
                     {
                         if (reader.HasRows)
                         {
-                            var adaper = _adapters.GetOrAdd(
+                            var adaper = GetOrAddAdaper(
                                 reader.GetType(),
-                                type => new MapAdaper(type)
+                                databaseStrings.Engine
                             );
 
                             var map = adaper.CreateMap<T>();
@@ -222,10 +221,7 @@ namespace Inkslab.Linq
 
                 reader = await command.ExecuteReaderAsync(behavior);
 
-                var adaper = _adapters.GetOrAdd(
-                        reader.GetType(),
-                        type => new MapAdaper(type)
-                    );
+                var adaper = GetOrAddAdaper(reader.GetType(), databaseStrings.Engine);
 
                 return new AsyncDbGridReader(dbConnection, command, reader, commandSql, adaper);
             }
@@ -348,12 +344,14 @@ namespace Inkslab.Linq
             private readonly IConnection _connectionStrings;
             private readonly IDbConnectionPipeline _connectionPipeline;
             private readonly CommandSql _commandSql;
+            private readonly Options.DatabaseExecutorOptions _options;
 
-            public AsyncEnumerable(IConnection databaseStrings, IDbConnectionPipeline connectionPipeline, CommandSql commandSql)
+            public AsyncEnumerable(IConnection databaseStrings, IDbConnectionPipeline connectionPipeline, CommandSql commandSql, Options.DatabaseExecutorOptions options)
             {
                 _connectionStrings = databaseStrings;
                 _connectionPipeline = connectionPipeline;
                 _commandSql = commandSql;
+                _options = options;
             }
 
             public async IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default)
@@ -390,7 +388,7 @@ namespace Inkslab.Linq
                         {
                             var adaper = _adapters.GetOrAdd(
                                 reader.GetType(),
-                                type => new MapAdaper(type)
+                                type => new MapAdaper(type, _options.GetMappingCapacity(_connectionStrings.Engine))
                             );
 
                             var map = adaper.CreateMap<T>();

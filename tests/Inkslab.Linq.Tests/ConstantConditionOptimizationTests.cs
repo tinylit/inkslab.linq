@@ -1227,7 +1227,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, '默认' AS `Value` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT `x`.`id` AS `Id`, `x`.`name` AS `Value` FROM `user` AS `x` WHERE `x`.`id` = 100
         /// </code>
         /// 注意：false ? x.Name : "默认" → 直接返回 "默认"，ifTrue 分支不解析。
         /// </remarks>
@@ -1813,7 +1813,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>（age 有值时）：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, ?age AS `Value` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT `x`.`id` AS `Id`, `x`.`id` AS `Value` FROM `user` AS `x` WHERE `x`.`id` = 100
         /// </code>
         /// 注意：age.HasValue = true → true ? age.Value : 0 → age.Value。
         /// </remarks>

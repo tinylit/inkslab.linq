@@ -22,8 +22,29 @@ namespace Inkslab.Linq.Expressions
         }
 
         /// <inheritdoc/>
-        protected override void Startup(MethodCallExpression node)
+        protected override void MethodCall(MethodCallExpression node)
         {
+            if (node.Method.DeclaringType == Types.String)
+            {
+                ByStringCall(node);
+            }
+            else
+            {
+                base.MethodCall(node);
+            }
+        }
+
+        /// <summary>
+        /// 处理字符串方法调用。
+        /// </summary>
+        /// <param name="node">方法调用表达式节点。</param>
+        /// <exception cref="NotSupportedException">当遇到不支持的字符串方法时抛出此异常。</exception>
+        protected virtual void ByStringCall(MethodCallExpression node)
+        {
+            _ignoreNull = false;
+            _ignoreEmptyString = false;
+            _ignoreWhiteSpace = false;
+
             string name = node.Method.Name;
 
             switch (name)
@@ -160,9 +181,9 @@ namespace Inkslab.Linq.Expressions
 
                     using (var domain = Writer.Domain())
                     {
-                        _ignoreNull = true;
-                        _ignoreEmptyString = true;
                         _ignoreWhiteSpace = true;
+                        _ignoreEmptyString = true;
+                        _ignoreNull = true;
 
                         Visit(node.Arguments[0]);
 
@@ -227,10 +248,6 @@ namespace Inkslab.Linq.Expressions
                     break;
                 case nameof(string.Replace) when node.Arguments.Count == 2:
 
-                    _ignoreEmptyString = false;
-                    _ignoreWhiteSpace = false;
-                    _ignoreNull = false;
-
                     Writer.Write("REPLACE");
 
                     Writer.OpenBrace();
@@ -248,10 +265,6 @@ namespace Inkslab.Linq.Expressions
 
                     break;
                 case nameof(string.Substring):
-
-                    _ignoreEmptyString = false;
-                    _ignoreWhiteSpace = false;
-                    _ignoreNull = false;
 
                     using (var domain = Writer.Domain())
                     {
@@ -311,10 +324,6 @@ namespace Inkslab.Linq.Expressions
                     break;
                 case nameof(string.ToUpper) when node.Arguments.Count == 0:
 
-                    _ignoreEmptyString = false;
-                    _ignoreWhiteSpace = false;
-                    _ignoreNull = false;
-
                     Writer.Write("UPPER");
                     Writer.OpenBrace();
 
@@ -325,10 +334,6 @@ namespace Inkslab.Linq.Expressions
                     break;
                 case nameof(string.ToLower) when node.Arguments.Count == 0:
 
-                    _ignoreEmptyString = false;
-                    _ignoreWhiteSpace = false;
-                    _ignoreNull = false;
-
                     Writer.Write("LOWER");
                     Writer.OpenBrace();
 
@@ -338,10 +343,6 @@ namespace Inkslab.Linq.Expressions
 
                     break;
                 case nameof(string.TrimStart) when node.Arguments.Count == 0:
-
-                    _ignoreEmptyString = false;
-                    _ignoreWhiteSpace = false;
-                    _ignoreNull = false;
 
                     if (Engine == DatabaseEngine.PostgreSQL)
                     {
@@ -362,10 +363,6 @@ namespace Inkslab.Linq.Expressions
                     break;
                 case nameof(string.TrimEnd) when node.Arguments.Count == 0:
 
-                    _ignoreEmptyString = false;
-                    _ignoreWhiteSpace = false;
-                    _ignoreNull = false;
-
                     if (Engine == DatabaseEngine.PostgreSQL)
                     {
                         Writer.Write("TRIM");
@@ -384,10 +381,6 @@ namespace Inkslab.Linq.Expressions
 
                     break;
                 case nameof(string.Trim) when node.Arguments.Count == 0:
-
-                    _ignoreEmptyString = false;
-                    _ignoreWhiteSpace = false;
-                    _ignoreNull = false;
 
                     switch (Engine)
                     {
@@ -427,10 +420,6 @@ namespace Inkslab.Linq.Expressions
 
                     break;
                 case nameof(string.IndexOf) when node.Arguments.All(x => x.Type == Types.String || x.Type == Types.Int32):
-
-                    _ignoreEmptyString = false;
-                    _ignoreWhiteSpace = false;
-                    _ignoreNull = false;
 
                     switch (Engine)
                     {
@@ -538,10 +527,6 @@ namespace Inkslab.Linq.Expressions
                     break;
                 case nameof(string.Concat) when node.Arguments.Count > 1:
 
-                    _ignoreEmptyString = false;
-                    _ignoreWhiteSpace = false;
-                    _ignoreNull = false;
-
                     if (Engine == DatabaseEngine.MySQL)
                     {
                         Writer.Write("CONCAT");
@@ -577,7 +562,6 @@ namespace Inkslab.Linq.Expressions
                     throw new NotSupportedException($"字符串的“{node.Method}”方法不被支持！");
             }
         }
-
 
         /// <inheritdoc/>
         protected override void Constant(object value)

@@ -805,12 +805,14 @@ namespace Inkslab.Linq.Expressions
 
                 domain.Flyback();
 
+                bool hasCondition = domain.HasValue;
+
                 if (instance.NodeType == ExpressionType.Constant)
                 {
                     Visit(instance);
                 }
 
-                if (domain.HasValue)
+                if (hasCondition)
                 {
                     _whereSwitch.Execute();
                 }
@@ -849,12 +851,14 @@ namespace Inkslab.Linq.Expressions
 
                 domain.Flyback();
 
+                bool hasCondition = domain.HasValue;
+
                 if (instance.NodeType == ExpressionType.Constant)
                 {
                     Visit(instance);
                 }
 
-                if (domain.HasValue)
+                if (hasCondition)
                 {
                     _whereSwitch.Execute();
                 }

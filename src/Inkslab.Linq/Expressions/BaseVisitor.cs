@@ -405,14 +405,7 @@ namespace Inkslab.Linq.Expressions
             {
                 var value = node.GetValueFromExpression();
 
-                if (value is IQueryable queryable)
-                {
-                    Visit(queryable.Expression);
-                }
-                else
-                {
-                    Constant(value);
-                }
+                Variable(node.Member.Name, value);
             }
             else if (node.Expression?.Type == Types.DateTime)
             {
@@ -1148,66 +1141,8 @@ namespace Inkslab.Linq.Expressions
                     break;
                 case ExpressionType.Not:
                 case ExpressionType.OnesComplement when node.Type.IsBoolean():
-                    switch (node.Operand.NodeType)
-                    {
-                        case ExpressionType.Call when node.Type.IsBoolean():
-                            goto default;
-                        case ExpressionType.Constant:
-                        case ExpressionType.MemberAccess:
-                        case ExpressionType.Parameter:
-                        case ExpressionType.MemberInit:
-                        case ExpressionType.NewArrayInit:
-                        case ExpressionType.RightShift:
-                        case ExpressionType.LeftShift:
-                        case ExpressionType.Add:
-                        case ExpressionType.AddChecked:
-                        case ExpressionType.Subtract:
-                        case ExpressionType.SubtractChecked:
-                        case ExpressionType.Multiply:
-                        case ExpressionType.MultiplyChecked:
-                        case ExpressionType.Divide:
-                        case ExpressionType.Modulo:
-                        case ExpressionType.Coalesce:
-                        case ExpressionType.ArrayIndex:
-                        case ExpressionType.Negate:
-                        case ExpressionType.UnaryPlus:
-                        case ExpressionType.Convert:
-                        case ExpressionType.ConvertChecked:
-                        case ExpressionType.Unbox:
-                        case ExpressionType.ArrayLength:
-                        case ExpressionType.AndAssign:
-                        case ExpressionType.OrAssign:
-                        case ExpressionType.ExclusiveOrAssign:
-                        case ExpressionType.Assign:
-                            Writer.Keyword(SqlKeyword.NOT);
-
-                            Writer.OpenBrace();
-
-                            Visit(node.Operand);
-
-                            Writer.CloseBrace();
-
-                            break;
-                        case ExpressionType.AndAlso:
-                        case ExpressionType.OrElse:
-                        case ExpressionType.Equal:
-                        case ExpressionType.GreaterThan:
-                        case ExpressionType.GreaterThanOrEqual:
-                        case ExpressionType.LessThan:
-                        case ExpressionType.LessThanOrEqual:
-                        case ExpressionType.Not:
-                        case ExpressionType.NotEqual:
-                        case ExpressionType.Conditional:
-                        case ExpressionType.Quote:
-                        default:
-
-                            using (Writer.ConditionReversal())
-                            {
-                                Visit(node.Operand);
-                            }
-
-                            break;
-                    }
+                
+                    Not(node.Operand);
 
                     break;
                 case ExpressionType.OnesComplement:
@@ -1230,6 +1165,74 @@ namespace Inkslab.Linq.Expressions
                     break;
                 default:
                     throw new NotSupportedException();
+            }
+        }
+
+        /// <summary>
+        /// Visits the children of the <see cref="UnaryExpression"/>, when the unary operator is logical NOT, or bitwise ones complement and the operand type is boolean.
+        /// </summary>
+        /// <param name="node">The expression to visit.</param>
+        protected virtual void Not(Expression node)
+        {
+            switch (node.NodeType)
+            {
+                case ExpressionType.Call when node.Type.IsBoolean():
+                    goto default;
+                case ExpressionType.Constant:
+                case ExpressionType.MemberAccess:
+                case ExpressionType.Parameter:
+                case ExpressionType.MemberInit:
+                case ExpressionType.NewArrayInit:
+                case ExpressionType.RightShift:
+                case ExpressionType.LeftShift:
+                case ExpressionType.Add:
+                case ExpressionType.AddChecked:
+                case ExpressionType.Subtract:
+                case ExpressionType.SubtractChecked:
+                case ExpressionType.Multiply:
+                case ExpressionType.MultiplyChecked:
+                case ExpressionType.Divide:
+                case ExpressionType.Modulo:
+                case ExpressionType.Coalesce:
+                case ExpressionType.ArrayIndex:
+                case ExpressionType.Negate:
+                case ExpressionType.UnaryPlus:
+                case ExpressionType.Convert:
+                case ExpressionType.ConvertChecked:
+                case ExpressionType.Unbox:
+                case ExpressionType.ArrayLength:
+                case ExpressionType.AndAssign:
+                case ExpressionType.OrAssign:
+                case ExpressionType.ExclusiveOrAssign:
+                case ExpressionType.Assign:
+                    Writer.Keyword(SqlKeyword.NOT);
+
+                    Writer.OpenBrace();
+
+                    Visit(node);
+
+                    Writer.CloseBrace();
+
+                    break;
+                case ExpressionType.AndAlso:
+                case ExpressionType.OrElse:
+                case ExpressionType.Equal:
+                case ExpressionType.GreaterThan:
+                case ExpressionType.GreaterThanOrEqual:
+                case ExpressionType.LessThan:
+                case ExpressionType.LessThanOrEqual:
+                case ExpressionType.Not:
+                case ExpressionType.NotEqual:
+                case ExpressionType.Conditional:
+                case ExpressionType.Quote:
+                default:
+
+                    using (Writer.ConditionReversal())
+                    {
+                        Visit(node);
+                    }
+
+                    break;
             }
         }
 

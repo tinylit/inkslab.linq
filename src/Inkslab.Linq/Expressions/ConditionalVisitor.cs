@@ -19,151 +19,123 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         public override void Startup(Expression node)
         {
-            if (node.NodeType == ExpressionType.Conditional)
-            {
-                base.Startup(node);
-            }
-            else
+            if (node.NodeType != ExpressionType.Conditional)
             {
                 throw new InvalidOperationException();
             }
+
+            base.Startup(node);
         }
 
         /// <inheritdoc/>
         protected override void Conditional(ConditionalExpression node)
         {
-            using (var domain = Writer.Domain())
+            using var domain = Writer.Domain();
+
+            if (IsPlainVariable(node.Test, false))
             {
-                Condition(node.Test);
+                var constant = node.Test.GetValueFromExpression<bool>();
+                var valueNode = constant ? node.IfTrue : node.IfFalse;
 
-                if (domain.IsEmpty)
+                if (RequiresConditionalEscape() && IsCondition(valueNode))
                 {
-                    if (RequiresConditionalEscape() && IsCondition(node.IfFalse))
-                    {
-                        using (var domainSub = Writer.Domain())
-                        {
-                            Condition(node.IfFalse);
-
-                            if (domainSub.IsEmpty)
-                            {
-                                Writer.Keyword(SqlKeyword.NULL);
-                            }
-                            else
-                            {
-                                Writer.Keyword(SqlKeyword.THEN);
-
-                                Writer.True();
-
-                                Writer.Keyword(SqlKeyword.ELSE);
-
-                                Writer.False();
-
-                                Writer.Keyword(SqlKeyword.END);
-
-                                domainSub.Flyback();
-
-                                Writer.Keyword(SqlKeyword.CASE);
-                                Writer.Keyword(SqlKeyword.WHEN);
-
-                                Writer.CloseBrace();
-
-                                domain.Flyback();
-
-                                Writer.OpenBrace();
-                            }
-                        }
-                    }
-                    else
-                    {
-                        Visit(node.IfFalse);
-                    }
+                    VisitConditionalEscapeInBrace(valueNode, domain);
                 }
                 else
                 {
-                    Writer.Keyword(SqlKeyword.THEN);
-
-                    if (RequiresConditionalEscape() && IsCondition(node.IfTrue))
-                    {
-                        using (var domainSub = Writer.Domain())
-                        {
-                            Condition(node.IfTrue);
-
-                            if (domainSub.IsEmpty)
-                            {
-                                Writer.Keyword(SqlKeyword.NULL);
-                            }
-                            else
-                            {
-                                Writer.Keyword(SqlKeyword.THEN);
-
-                                Writer.True();
-
-                                Writer.Keyword(SqlKeyword.ELSE);
-
-                                Writer.False();
-
-                                Writer.Keyword(SqlKeyword.END);
-
-                                domainSub.Flyback();
-
-                                Writer.Keyword(SqlKeyword.CASE);
-                                Writer.Keyword(SqlKeyword.WHEN);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        Visit(node.IfTrue);
-                    }
-
-                    Writer.Keyword(SqlKeyword.ELSE);
-
-                    if (RequiresConditionalEscape() && IsCondition(node.IfFalse))
-                    {
-                        using (var domainSub = Writer.Domain())
-                        {
-                            Condition(node.IfFalse);
-
-                            if (domainSub.IsEmpty)
-                            {
-                                Writer.Keyword(SqlKeyword.NULL);
-                            }
-                            else
-                            {
-                                Writer.Keyword(SqlKeyword.THEN);
-
-                                Writer.True();
-
-                                Writer.Keyword(SqlKeyword.ELSE);
-
-                                Writer.False();
-
-                                Writer.Keyword(SqlKeyword.END);
-
-                                domainSub.Flyback();
-
-                                Writer.Keyword(SqlKeyword.CASE);
-                                Writer.Keyword(SqlKeyword.WHEN);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        Visit(node.IfFalse);
-                    }
-
-                    Writer.Keyword(SqlKeyword.END);
-
-                    Writer.CloseBrace();
-
-                    domain.Flyback();
-
-                    Writer.OpenBrace();
-
-                    Writer.Keyword(SqlKeyword.CASE);
-                    Writer.Keyword(SqlKeyword.WHEN);
+                    Visit(valueNode);
                 }
+
+                return;
             }
+
+            Condition(node.Test);
+
+            if (domain.IsEmpty)
+            {
+                if (RequiresConditionalEscape() && IsCondition(node.IfTrue))
+                {
+                    VisitConditionalEscapeInBrace(node.IfTrue, domain);
+                }
+                else
+                {
+                    Visit(node.IfTrue);
+                }
+
+                return;
+            }
+
+            Writer.Keyword(SqlKeyword.THEN);
+            VisitConditionalEscape(node.IfTrue);
+            Writer.Keyword(SqlKeyword.ELSE);
+            VisitConditionalEscape(node.IfFalse);
+            Writer.Keyword(SqlKeyword.END);
+            Writer.CloseBrace();
+            domain.Flyback();
+            Writer.OpenBrace();
+            Writer.Keyword(SqlKeyword.CASE);
+            Writer.Keyword(SqlKeyword.WHEN);
+        }
+
+        /// <summary>
+        /// 访问条件分支节点，若需要转义则生成 <c>CASE WHEN ... THEN TRUE ELSE FALSE END</c>。
+        /// </summary>
+        private void VisitConditionalEscape(Expression node)
+        {
+            if (!RequiresConditionalEscape() || !IsCondition(node))
+            {
+                Visit(node);
+
+                return;
+            }
+
+            using var domainSub = Writer.Domain();
+
+            Condition(node);
+
+            if (domainSub.IsEmpty)
+            {
+                Writer.Keyword(SqlKeyword.NULL);
+                return;
+            }
+
+            Writer.Keyword(SqlKeyword.THEN);
+            Writer.True();
+            Writer.Keyword(SqlKeyword.ELSE);
+            Writer.False();
+            Writer.Keyword(SqlKeyword.END);
+            domainSub.Flyback();
+            Writer.Keyword(SqlKeyword.CASE);
+            Writer.Keyword(SqlKeyword.WHEN);
+        }
+
+        /// <summary>
+        /// 访问条件分支节点，生成 <c>CASE WHEN ... THEN TRUE ELSE FALSE END</c> 并用括号包裹整体表达式。
+        /// </summary>
+        private void VisitConditionalEscapeInBrace(Expression node, ISqlDomain outerDomain)
+        {
+            using var domainSub = Writer.Domain();
+            
+            Condition(node);
+
+            if (domainSub.IsEmpty)
+            {
+                Writer.Keyword(SqlKeyword.NULL);
+
+                return;
+            }
+
+            Writer.Keyword(SqlKeyword.THEN);
+            Writer.True();
+            Writer.Keyword(SqlKeyword.ELSE);
+            Writer.False();
+            Writer.Keyword(SqlKeyword.END);
+            domainSub.Flyback();
+            Writer.Keyword(SqlKeyword.CASE);
+            Writer.Keyword(SqlKeyword.WHEN);
+            Writer.CloseBrace();
+            outerDomain.Flyback();
+            Writer.OpenBrace();
         }
     }
 }

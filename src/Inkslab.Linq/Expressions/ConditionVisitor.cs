@@ -44,14 +44,20 @@ namespace Inkslab.Linq.Expressions
             if (_ignoreNull && value is null)
             {
             }
+            else if (_isConditionBalance)
+            {
+                if ((bool)value)
+                {
+                    Writer.AlwaysTrue();
+                }
+                else
+                {
+                    Writer.AlwaysFalse();
+                }
+            }
             else
             {
                 base.Constant(value);
-
-                if (_isConditionBalance)
-                {
-                    Writer.Operator(SqlOperator.IsTrue);
-                }
             }
         }
 
@@ -62,14 +68,36 @@ namespace Inkslab.Linq.Expressions
             if (_ignoreNull && value is null)
             {
             }
+            else if (_isConditionBalance)
+            {
+                if ((bool)value)
+                {
+                    Writer.AlwaysTrue();
+                }
+                else
+                {
+                    Writer.AlwaysFalse();
+                }
+            }
             else
             {
                 base.Variable(name, value);
+            }
+        }
 
-                if (_isConditionBalance)
+        /// <inheritdoc/>
+        protected override void Not(Expression node)
+        {
+            if (_isConditionBalance)
+            {
+                using (Writer.ConditionReversal())
                 {
-                    Writer.Operator(SqlOperator.IsTrue);
+                    Visit(node);
                 }
+            }
+            else
+            {
+                base.Not(node);
             }
         }
 
@@ -109,7 +137,20 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override void MemberHasValue(Expression node)
         {
-            if (_isConditionBalance)
+            if (IsPlainVariable(node, false))
+            {
+                var value = node.GetValueFromExpression();
+
+                if (value is null)
+                {
+                    Writer.AlwaysFalse();
+                }
+                else
+                {
+                    base.MemberHasValue(node);
+                }
+            }
+            else if (_isConditionBalance)
             {
                 _isConditionBalance = false;
 
@@ -144,30 +185,9 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override void ByString(MethodCallExpression node)
         {
-            switch (node.Method.Name)
+            using (var visitor = new ByStringCallVisitor(this, true))
             {
-                case nameof(string.Contains):
-                case nameof(string.EndsWith):
-                case nameof(string.StartsWith):
-                case nameof(string.IsNullOrEmpty):
-                case nameof(string.IsNullOrWhiteSpace):
-
-                    using (var domain = Writer.Domain()) //? 字符串为空时，处理为真。
-                    {
-                        base.ByString(node);
-
-                        if (domain.IsEmpty)
-                        {
-                            Writer.AlwaysTrue();
-                        }
-                    }
-
-                    break;
-                default:
-
-                    base.ByString(node);
-
-                    break;
+                visitor.Startup(node);
             }
         }
 
@@ -292,23 +312,23 @@ namespace Inkslab.Linq.Expressions
                     when right.NodeType == ExpressionType.Constant
                          && (left.NodeType == ExpressionType.MemberAccess || left.NodeType == ExpressionType.Parameter)
                          && !left.Type.IsCell():
-                {
-                    var constant = (ConstantExpression)right;
-
-                    if (constant.Value is null)
                     {
-                        if (
-                            JoinBranchElementIsNull(left, expressionType == ExpressionType.NotEqual)
-                        )
+                        var constant = (ConstantExpression)right;
+
+                        if (constant.Value is null)
                         {
-                            break;
+                            if (
+                                JoinBranchElementIsNull(left, expressionType == ExpressionType.NotEqual)
+                            )
+                            {
+                                break;
+                            }
+
+                            throw new DSyntaxErrorException($"不支持参数类型“{left.Type}”与“null”的比较！");
                         }
 
-                        throw new DSyntaxErrorException($"不支持参数类型“{left.Type}”与“null”的比较！");
+                        throw new DSyntaxErrorException($"不支持参数类型“{left.Type}”与非“null”常量值的比较！");
                     }
-
-                    throw new DSyntaxErrorException($"不支持参数类型“{left.Type}”与非“null”常量值的比较！");
-                }
                 case ExpressionType.Equal
                     when left.NodeType == ExpressionType.Constant
                          && (right.NodeType == ExpressionType.MemberAccess || right.NodeType == ExpressionType.Parameter)
@@ -317,26 +337,26 @@ namespace Inkslab.Linq.Expressions
                     when left.NodeType == ExpressionType.Constant
                          && (right.NodeType == ExpressionType.MemberAccess || right.NodeType == ExpressionType.Parameter)
                          && !right.Type.IsCell():
-                {
-                    var constant = (ConstantExpression)left;
-
-                    if (constant.Value is null)
                     {
-                        if (
-                            JoinBranchElementIsNull(
-                                right,
-                                expressionType == ExpressionType.NotEqual
-                            )
-                        )
+                        var constant = (ConstantExpression)left;
+
+                        if (constant.Value is null)
                         {
-                            break;
+                            if (
+                                JoinBranchElementIsNull(
+                                    right,
+                                    expressionType == ExpressionType.NotEqual
+                                )
+                            )
+                            {
+                                break;
+                            }
+
+                            throw new DSyntaxErrorException($"不支持参数类型“{right.Type}”与“null”的比较！");
                         }
 
-                        throw new DSyntaxErrorException($"不支持参数类型“{right.Type}”与“null”的比较！");
+                        throw new DSyntaxErrorException($"不支持参数类型“{right.Type}”与非“null”常量值的比较！");
                     }
-
-                    throw new DSyntaxErrorException($"不支持参数类型“{right.Type}”与非“null”常量值的比较！");
-                }
                 case ExpressionType.Equal when IsConvertToNull(left) ^ IsConvertToNull(right):
                 case ExpressionType.NotEqual when IsConvertToNull(left) ^ IsConvertToNull(right):
                 case ExpressionType.GreaterThan when IsConvertToNull(left) ^ IsConvertToNull(right):
@@ -458,7 +478,7 @@ namespace Inkslab.Linq.Expressions
                 case ExpressionType.And:
                 case ExpressionType.Or:
                 case ExpressionType.ExclusiveOr:
-                    
+
                     //? 外存。
                     var conditionBalanceFlag = _isConditionBalance;
 
@@ -617,7 +637,38 @@ namespace Inkslab.Linq.Expressions
 
                     using (var domain = Writer.Domain())
                     {
-                        _isConditionBalance = RequiresConditionalEscape();
+                        if (IsPlainVariable(left, false))
+                        {
+                            var value = left.GetValueFromExpression<bool>();
+
+                            if (value)
+                            {
+                                if (Writer.IsConditionReversal
+                                        ? expressionType == ExpressionType.OrElse
+                                        : expressionType == ExpressionType.AndAlso)
+                                {
+                                    Condition(right);
+                                }
+                                else
+                                {
+                                    Writer.AlwaysTrue();
+                                }
+                            }
+                            else if (Writer.IsConditionReversal
+                                         ? expressionType == ExpressionType.AndAlso
+                                         : expressionType == ExpressionType.OrElse)
+                            {
+                                Condition(right);
+                            }
+                            else
+                            {
+                                Writer.AlwaysFalse();
+                            }
+
+                            break;
+                        }
+
+                        _isConditionBalance = true;
 
                         Condition(left);
 
@@ -636,7 +687,7 @@ namespace Inkslab.Linq.Expressions
                         {
                             using (var domainSub = Writer.Domain())
                             {
-                                _isConditionBalance = RequiresConditionalEscape();
+                                _isConditionBalance = true;
 
                                 Condition(right);
 

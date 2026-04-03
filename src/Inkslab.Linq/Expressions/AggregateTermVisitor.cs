@@ -215,10 +215,23 @@ namespace Inkslab.Linq.Expressions
 
                     break;
                 case nameof(Queryable.SkipWhile):
+                
+                    using (var domain = Writer.Domain())
+                    {
+                        Visit(node.Arguments[0]);
+
+                        if (domain.HasValue)
+                        {
+                            Writer.Keyword(SqlKeyword.AND);
+                        }
+                    }
+
                     using (Writer.ConditionReversal())
                     {
-                        goto case nameof(Queryable.Where);
+                        Visit(node.Arguments[1]);
                     }
+
+                    break;
                 case nameof(Queryable.Where):
                 case nameof(Queryable.TakeWhile):
 

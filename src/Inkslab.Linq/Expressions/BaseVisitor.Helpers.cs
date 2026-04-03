@@ -177,6 +177,8 @@ namespace Inkslab.Linq.Expressions
                     }
 
                     return IsPlainVariable(member.Expression, depthVerification);
+                case UnaryExpression unary:
+                    return IsPlainVariable(unary.Operand, depthVerification);
                 default:
                     return depthVerification && IsPlainVariableNs(node);
             }
@@ -186,7 +188,7 @@ namespace Inkslab.Linq.Expressions
         /// 是否需要条件转义。
         /// </summary>
         /// <returns></returns>
-        protected bool RequiresConditionalEscape() => 
+        protected bool RequiresConditionalEscape() =>
             Engine is not (DatabaseEngine.MySQL or DatabaseEngine.PostgreSQL);
 
         /// <summary>

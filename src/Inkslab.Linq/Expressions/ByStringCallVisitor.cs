@@ -13,10 +13,12 @@ namespace Inkslab.Linq.Expressions
         private bool _ignoreNull;
         private bool _ignoreEmptyString;
         private bool _ignoreWhiteSpace;
+        private readonly bool _isAsAConditions;
 
         /// <inheritdoc/>
-        public ByStringCallVisitor(BaseVisitor visitor) : base(visitor)
+        public ByStringCallVisitor(BaseVisitor visitor, bool isAsAConditions = false) : base(visitor)
         {
+            _isAsAConditions = isAsAConditions;
         }
 
         /// <inheritdoc/>
@@ -42,6 +44,15 @@ namespace Inkslab.Linq.Expressions
 
                         if (domain.IsEmpty)
                         {
+                            if (_isAsAConditions)
+                            {
+                                Writer.AlwaysTrue();
+                            }
+                            else
+                            {
+                                Writer.True();
+                            }
+
                             break;
                         }
 
@@ -112,6 +123,15 @@ namespace Inkslab.Linq.Expressions
 
                         if (domain.IsEmpty)
                         {
+                            if (_isAsAConditions)
+                            {
+                                Writer.AlwaysTrue();
+                            }
+                            else
+                            {
+                                Writer.True();
+                            }
+
                             break;
                         }
 
@@ -152,6 +172,15 @@ namespace Inkslab.Linq.Expressions
 
                         if (domain.IsEmpty)
                         {
+                            if (_isAsAConditions)
+                            {
+                                Writer.AlwaysTrue();
+                            }
+                            else
+                            {
+                                Writer.True();
+                            }
+
                             break;
                         }
 
@@ -198,6 +227,10 @@ namespace Inkslab.Linq.Expressions
                     break;
                 case nameof(string.Replace) when node.Arguments.Count == 2:
 
+                    _ignoreEmptyString = false;
+                    _ignoreWhiteSpace = false;
+                    _ignoreNull = false;
+
                     Writer.Write("REPLACE");
 
                     Writer.OpenBrace();
@@ -215,6 +248,10 @@ namespace Inkslab.Linq.Expressions
 
                     break;
                 case nameof(string.Substring):
+
+                    _ignoreEmptyString = false;
+                    _ignoreWhiteSpace = false;
+                    _ignoreNull = false;
 
                     using (var domain = Writer.Domain())
                     {
@@ -274,6 +311,10 @@ namespace Inkslab.Linq.Expressions
                     break;
                 case nameof(string.ToUpper) when node.Arguments.Count == 0:
 
+                    _ignoreEmptyString = false;
+                    _ignoreWhiteSpace = false;
+                    _ignoreNull = false;
+
                     Writer.Write("UPPER");
                     Writer.OpenBrace();
 
@@ -284,6 +325,10 @@ namespace Inkslab.Linq.Expressions
                     break;
                 case nameof(string.ToLower) when node.Arguments.Count == 0:
 
+                    _ignoreEmptyString = false;
+                    _ignoreWhiteSpace = false;
+                    _ignoreNull = false;
+
                     Writer.Write("LOWER");
                     Writer.OpenBrace();
 
@@ -293,6 +338,10 @@ namespace Inkslab.Linq.Expressions
 
                     break;
                 case nameof(string.TrimStart) when node.Arguments.Count == 0:
+
+                    _ignoreEmptyString = false;
+                    _ignoreWhiteSpace = false;
+                    _ignoreNull = false;
 
                     if (Engine == DatabaseEngine.PostgreSQL)
                     {
@@ -313,6 +362,10 @@ namespace Inkslab.Linq.Expressions
                     break;
                 case nameof(string.TrimEnd) when node.Arguments.Count == 0:
 
+                    _ignoreEmptyString = false;
+                    _ignoreWhiteSpace = false;
+                    _ignoreNull = false;
+
                     if (Engine == DatabaseEngine.PostgreSQL)
                     {
                         Writer.Write("TRIM");
@@ -331,6 +384,10 @@ namespace Inkslab.Linq.Expressions
 
                     break;
                 case nameof(string.Trim) when node.Arguments.Count == 0:
+
+                    _ignoreEmptyString = false;
+                    _ignoreWhiteSpace = false;
+                    _ignoreNull = false;
 
                     switch (Engine)
                     {
@@ -370,6 +427,10 @@ namespace Inkslab.Linq.Expressions
 
                     break;
                 case nameof(string.IndexOf) when node.Arguments.All(x => x.Type == Types.String || x.Type == Types.Int32):
+
+                    _ignoreEmptyString = false;
+                    _ignoreWhiteSpace = false;
+                    _ignoreNull = false;
 
                     switch (Engine)
                     {
@@ -476,6 +537,10 @@ namespace Inkslab.Linq.Expressions
 
                     break;
                 case nameof(string.Concat) when node.Arguments.Count > 1:
+
+                    _ignoreEmptyString = false;
+                    _ignoreWhiteSpace = false;
+                    _ignoreNull = false;
 
                     if (Engine == DatabaseEngine.MySQL)
                     {

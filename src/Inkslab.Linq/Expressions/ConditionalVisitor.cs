@@ -123,7 +123,14 @@ namespace Inkslab.Linq.Expressions
         {
             using var domainSub = Writer.Domain();
 
-            Condition(node);
+            if (RequiresConditionalEscape())
+            {
+                Condition(node);
+            }
+            else
+            {
+                Visit(node);
+            }
 
             if (domainSub.IsEmpty)
             {

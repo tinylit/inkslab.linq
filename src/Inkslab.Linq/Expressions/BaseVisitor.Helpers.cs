@@ -220,6 +220,8 @@ namespace Inkslab.Linq.Expressions
                     return IsCondition(((UnaryExpression)node).Operand);
                 case ExpressionType.Lambda:
                     return IsCondition(((LambdaExpression)node).Body);
+                case ExpressionType.MemberAccess:
+                    return node.Type.IsBoolean();
                 default:
                     return false;
             }

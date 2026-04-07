@@ -1,9 +1,10 @@
 using System;
 using System.Linq;
 using Xunit;
+using Inkslab.Linq;
 using XunitPlus;
 
-namespace Inkslab.Linq.Tests
+namespace SqlServer.Tests
 {
     /// <summary>
     /// 常量/变量条件优化单元测试。
@@ -33,7 +34,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` ORDER BY `x`.`id`
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] ORDER BY [x].[Id]
         /// </code>
         /// 注意：WHERE true 是始终为真的条件，应被完全移除，不会出现在 SQL 中。
         /// </remarks>
@@ -42,8 +43,7 @@ namespace Inkslab.Linq.Tests
         public void Where_ConstantTrue_OptimizedAway()
         {
             // Arrange
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers orderby x.Id select x.Id).ToList();
+            var memoryResults = (from x in _users orderby x.Id select x.Id).ToList();
 
             // Act - 常量 true 应被优化掉
             var results = _users.Where(x => true).OrderBy(x => x.Id).Select(x => x.Id).ToList();
@@ -62,7 +62,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE 1 = 0
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE 1 = 0
         /// </code>
         /// </remarks>
         [Fact]
@@ -86,7 +86,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE `x`.`id` > 0 ORDER BY `x`.`id`
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE [x].[Id] > 0 ORDER BY [x].[Id]
         /// </code>
         /// 注意：变量 isActive = true 在表达式树构建时已知其值，应被优化为始终为真并移除。
         /// </remarks>
@@ -96,8 +96,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             bool isActive = true;
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers where isActive && x.Id > 0 orderby x.Id select x.Id).ToList();
+            var memoryResults = (from x in _users where isActive && x.Id > 0 orderby x.Id select x.Id).ToList();
 
             // Act - isActive = true 应被优化掉，仅保留 x.Id > 0
             var results = _users.Where(x => isActive && x.Id > 0).OrderBy(x => x.Id).Select(x => x.Id).ToList();
@@ -116,7 +115,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE 1 = 0
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE 1 = 0
         /// </code>
         /// 注意：false AND anything 始终为假。
         /// </remarks>
@@ -140,7 +139,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` ORDER BY `x`.`id`
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] ORDER BY [x].[Id]
         /// </code>
         /// 注意：true OR anything 始终为真，OR 右侧不需要解析。
         /// </remarks>
@@ -150,8 +149,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             bool isActive = true;
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers orderby x.Id select x.Id).ToList();
+            var memoryResults = (from x in _users orderby x.Id select x.Id).ToList();
 
             // Act - true OR x.Id > 100 应优化为始终为真，无WHERE子句
             var results = _users.Where(x => isActive || x.Id > 100).OrderBy(x => x.Id).Select(x => x.Id).ToList();
@@ -170,7 +168,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE `x`.`id` > 100 ORDER BY `x`.`id`
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE [x].[Id] > 100 ORDER BY [x].[Id]
         /// </code>
         /// 注意：false OR x.Id > 100 应优化为仅 x.Id > 100。
         /// </remarks>
@@ -180,8 +178,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             bool isActive = false;
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers where x.Id > 100 orderby x.Id select x.Id).ToList();
+            var memoryResults = (from x in _users where x.Id > 100 orderby x.Id select x.Id).ToList();
 
             // Act - false OR x.Id > 100 应优化为仅 x.Id > 100
             var results = _users.Where(x => isActive || x.Id > 100).OrderBy(x => x.Id).Select(x => x.Id).ToList();
@@ -204,7 +201,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, `x`.`name` AS `Name`, 1 AS `Type` FROM `user` AS `x` WHERE `x`.`id` = 100 ORDER BY `x`.`id`
+        /// SELECT [x].[Id] AS [Id], [x].[Name] AS [Name], 1 AS [Type] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100 ORDER BY [x].[Id]
         /// </code>
         /// 注意：常量 1 直接作为结果字段输出。
         /// </remarks>
@@ -213,8 +210,7 @@ namespace Inkslab.Linq.Tests
         public void Select_ConstantValue_AsProjectionField()
         {
             // Arrange
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  orderby x.Id
                                  select new { x.Id, x.Name, Type = 1 }).ToList();
@@ -241,7 +237,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, 1 AS `Flag` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT [x].[Id] AS [Id], 1 AS [Flag] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
         /// </code>
         /// </remarks>
         [Fact]
@@ -249,8 +245,7 @@ namespace Inkslab.Linq.Tests
         public void Select_ConstantBoolTrue_AsProjectionField()
         {
             // Arrange
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  select new { x.Id, Flag = true }).ToList();
 
@@ -274,7 +269,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, 0 AS `Flag` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT [x].[Id] AS [Id], 0 AS [Flag] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
         /// </code>
         /// </remarks>
         [Fact]
@@ -282,8 +277,7 @@ namespace Inkslab.Linq.Tests
         public void Select_ConstantBoolFalse_AsProjectionField()
         {
             // Arrange
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  select new { x.Id, Flag = false }).ToList();
 
@@ -307,7 +301,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, `x`.`name` AS `Name`, 2 AS `Type` FROM `user` AS `x` WHERE `x`.`id` = 100 ORDER BY `x`.`id`
+        /// SELECT [x].[Id] AS [Id], [x].[Name] AS [Name], 2 AS [Type] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100 ORDER BY [x].[Id]
         /// </code>
         /// </remarks>
         [Fact]
@@ -316,8 +310,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             int type = 2;
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  orderby x.Id
                                  select new { x.Id, x.Name, Type = type }).ToList();
@@ -348,7 +341,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE (('测试' IS NOT NULL AND '测试' &lt;&gt; '') AND `x`.`name` LIKE CONCAT('%', '测试', '%')) ORDER BY `x`.`id`
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE [x].[Name] LIKE '%测试%' ORDER BY [x].[Id]
         /// </code>
         /// 注意：!string.IsNullOrEmpty("测试") 始终为真，整个 IsNullOrEmpty 判断应被优化掉，仅保留实际条件。
         /// </remarks>
@@ -358,8 +351,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             string name = "测试";
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where (!string.IsNullOrEmpty(name) && x.Name != null && x.Name.Contains(name))
                                  orderby x.Id
                                  select x.Id).ToList();
@@ -385,7 +377,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE 1 <> 1
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE 1 <> 1
         /// </code>
         /// 注意：!string.IsNullOrEmpty(null) 始终为假，整个 AND 条件被优化为始终为假。
         /// </remarks>
@@ -412,7 +404,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE 1 <> 1
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE 1 <> 1
         /// </code>
         /// 注意：!string.IsNullOrEmpty("") 始终为假，整个 AND 条件被优化为始终为假。
         /// </remarks>
@@ -439,7 +431,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` ORDER BY `x`.`id`
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] ORDER BY [x].[Id]
         /// </code>
         /// 注意：string.IsNullOrWhiteSpace(null) = true，true OR anything = true，整个条件被优化掉。
         /// </remarks>
@@ -449,8 +441,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             string name = null;
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where string.IsNullOrWhiteSpace(name) || x.Name.Contains(name)
                                  orderby x.Id
                                  select x.Id).ToList();
@@ -476,7 +467,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE (('测试' IS NULL OR LTRIM(RTRIM('测试')) = '') OR `x`.`name` LIKE CONCAT('%', '测试', '%')) ORDER BY `x`.`id`
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE [x].[Name] LIKE '%测试%' ORDER BY [x].[Id]
         /// </code>
         /// 注意：string.IsNullOrWhiteSpace("测试") = false，false OR x.Name.Contains(name)，仅保留右侧。
         /// </remarks>
@@ -486,8 +477,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             string name = "测试";
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where string.IsNullOrWhiteSpace(name) || (x.Name != null && x.Name.Contains(name))
                                  orderby x.Id
                                  select x.Id).ToList();
@@ -513,7 +503,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, (`x`.`name` IS NULL OR `x`.`name` = '') AS `IsEmpty` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT [x].[Id] AS [Id], ([x].[Name] IS NULL OR [x].[Name] = '') AS [IsEmpty] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
         /// </code>
         /// 注意：字段引用在 Select 中不应被优化，应保留数据库判断逻辑。
         /// </remarks>
@@ -522,8 +512,7 @@ namespace Inkslab.Linq.Tests
         public void Select_IsNullOrEmpty_FieldReference_NotOptimized()
         {
             // Arrange
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  select new { x.Id, IsEmpty = string.IsNullOrEmpty(x.Name) }).ToList();
 
@@ -547,7 +536,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, ('测试' IS NULL OR '测试' = '') AS `IsEmpty` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT [x].[Id] AS [Id], ('测试' IS NULL OR '测试' = '') AS [IsEmpty] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
         /// </code>
         /// </remarks>
         [Fact]
@@ -556,8 +545,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             string name = "测试";
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  select new { x.Id, IsEmpty = string.IsNullOrEmpty(name) }).ToList();
 
@@ -581,7 +569,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, 1 AS `IsEmpty` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT [x].[Id] AS [Id], 1 AS [IsEmpty] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
         /// </code>
         /// </remarks>
         [Fact]
@@ -590,8 +578,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             string name = null;
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  select new { x.Id, IsEmpty = string.IsNullOrEmpty(name) }).ToList();
 
@@ -619,7 +606,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE `x`.`id` > 0 ORDER BY `x`.`id`
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE [x].[Id] > 0 ORDER BY [x].[Id]
         /// </code>
         /// 注意：连续的 true AND 条件应被逐级优化掉。
         /// </remarks>
@@ -630,8 +617,7 @@ namespace Inkslab.Linq.Tests
             // Arrange
             bool flag1 = true;
             bool flag2 = true;
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where flag1 && flag2 && x.Id > 0
                                  orderby x.Id
                                  select x.Id).ToList();
@@ -657,7 +643,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE (1 = 0 AND `x`.`id` > 0)
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE (1 = 0 AND [x].[Id] > 0)
         /// </code>
         /// </remarks>
         [Fact]
@@ -684,7 +670,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE `x`.`id` = 100 ORDER BY `x`.`id`
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100 ORDER BY [x].[Id]
         /// </code>
         /// </remarks>
         [Fact]
@@ -693,8 +679,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             bool flagFalse = false;
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  orderby x.Id
                                  select x.Id).ToList();
@@ -720,7 +705,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE `x`.`id` > 50 ORDER BY `x`.`id`
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE [x].[Id] > 50 ORDER BY [x].[Id]
         /// </code>
         /// </remarks>
         [Fact]
@@ -730,8 +715,7 @@ namespace Inkslab.Linq.Tests
             // Arrange
             bool flagTrue = true;
             bool flagFalse = false;
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where flagTrue && (flagFalse || x.Id > 50)
                                  orderby x.Id
                                  select x.Id).ToList();
@@ -761,7 +745,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE 1 <> 1
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE 1 <> 1
         /// </code>
         /// </remarks>
         [Fact]
@@ -784,7 +768,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` ORDER BY `x`.`id`
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] ORDER BY [x].[Id]
         /// </code>
         /// </remarks>
         [Fact]
@@ -793,8 +777,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             bool flag = false;
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers orderby x.Id select x.Id).ToList();
+            var memoryResults = (from x in _users orderby x.Id select x.Id).ToList();
 
             // Act - !false → true
             var results = _users.Where(x => !flag).OrderBy(x => x.Id).Select(x => x.Id).ToList();
@@ -817,7 +800,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` ORDER BY `x`.`id`
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] ORDER BY [x].[Id]
         /// </code>
         /// 注意：Conditions.If(false, expr) 应被优化为始终为真。
         /// </remarks>
@@ -827,8 +810,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             string name = null;
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers orderby x.Id select x.Id).ToList();
+            var memoryResults = (from x in _users orderby x.Id select x.Id).ToList();
 
             // Act - Conditions.If(!string.IsNullOrEmpty(null), ...) → Conditions.If(false, ...) → 忽略条件
             var results = _users
@@ -851,7 +833,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE `x`.`name` LIKE CONCAT('%', '测试', '%') ORDER BY `x`.`id`
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE [x].[Name] LIKE '%测试%' ORDER BY [x].[Id]
         /// </code>
         /// </remarks>
         [Fact]
@@ -860,8 +842,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             string name = "测试";
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Name != null && x.Name.Contains(name)
                                  orderby x.Id
                                  select x.Id).ToList();
@@ -887,7 +868,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE `x`.`id` > 0 ORDER BY `x`.`id`
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE [x].[Id] > 0 ORDER BY [x].[Id]
         /// </code>
         /// </remarks>
         [Fact]
@@ -896,8 +877,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             string name = null;
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id > 0
                                  orderby x.Id
                                  select x.Id).ToList();
@@ -927,7 +907,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE `x`.`is_administrator` = 1 ORDER BY `x`.`id`
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE [x].[IsAdministrator] = 1 ORDER BY [x].[Id]
         /// </code>
         /// 注意：布尔字段引用不应被优化掉，应正常生成 IS TRUE 或 = 1 的 SQL。
         /// </remarks>
@@ -936,8 +916,7 @@ namespace Inkslab.Linq.Tests
         public void Where_BoolMemberField_NotOptimized()
         {
             // Arrange
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.IsAdministrator
                                  orderby x.Id
                                  select x.Id).ToList();
@@ -963,7 +942,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE `x`.`is_administrator` = 0 ORDER BY `x`.`id`
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE [x].[IsAdministrator] = 0 ORDER BY [x].[Id]
         /// </code>
         /// </remarks>
         [Fact]
@@ -971,8 +950,7 @@ namespace Inkslab.Linq.Tests
         public void Where_NotBoolMemberField_NotOptimized()
         {
             // Arrange
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where !x.IsAdministrator
                                  orderby x.Id
                                  select x.Id).ToList();
@@ -998,7 +976,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE `x`.`is_administrator` = 1 ORDER BY `x`.`id`
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE [x].[IsAdministrator] = 1 ORDER BY [x].[Id]
         /// </code>
         /// 注意：true AND IsAdministrator → 仅保留 IsAdministrator。
         /// </remarks>
@@ -1008,8 +986,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             bool flag = true;
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where flag && x.IsAdministrator
                                  orderby x.Id
                                  select x.Id).ToList();
@@ -1039,7 +1016,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, `y`.`role` AS `RoleType` FROM `user` AS `x` INNER JOIN `user_ex` AS `y` ON `x`.`id` = `y`.`id` ORDER BY `x`.`id`
+        /// SELECT [x].[Id] AS [Id], [y].[Role] AS [RoleType] FROM [dbo].[User] AS [x] INNER JOIN [dbo].[UserEx] AS [y] ON [x].[Id] = [y].[Id] ORDER BY [x].[Id]
         /// </code>
         /// 注意：WHERE true 在 Join 查询中也应被优化掉。
         /// </remarks>
@@ -1049,10 +1026,8 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             bool flag = true;
-            var allUsers = _users.ToList();
-            var allUserExes = _userExes.ToList();
-            var memoryResults = (from x in allUsers
-                                 join y in allUserExes on x.Id equals y.Id
+            var memoryResults = (from x in _users
+                                 join y in _userExes on x.Id equals y.Id
                                  where flag
                                  orderby x.Id
                                  select new { x.Id, y.RoleType }).ToList();
@@ -1083,7 +1058,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE (`x`.`nullable` IS NOT NULL) ORDER BY `x`.`id`
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE ([x].[Nullable] IS NOT NULL) ORDER BY [x].[Id]
         /// </code>
         /// </remarks>
         [Fact]
@@ -1091,8 +1066,7 @@ namespace Inkslab.Linq.Tests
         public void Where_NullableHasValue_FieldReference_NotOptimized()
         {
             // Arrange
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Nullable.HasValue
                                  orderby x.Id
                                  select x.Id).ToList();
@@ -1118,7 +1092,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE `x`.`nullable` IS NULL ORDER BY `x`.`id`
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE [x].[Nullable] IS NULL ORDER BY [x].[Id]
         /// </code>
         /// </remarks>
         [Fact]
@@ -1126,8 +1100,7 @@ namespace Inkslab.Linq.Tests
         public void Where_NullableEqualsNull_GeneratesIsNull()
         {
             // Arrange
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Nullable == null
                                  orderby x.Id
                                  select x.Id).ToList();
@@ -1157,7 +1130,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, `x`.`name` AS `Value` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT [x].[Id] AS [Id], [x].[Name] AS [Value] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
         /// </code>
         /// 注意：true ? x.Name : "默认" → 直接返回 x.Name，ifFalse 分支不解析。
         /// </remarks>
@@ -1167,8 +1140,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             bool flag = true;
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  select new { x.Id, Value = flag ? x.Name : "默认" }).ToList();
 
@@ -1192,7 +1164,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, '默认' AS `Value` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT [x].[Id] AS [Id], '默认' AS [Value] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
         /// </code>
         /// 注意：false ? x.Name : "默认" → 直接返回 "默认"，ifTrue 分支不解析。
         /// </remarks>
@@ -1202,8 +1174,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             bool flag = false;
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  select new { x.Id, Value = flag ? x.Name : "默认" }).ToList();
 
@@ -1227,7 +1198,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, `x`.`name` AS `Value` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT [x].[Id] AS [Id], [x].[Name] AS [Value] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
         /// </code>
         /// 注意：false ? x.Name : "默认" → 直接返回 "默认"，ifTrue 分支不解析。
         /// </remarks>
@@ -1237,8 +1208,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             bool flag = false;
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  select new { x.Id, Value = !flag ? x.Name : "默认" }).ToList();
 
@@ -1262,7 +1232,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, (CASE WHEN `x`.`is_administrator` THEN `x`.`name` ELSE '普通用户' END) AS `Value` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT [x].[Id] AS [Id], CASE WHEN [x].[IsAdministrator] THEN [x].[Name] ELSE '普通用户' END AS [Value] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
         /// </code>
         /// 注意：字段引用条件不应被优化，应生成完整的 CASE WHEN。
         /// </remarks>
@@ -1271,8 +1241,7 @@ namespace Inkslab.Linq.Tests
         public void Select_Ternary_FieldTest_GeneratesCaseWhen()
         {
             // Arrange
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  select new { x.Id, Value = x.IsAdministrator ? x.Name : "普通用户" }).ToList();
 
@@ -1296,7 +1265,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, 1 AS `Type` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT [x].[Id] AS [Id], 1 AS [Type] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
         /// </code>
         /// 注意：true ? 1 : 2 → 直接折叠为常量 1。
         /// </remarks>
@@ -1306,8 +1275,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             bool flag = true;
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  select new { x.Id, Type = flag ? 1 : 2 }).ToList();
 
@@ -1331,7 +1299,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, 2 AS `Type` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT [x].[Id] AS [Id], 2 AS [Type] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
         /// </code>
         /// 注意：false ? 1 : 2 → 直接折叠为常量 2。
         /// </remarks>
@@ -1341,8 +1309,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             bool flag = false;
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  select new { x.Id, Type = flag ? 1 : 2 }).ToList();
 
@@ -1366,7 +1333,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, (CASE WHEN ('测试' IS NULL OR '测试' = '') THEN '无' ELSE `x`.`name` END) AS `Value` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT [x].[Id] AS [Id], [x].[Name] AS [Value] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
         /// </code>
         /// 注意：string.IsNullOrEmpty("测试") = false → false ? "无" : x.Name → x.Name。
         /// </remarks>
@@ -1376,8 +1343,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             string name = "测试";
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  select new { x.Id, Value = string.IsNullOrEmpty(name) ? "无" : x.Name }).ToList();
 
@@ -1401,7 +1367,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, (CASE WHEN 1 THEN '无' ELSE `x`.`name` END) AS `Value` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT [x].[Id] AS [Id], '无' AS [Value] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
         /// </code>
         /// 注意：string.IsNullOrEmpty(null) = true → true ? "无" : x.Name → "无"。
         /// </remarks>
@@ -1411,8 +1377,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             string name = null;
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  select new { x.Id, Value = string.IsNullOrEmpty(name) ? "无" : x.Name }).ToList();
 
@@ -1436,7 +1401,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, (CASE WHEN `x`.`id` &gt; 50 THEN `x`.`name` ELSE '未知' END) AS `Value` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT [x].[Id] AS [Id], CASE WHEN [x].[Id] > 50 THEN [x].[Name] ELSE '未知' END AS [Value] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
         /// </code>
         /// </remarks>
         [Fact]
@@ -1444,8 +1409,7 @@ namespace Inkslab.Linq.Tests
         public void Select_Ternary_FieldComparison_GeneratesCaseWhen()
         {
             // Arrange
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  select new { x.Id, Value = x.Id > 50 ? x.Name : "未知" }).ToList();
 
@@ -1469,7 +1433,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, (CASE WHEN `x`.`is_administrator` THEN `x`.`name` ELSE '游客' END) AS `Value` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT [x].[Id] AS [Id], CASE WHEN [x].[IsAdministrator] THEN [x].[Name] ELSE '游客' END AS [Value] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
         /// </code>
         /// 注意：true ? (x.IsAdministrator ? x.Name : "游客") : "默认" → 外层折叠，保留内层 CASE WHEN。
         /// </remarks>
@@ -1479,8 +1443,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             bool flag = true;
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  select new { x.Id, Value = flag ? (x.IsAdministrator ? x.Name : "游客") : "默认" }).ToList();
 
@@ -1504,7 +1467,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user_ex` AS `x` WHERE `x`.`id` = 100 ORDER BY `x`.`age`, `x`.`date` DESC
+        /// SELECT [x].[Id] FROM [dbo].[UserEx] AS [x] WHERE [x].[Id] = 100 ORDER BY [x].[Age] ASC, [x].[DateAt] DESC
         /// </code>
         /// 注意：true ? x.Age : x.RoleType → 排序时仅用 x.Age。
         /// </remarks>
@@ -1514,8 +1477,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             bool flag = true;
-            var allUserExes = _userExes.ToList();
-            var memoryResults = (from x in allUserExes
+            var memoryResults = (from x in _userExes
                                  where x.Id == 100
                                  orderby flag ? x.Age : x.RoleType, x.DateAt descending
                                  select x.Id).ToList();
@@ -1537,7 +1499,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user_ex` AS `x` WHERE `x`.`id` = 100 ORDER BY `x`.`role`, `x`.`date` DESC
+        /// SELECT [x].[Id] FROM [dbo].[UserEx] AS [x] WHERE [x].[Id] = 100 ORDER BY [x].[Role] ASC, [x].[DateAt] DESC
         /// </code>
         /// 注意：false ? x.Age : x.RoleType → 排序时仅用 x.RoleType。
         /// </remarks>
@@ -1547,8 +1509,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             bool flag = false;
-            var allUserExes = _userExes.ToList();
-            var memoryResults = (from x in allUserExes
+            var memoryResults = (from x in _userExes
                                  where x.Id == 100
                                  orderby flag ? x.Age : x.RoleType, x.DateAt descending
                                  select x.Id).ToList();
@@ -1574,7 +1535,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE (`x`.`id` = 100 AND (`x`.`nullable` IS NOT NULL)) ORDER BY `x`.`id`
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100 AND [x].[Nullable] IS NOT NULL ORDER BY [x].[Id]
         /// </code>
         /// </remarks>
         [Fact]
@@ -1582,8 +1543,7 @@ namespace Inkslab.Linq.Tests
         public void Where_NullableHasValue_AndOtherCondition()
         {
             // Arrange
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100 && x.Nullable.HasValue
                                  orderby x.Id
                                  select x.Id).ToList();
@@ -1609,7 +1569,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE (`x`.`nullable` IS NULL) ORDER BY `x`.`id`
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE [x].[Nullable] IS NULL ORDER BY [x].[Id]
         /// </code>
         /// </remarks>
         [Fact]
@@ -1617,8 +1577,7 @@ namespace Inkslab.Linq.Tests
         public void Where_NotNullableHasValue_GeneratesIsNull()
         {
             // Arrange
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where !x.Nullable.HasValue
                                  orderby x.Id
                                  select x.Id).ToList();
@@ -1644,7 +1603,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE `x`.`nullable` = 1 ORDER BY `x`.`id`
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE [x].[Nullable] ORDER BY [x].[Id]
         /// </code>
         /// </remarks>
         [Fact]
@@ -1652,8 +1611,7 @@ namespace Inkslab.Linq.Tests
         public void Where_NullableValue_AsBoolCondition()
         {
             // Arrange
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Nullable.HasValue && x.Nullable.Value
                                  orderby x.Id
                                  select x.Id).ToList();
@@ -1679,7 +1637,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, (`x`.`nullable` IS NOT NULL) AS `HasNullable` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT [x].[Id] AS [Id], ([x].[Nullable] IS NOT NULL) AS [HasNullable] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
         /// </code>
         /// </remarks>
         [Fact]
@@ -1687,8 +1645,7 @@ namespace Inkslab.Linq.Tests
         public void Select_NullableHasValue_AsProjection()
         {
             // Arrange
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  select new { x.Id, HasNullable = x.Nullable.HasValue }).ToList();
 
@@ -1712,7 +1669,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE `x`.`id` &gt; 10 ORDER BY `x`.`id`
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE [x].[Id] > 10 ORDER BY [x].[Id]
         /// </code>
         /// 注意：age.HasValue 变量有值时 = true，true AND x.Id > age → 仅保留 x.Id > age。
         /// </remarks>
@@ -1722,8 +1679,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             int? age = 10;
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where age.HasValue && x.Id > age.Value
                                  orderby x.Id
                                  select x.Id).ToList();
@@ -1749,7 +1705,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE 1 = 0
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE 1 = 0
         /// </code>
         /// 注意：age.HasValue 变量为 null 时 = false，false AND anything → 始终为假。
         /// </remarks>
@@ -1776,7 +1732,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` ORDER BY `x`.`id`
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] ORDER BY [x].[Id]
         /// </code>
         /// 注意：!age.HasValue 为 true → true OR anything → 始终为真。
         /// </remarks>
@@ -1786,8 +1742,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             int? age = null;
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where !age.HasValue || x.Id > age.Value
                                  orderby x.Id
                                  select x.Id).ToList();
@@ -1813,7 +1768,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>（age 有值时）：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, `x`.`id` AS `Value` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT [x].[Id] AS [Id], [x].[Id] AS [Value] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
         /// </code>
         /// 注意：age.HasValue = true → true ? age.Value : 0 → age.Value。
         /// </remarks>
@@ -1823,8 +1778,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             int? age = 25;
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  select new { x.Id, Value = age.HasValue ? x.Id : 0 }).ToList();
 
@@ -1848,7 +1802,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>（age 为 null 时）：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, 0 AS `Value` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT [x].[Id] AS [Id], 0 AS [Value] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
         /// </code>
         /// 注意：age.HasValue = false → false ? age.Value : 0 → 0。
         /// </remarks>
@@ -1858,8 +1812,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             int? age = null;
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  select new { x.Id, Value = age.HasValue ? x.Id : 0 }).ToList();
 
@@ -1883,7 +1836,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, (CASE WHEN (`x`.`nullable` IS NOT NULL) THEN 1 ELSE 0 END) AS `Value` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT [x].[Id] AS [Id], CASE WHEN [x].[Nullable] IS NOT NULL THEN 1 ELSE 0 END AS [Value] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
         /// </code>
         /// 注意：x.Nullable.HasValue 是数据库字段引用，不应被优化，应生成 CASE WHEN。
         /// </remarks>
@@ -1892,8 +1845,7 @@ namespace Inkslab.Linq.Tests
         public void Select_Ternary_FieldNullableHasValue_GeneratesCaseWhen()
         {
             // Arrange
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  select new { x.Id, Value = x.Nullable.HasValue ? 1 : 0 }).ToList();
 
@@ -1917,7 +1869,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, IFNULL(25, 0) AS `Value` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT [x].[Id] AS [Id], ISNULL(25, 0) AS [Value] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
         /// </code>
         /// 注意：age ?? 0 当 age = 25 时，直接折叠为 25。
         /// </remarks>
@@ -1927,8 +1879,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             int? age = 25;
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  select new { x.Id, Value = age ?? 0 }).ToList();
 
@@ -1952,7 +1903,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, 0 AS `Value` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT [x].[Id] AS [Id], 0 AS [Value] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
         /// </code>
         /// 注意：age ?? 0 当 age = null 时，直接折叠为 0。
         /// </remarks>
@@ -1962,8 +1913,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             int? age = null;
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  select new { x.Id, Value = age ?? 0 }).ToList();
 
@@ -1982,12 +1932,12 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 可空类型合并运算（??）在 Select 中，字段引用不优化，生成 COALESCE/IFNULL。
+        /// 可空类型合并运算（??）在 Select 中，字段引用不优化，生成 COALESCE/ISNULL。
         /// </summary>
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, IFNULL(`x`.`nullable`, 0) AS `Value` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT [x].[Id] AS [Id], ISNULL([x].[Nullable], 0) AS [Value] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
         /// </code>
         /// </remarks>
         [Fact]
@@ -1995,8 +1945,7 @@ namespace Inkslab.Linq.Tests
         public void Select_NullCoalescing_FieldReference_GeneratesCoalesce()
         {
             // Arrange
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  select new { x.Id, Value = x.Nullable ?? false }).ToList();
 
@@ -2024,7 +1973,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE `x`.`id` > 0 ORDER BY `x`.`id`
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE [x].[Id] > 0 ORDER BY [x].[Id]
         /// </code>
         /// 注意：第一层 Where 是 true（优化掉），第二层是实际条件。
         /// </remarks>
@@ -2034,8 +1983,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             bool flag = true;
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id > 0
                                  orderby x.Id
                                  select x.Id).ToList();
@@ -2062,7 +2010,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE 1 = 0 AND `x`.`id` &gt; 0
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE (1 = 0 AND [x].[Id] &gt; 0)
         /// </code>
         /// 注意：第一层 Where 是 false，后续条件不会被解析到SQL中。
         /// </remarks>
@@ -2094,7 +2042,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE `x`.`id` &lt;&gt; 100 ORDER BY `x`.`id`
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE [x].[Id] &lt;&gt; 100 ORDER BY [x].[Id]
         /// </code>
         /// </remarks>
         [Fact]
@@ -2102,8 +2050,7 @@ namespace Inkslab.Linq.Tests
         public void Where_NotEquality_GeneratesNotEqual()
         {
             // Arrange
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where !(x.Id == 100)
                                  orderby x.Id
                                  select x.Id).ToList();
@@ -2129,7 +2076,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE `x`.`name` NOT LIKE CONCAT('%', '测试', '%') ORDER BY `x`.`id`
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE [x].[Name] NOT LIKE '%' + '测试' + '%' ORDER BY [x].[Id]
         /// </code>
         /// 注意：NULL NOT LIKE 在 SQL 中返回 NULL（被 WHERE 过滤），与 C# 中 name != null &amp;&amp; !name.Contains() 等效。
         /// </remarks>
@@ -2139,8 +2086,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             string name = "测试";
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Name != null && !x.Name.Contains(name)
                                  orderby x.Id
                                  select x.Id).ToList();
@@ -2166,7 +2112,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE (`x`.`id` &lt;= 0 OR `x`.`is_administrator` = 0) ORDER BY `x`.`id`
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE ([x].[Id] &lt;= 0 OR [x].[IsAdministrator] = 0) ORDER BY [x].[Id]
         /// </code>
         /// 注意：NOT (A AND B) 应按 De Morgan 定律展开为 (!A) OR (!B)。
         /// </remarks>
@@ -2175,8 +2121,7 @@ namespace Inkslab.Linq.Tests
         public void Where_NotAndExpression_DecomposesToDeMorgan()
         {
             // Arrange
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where !(x.Id > 0 && x.IsAdministrator)
                                  orderby x.Id
                                  select x.Id).ToList();
@@ -2202,7 +2147,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE (`x`.`id` &lt;= 100 AND `x`.`is_administrator` = 0) ORDER BY `x`.`id`
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE ([x].[Id] &lt;= 100 AND [x].[IsAdministrator] = 0) ORDER BY [x].[Id]
         /// </code>
         /// 注意：NOT (A OR B) 应按 De Morgan 定律展开为 (!A) AND (!B)。
         /// </remarks>
@@ -2211,8 +2156,7 @@ namespace Inkslab.Linq.Tests
         public void Where_NotOrExpression_DecomposesToDeMorgan()
         {
             // Arrange
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where !(x.Id > 100 || x.IsAdministrator)
                                  orderby x.Id
                                  select x.Id).ToList();
@@ -2238,7 +2182,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE (`x`.`name` IS NOT NULL AND `x`.`name` <> '') ORDER BY `x`.`id`
+        /// SELECT [x].[Id] FROM [dbo].[User] AS [x] WHERE ([x].[Name] IS NOT NULL AND [x].[Name] <> '') ORDER BY [x].[Id]
         /// </code>
         /// 注意：字段引用不应被优化，应保留数据库否定空检查逻辑。
         /// </remarks>
@@ -2247,8 +2191,7 @@ namespace Inkslab.Linq.Tests
         public void Where_NotIsNullOrEmpty_FieldReference()
         {
             // Arrange
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where !string.IsNullOrEmpty(x.Name)
                                  orderby x.Id
                                  select x.Id).ToList();
@@ -2278,7 +2221,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`,  NOT (1) AS `IsNot` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT [x].[Id] AS [Id], CASE WHEN 1 <> 1 THEN 1 ELSE 0 END AS [IsNot] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
         /// </code>
         /// 注意：!true 直接折叠为 0。
         /// </remarks>
@@ -2288,8 +2231,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             bool flag = true;
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  select new { x.Id, IsNot = !flag }).ToList();
 
@@ -2313,7 +2255,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`,  NOT (0) AS `IsNot` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT [x].[Id] AS [Id], 1 AS [IsNot] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
         /// </code>
         /// 注意：!false 直接折叠为 1。
         /// </remarks>
@@ -2323,8 +2265,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             bool flag = false;
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  select new { x.Id, IsNot = !flag }).ToList();
 
@@ -2348,7 +2289,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`,  NOT (`x`.`is_administrator`) AS `IsNot` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT [x].[Id] AS [Id], CASE WHEN [x].[IsAdministrator] = 0 THEN 1 ELSE 0 END AS [IsNot] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
         /// </code>
         /// 注意：字段引用取反不优化，生成取反比较或 NOT 表达式。
         /// </remarks>
@@ -2357,8 +2298,7 @@ namespace Inkslab.Linq.Tests
         public void Select_NotBoolMemberField_GeneratesNegation()
         {
             // Arrange
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  select new { x.Id, IsNot = !x.IsAdministrator }).ToList();
 
@@ -2382,7 +2322,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, (`x`.`nullable` IS NULL) AS `HasNo` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT [x].[Id] AS [Id], CASE WHEN ([x].[Nullable] IS NULL) THEN 1 ELSE 0 END AS [HasNo] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
         /// </code>
         /// 注意：!x.Nullable.HasValue 等价于 x.Nullable IS NULL。
         /// </remarks>
@@ -2391,8 +2331,7 @@ namespace Inkslab.Linq.Tests
         public void Select_NotNullableHasValue_GeneratesIsNull()
         {
             // Arrange
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  select new { x.Id, HasNo = !x.Nullable.HasValue }).ToList();
 
@@ -2416,7 +2355,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, (`x`.`name` IS NOT NULL AND `x`.`name` <> '') AS `IsNotEmpty` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT [x].[Id] AS [Id], CASE WHEN ([x].[Name] IS NOT NULL AND [x].[Name] <> '') THEN 1 ELSE 0 END AS [IsNotEmpty] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
         /// </code>
         /// 注意：x.Name 是字段引用，不应被优化，应保留数据库否定判断逻辑。
         /// </remarks>
@@ -2425,8 +2364,7 @@ namespace Inkslab.Linq.Tests
         public void Select_NotIsNullOrEmpty_FieldReference_GeneratesNotExpression()
         {
             // Arrange
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  select new { x.Id, IsNotEmpty = !string.IsNullOrEmpty(x.Name) }).ToList();
 
@@ -2450,7 +2388,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, ('测试' IS NOT NULL AND '测试' <> '') AS `IsNotEmpty` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT [x].[Id] AS [Id], ('测试' IS NOT NULL AND '测试' <> '') AS [IsNotEmpty] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
         /// </code>
         /// 注意：!IsNullOrEmpty("测试") = !false = true → 折叠为常量 1。
         /// </remarks>
@@ -2460,8 +2398,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             string name = "测试";
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  select new { x.Id, IsNotEmpty = !string.IsNullOrEmpty(name) }).ToList();
 
@@ -2485,7 +2422,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, 0 AS `IsNotEmpty` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT [x].[Id] AS [Id], 0 AS [IsNotEmpty] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
         /// </code>
         /// 注意：!IsNullOrEmpty(null) = !true = false → 折叠为常量 0。
         /// </remarks>
@@ -2495,8 +2432,7 @@ namespace Inkslab.Linq.Tests
         {
             // Arrange
             string name = null;
-            var allUsers = _users.ToList();
-            var memoryResults = (from x in allUsers
+            var memoryResults = (from x in _users
                                  where x.Id == 100
                                  select new { x.Id, IsNotEmpty = !string.IsNullOrEmpty(name) }).ToList();
 

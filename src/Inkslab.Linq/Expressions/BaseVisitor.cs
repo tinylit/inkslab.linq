@@ -1141,7 +1141,7 @@ namespace Inkslab.Linq.Expressions
                     break;
                 case ExpressionType.Not:
                 case ExpressionType.OnesComplement when node.Type.IsBoolean():
-                
+
                     Not(node.Operand);
 
                     break;
@@ -1177,6 +1177,7 @@ namespace Inkslab.Linq.Expressions
             switch (node.NodeType)
             {
                 case ExpressionType.Call when node.Type.IsBoolean():
+                case ExpressionType.MemberAccess when node is MemberExpression member && member.Member.Name == "HasValue" && member.Expression.IsNullable():
                     goto default;
                 case ExpressionType.Constant:
                 case ExpressionType.MemberAccess:

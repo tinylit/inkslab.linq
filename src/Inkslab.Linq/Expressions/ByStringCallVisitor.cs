@@ -69,6 +69,10 @@ namespace Inkslab.Linq.Expressions
                             {
                                 Writer.AlwaysTrue();
                             }
+                            else if (Writer.IsConditionReversal)
+                            {
+                                Writer.False();
+                            }
                             else
                             {
                                 Writer.True();
@@ -148,6 +152,10 @@ namespace Inkslab.Linq.Expressions
                             {
                                 Writer.AlwaysTrue();
                             }
+                            else if (Writer.IsConditionReversal)
+                            {
+                                Writer.False();
+                            }
                             else
                             {
                                 Writer.True();
@@ -196,6 +204,10 @@ namespace Inkslab.Linq.Expressions
                             if (_isAsAConditions)
                             {
                                 Writer.AlwaysTrue();
+                            }
+                            else if (Writer.IsConditionReversal)
+                            {
+                                Writer.False();
                             }
                             else
                             {

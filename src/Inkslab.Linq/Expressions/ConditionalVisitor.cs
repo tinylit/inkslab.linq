@@ -49,7 +49,14 @@ namespace Inkslab.Linq.Expressions
                 return;
             }
 
-            Condition(node.Test);
+            if (RequiresConditionalEscape())
+            {
+                Condition(node.Test);
+            }
+            else
+            {
+                Visit(node.Test);
+            }
 
             if (domain.IsEmpty)
             {
@@ -115,7 +122,7 @@ namespace Inkslab.Linq.Expressions
         private void VisitConditionalEscapeInBrace(Expression node, ISqlDomain outerDomain)
         {
             using var domainSub = Writer.Domain();
-            
+
             Condition(node);
 
             if (domainSub.IsEmpty)

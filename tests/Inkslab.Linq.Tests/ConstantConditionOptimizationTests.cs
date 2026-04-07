@@ -307,7 +307,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, `x`.`name` AS `Name`, ?type AS `Type` FROM `user` AS `x` WHERE `x`.`id` = 100 ORDER BY `x`.`id`
+        /// SELECT `x`.`id` AS `Id`, `x`.`name` AS `Name`, 2 AS `Type` FROM `user` AS `x` WHERE `x`.`id` = 100 ORDER BY `x`.`id`
         /// </code>
         /// </remarks>
         [Fact]
@@ -547,7 +547,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` AS `Id`, 0 AS `IsEmpty` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// SELECT `x`.`id` AS `Id`, ('测试' IS NULL OR '测试' = '') AS `IsEmpty` FROM `user` AS `x` WHERE `x`.`id` = 100
         /// </code>
         /// </remarks>
         [Fact]
@@ -657,7 +657,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE 1 = 0
+        /// SELECT `x`.`id` FROM `user` AS `x` WHERE (1 = 0 AND `x`.`id` > 0)
         /// </code>
         /// </remarks>
         [Fact]
@@ -1083,7 +1083,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE `x`.`nullable` IS NOT NULL ORDER BY `x`.`id`
+        /// SELECT `x`.`id` FROM `user` AS `x` WHERE (`x`.`nullable` IS NOT NULL) ORDER BY `x`.`id`
         /// </code>
         /// </remarks>
         [Fact]
@@ -2062,7 +2062,7 @@ namespace Inkslab.Linq.Tests
         /// <remarks>
         /// <b>SQL预览</b>：
         /// <code>
-        /// SELECT `x`.`id` FROM `user` AS `x` WHERE 1 = 0
+        /// SELECT `x`.`id` FROM `user` AS `x` WHERE (1 = 0 AND `x`.`id` &gt; 0)
         /// </code>
         /// 注意：第一层 Where 是 false，后续条件不会被解析到SQL中。
         /// </remarks>
@@ -2082,6 +2082,436 @@ namespace Inkslab.Linq.Tests
 
             // Assert
             Assert.Empty(results);
+        }
+
+        #endregion
+
+        #region 取反条件（NOT 应用于字段和表达式）
+
+        /// <summary>
+        /// 对字段相等比较取反：!(x.Id == 100)，应生成不等比较（&lt;&gt;）。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`id` FROM `user` AS `x` WHERE `x`.`id` &lt;&gt; 100 ORDER BY `x`.`id`
+        /// </code>
+        /// </remarks>
+        [Fact]
+        [Step(61)]
+        public void Where_NotEquality_GeneratesNotEqual()
+        {
+            // Arrange
+            var allUsers = _users.ToList();
+            var memoryResults = (from x in allUsers
+                                 where !(x.Id == 100)
+                                 orderby x.Id
+                                 select x.Id).ToList();
+
+            // Act
+            var results = _users
+                .Where(x => !(x.Id == 100))
+                .OrderBy(x => x.Id)
+                .Select(x => x.Id)
+                .ToList();
+
+            // Assert
+            Assert.Equal(memoryResults.Count, results.Count);
+            for (int i = 0; i < memoryResults.Count; i++)
+            {
+                Assert.Equal(memoryResults[i], results[i]);
+            }
+        }
+
+        /// <summary>
+        /// 对字段 Contains 取反：!x.Name.Contains(name)，应生成 NOT LIKE 表达式。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`id` FROM `user` AS `x` WHERE `x`.`name` NOT LIKE CONCAT('%', '测试', '%') ORDER BY `x`.`id`
+        /// </code>
+        /// 注意：NULL NOT LIKE 在 SQL 中返回 NULL（被 WHERE 过滤），与 C# 中 name != null &amp;&amp; !name.Contains() 等效。
+        /// </remarks>
+        [Fact]
+        [Step(62)]
+        public void Where_NotContains_GeneratesNotLike()
+        {
+            // Arrange
+            string name = "测试";
+            var allUsers = _users.ToList();
+            var memoryResults = (from x in allUsers
+                                 where x.Name != null && !x.Name.Contains(name)
+                                 orderby x.Id
+                                 select x.Id).ToList();
+
+            // Act
+            var results = _users
+                .Where(x => !x.Name.Contains(name))
+                .OrderBy(x => x.Id)
+                .Select(x => x.Id)
+                .ToList();
+
+            // Assert
+            Assert.Equal(memoryResults.Count, results.Count);
+            for (int i = 0; i < memoryResults.Count; i++)
+            {
+                Assert.Equal(memoryResults[i], results[i]);
+            }
+        }
+
+        /// <summary>
+        /// 对 AND 复合表达式取反（De Morgan 定律）：!(A &amp;&amp; B) → !A || !B。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`id` FROM `user` AS `x` WHERE (`x`.`id` &lt;= 0 OR `x`.`is_administrator` = 0) ORDER BY `x`.`id`
+        /// </code>
+        /// 注意：NOT (A AND B) 应按 De Morgan 定律展开为 (!A) OR (!B)。
+        /// </remarks>
+        [Fact]
+        [Step(63)]
+        public void Where_NotAndExpression_DecomposesToDeMorgan()
+        {
+            // Arrange
+            var allUsers = _users.ToList();
+            var memoryResults = (from x in allUsers
+                                 where !(x.Id > 0 && x.IsAdministrator)
+                                 orderby x.Id
+                                 select x.Id).ToList();
+
+            // Act - !(Id > 0 AND IsAdministrator) → Id <= 0 OR !IsAdministrator
+            var results = _users
+                .Where(x => !(x.Id > 0 && x.IsAdministrator))
+                .OrderBy(x => x.Id)
+                .Select(x => x.Id)
+                .ToList();
+
+            // Assert
+            Assert.Equal(memoryResults.Count, results.Count);
+            for (int i = 0; i < memoryResults.Count; i++)
+            {
+                Assert.Equal(memoryResults[i], results[i]);
+            }
+        }
+
+        /// <summary>
+        /// 对 OR 复合表达式取反（De Morgan 定律）：!(A || B) → !A &amp;&amp; !B。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`id` FROM `user` AS `x` WHERE (`x`.`id` &lt;= 100 AND `x`.`is_administrator` = 0) ORDER BY `x`.`id`
+        /// </code>
+        /// 注意：NOT (A OR B) 应按 De Morgan 定律展开为 (!A) AND (!B)。
+        /// </remarks>
+        [Fact]
+        [Step(64)]
+        public void Where_NotOrExpression_DecomposesToDeMorgan()
+        {
+            // Arrange
+            var allUsers = _users.ToList();
+            var memoryResults = (from x in allUsers
+                                 where !(x.Id > 100 || x.IsAdministrator)
+                                 orderby x.Id
+                                 select x.Id).ToList();
+
+            // Act - !(Id > 100 OR IsAdministrator) → Id <= 100 AND !IsAdministrator
+            var results = _users
+                .Where(x => !(x.Id > 100 || x.IsAdministrator))
+                .OrderBy(x => x.Id)
+                .Select(x => x.Id)
+                .ToList();
+
+            // Assert
+            Assert.Equal(memoryResults.Count, results.Count);
+            for (int i = 0; i < memoryResults.Count; i++)
+            {
+                Assert.Equal(memoryResults[i], results[i]);
+            }
+        }
+
+        /// <summary>
+        /// 对字段 IsNullOrEmpty 取反：!string.IsNullOrEmpty(x.Name)，不应被优化，应生成否定的空检查 SQL 表达式。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`id` FROM `user` AS `x` WHERE (`x`.`name` IS NOT NULL AND `x`.`name` <> '') ORDER BY `x`.`id`
+        /// </code>
+        /// 注意：字段引用不应被优化，应保留数据库否定空检查逻辑。
+        /// </remarks>
+        [Fact]
+        [Step(65)]
+        public void Where_NotIsNullOrEmpty_FieldReference()
+        {
+            // Arrange
+            var allUsers = _users.ToList();
+            var memoryResults = (from x in allUsers
+                                 where !string.IsNullOrEmpty(x.Name)
+                                 orderby x.Id
+                                 select x.Id).ToList();
+
+            // Act
+            var results = _users
+                .Where(x => !string.IsNullOrEmpty(x.Name))
+                .OrderBy(x => x.Id)
+                .Select(x => x.Id)
+                .ToList();
+
+            // Assert
+            Assert.Equal(memoryResults.Count, results.Count);
+            for (int i = 0; i < memoryResults.Count; i++)
+            {
+                Assert.Equal(memoryResults[i], results[i]);
+            }
+        }
+
+        #endregion
+
+        #region 取反查询结果（NOT 在 Select 投影中）
+
+        /// <summary>
+        /// 布尔变量 true 取反作为投影字段，应折叠为常量 0（false）。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`id` AS `Id`, NOT (1) AS `IsNot` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// </code>
+        /// 注意：!true 直接折叠为 0。
+        /// </remarks>
+        [Fact]
+        [Step(66)]
+        public void Select_NotBoolVariableTrue_FoldedToZero()
+        {
+            // Arrange
+            bool flag = true;
+            var allUsers = _users.ToList();
+            var memoryResults = (from x in allUsers
+                                 where x.Id == 100
+                                 select new { x.Id, IsNot = !flag }).ToList();
+
+            // Act - !true → false → 0
+            var results = (from x in _users
+                           where x.Id == 100
+                           select new { x.Id, IsNot = !flag }).ToList();
+
+            // Assert
+            Assert.Equal(memoryResults.Count, results.Count);
+            for (int i = 0; i < memoryResults.Count; i++)
+            {
+                Assert.Equal(memoryResults[i].Id, results[i].Id);
+                Assert.Equal(memoryResults[i].IsNot, results[i].IsNot);
+            }
+        }
+
+        /// <summary>
+        /// 布尔变量 false 取反作为投影字段，应折叠为常量 1（true）。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`id` AS `Id`, NOT (0) AS `IsNot` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// </code>
+        /// 注意：!false 直接折叠为 1。
+        /// </remarks>
+        [Fact]
+        [Step(67)]
+        public void Select_NotBoolVariableFalse_FoldedToOne()
+        {
+            // Arrange
+            bool flag = false;
+            var allUsers = _users.ToList();
+            var memoryResults = (from x in allUsers
+                                 where x.Id == 100
+                                 select new { x.Id, IsNot = !flag }).ToList();
+
+            // Act - !false → true → 1
+            var results = (from x in _users
+                           where x.Id == 100
+                           select new { x.Id, IsNot = !flag }).ToList();
+
+            // Assert
+            Assert.Equal(memoryResults.Count, results.Count);
+            for (int i = 0; i < memoryResults.Count; i++)
+            {
+                Assert.Equal(memoryResults[i].Id, results[i].Id);
+                Assert.Equal(memoryResults[i].IsNot, results[i].IsNot);
+            }
+        }
+
+        /// <summary>
+        /// 布尔成员字段取反作为投影字段，不应被优化，应生成取反的 SQL 表达式。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`id` AS `Id`, NOT (`x`.`is_administrator`) AS `IsNot` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// </code>
+        /// 注意：字段引用取反不优化，生成取反比较或 NOT 表达式。
+        /// </remarks>
+        [Fact]
+        [Step(68)]
+        public void Select_NotBoolMemberField_GeneratesNegation()
+        {
+            // Arrange
+            var allUsers = _users.ToList();
+            var memoryResults = (from x in allUsers
+                                 where x.Id == 100
+                                 select new { x.Id, IsNot = !x.IsAdministrator }).ToList();
+
+            // Act
+            var results = (from x in _users
+                           where x.Id == 100
+                           select new { x.Id, IsNot = !x.IsAdministrator }).ToList();
+
+            // Assert
+            Assert.Equal(memoryResults.Count, results.Count);
+            for (int i = 0; i < memoryResults.Count; i++)
+            {
+                Assert.Equal(memoryResults[i].Id, results[i].Id);
+                Assert.Equal(memoryResults[i].IsNot, results[i].IsNot);
+            }
+        }
+
+        /// <summary>
+        /// Nullable 字段 HasValue 取反作为投影字段，应生成 IS NULL 判断。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`id` AS `Id`, (`x`.`nullable` IS NULL) AS `HasNo` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// </code>
+        /// 注意：!x.Nullable.HasValue 等价于 x.Nullable IS NULL。
+        /// </remarks>
+        [Fact]
+        [Step(69)]
+        public void Select_NotNullableHasValue_GeneratesIsNull()
+        {
+            // Arrange
+            var allUsers = _users.ToList();
+            var memoryResults = (from x in allUsers
+                                 where x.Id == 100
+                                 select new { x.Id, HasNo = !x.Nullable.HasValue }).ToList();
+
+            // Act
+            var results = (from x in _users
+                           where x.Id == 100
+                           select new { x.Id, HasNo = !x.Nullable.HasValue }).ToList();
+
+            // Assert
+            Assert.Equal(memoryResults.Count, results.Count);
+            for (int i = 0; i < memoryResults.Count; i++)
+            {
+                Assert.Equal(memoryResults[i].Id, results[i].Id);
+                Assert.Equal(memoryResults[i].HasNo, results[i].HasNo);
+            }
+        }
+
+        /// <summary>
+        /// 字段 IsNullOrEmpty 取反作为投影字段，不应被优化，应生成否定的空检查 SQL 表达式。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`id` AS `Id`, (`x`.`name` IS NOT NULL AND `x`.`name` <> '') AS `IsNotEmpty` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// </code>
+        /// 注意：x.Name 是字段引用，不应被优化，应保留数据库否定判断逻辑。
+        /// </remarks>
+        [Fact]
+        [Step(70)]
+        public void Select_NotIsNullOrEmpty_FieldReference_GeneratesNotExpression()
+        {
+            // Arrange
+            var allUsers = _users.ToList();
+            var memoryResults = (from x in allUsers
+                                 where x.Id == 100
+                                 select new { x.Id, IsNotEmpty = !string.IsNullOrEmpty(x.Name) }).ToList();
+
+            // Act
+            var results = (from x in _users
+                           where x.Id == 100
+                           select new { x.Id, IsNotEmpty = !string.IsNullOrEmpty(x.Name) }).ToList();
+
+            // Assert
+            Assert.Equal(memoryResults.Count, results.Count);
+            for (int i = 0; i < memoryResults.Count; i++)
+            {
+                Assert.Equal(memoryResults[i].Id, results[i].Id);
+                Assert.Equal(memoryResults[i].IsNotEmpty, results[i].IsNotEmpty);
+            }
+        }
+
+        /// <summary>
+        /// 变量 IsNullOrEmpty 取反作为投影字段（变量有值），应折叠为常量 1（true）。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`id` AS `Id`, ('测试' IS NOT NULL AND '测试' <> '') AS `IsNotEmpty` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// </code>
+        /// 注意：!IsNullOrEmpty("测试") = !false = true → 折叠为常量 1。
+        /// </remarks>
+        [Fact]
+        [Step(71)]
+        public void Select_NotIsNullOrEmpty_VariableHasValue_FoldedToTrue()
+        {
+            // Arrange
+            string name = "测试";
+            var allUsers = _users.ToList();
+            var memoryResults = (from x in allUsers
+                                 where x.Id == 100
+                                 select new { x.Id, IsNotEmpty = !string.IsNullOrEmpty(name) }).ToList();
+
+            // Act - !IsNullOrEmpty("测试") = true → 1
+            var results = (from x in _users
+                           where x.Id == 100
+                           select new { x.Id, IsNotEmpty = !string.IsNullOrEmpty(name) }).ToList();
+
+            // Assert
+            Assert.Equal(memoryResults.Count, results.Count);
+            for (int i = 0; i < memoryResults.Count; i++)
+            {
+                Assert.Equal(memoryResults[i].Id, results[i].Id);
+                Assert.Equal(memoryResults[i].IsNotEmpty, results[i].IsNotEmpty);
+            }
+        }
+
+        /// <summary>
+        /// 变量 IsNullOrEmpty 取反作为投影字段（变量为 null），应折叠为常量 0（false）。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`id` AS `Id`, 0 AS `IsNotEmpty` FROM `user` AS `x` WHERE `x`.`id` = 100
+        /// </code>
+        /// 注意：!IsNullOrEmpty(null) = !true = false → 折叠为常量 0。
+        /// </remarks>
+        [Fact]
+        [Step(72)]
+        public void Select_NotIsNullOrEmpty_NullVariable_FoldedToFalse()
+        {
+            // Arrange
+            string name = null;
+            var allUsers = _users.ToList();
+            var memoryResults = (from x in allUsers
+                                 where x.Id == 100
+                                 select new { x.Id, IsNotEmpty = !string.IsNullOrEmpty(name) }).ToList();
+
+            // Act - !IsNullOrEmpty(null) = false → 0
+            var results = (from x in _users
+                           where x.Id == 100
+                           select new { x.Id, IsNotEmpty = !string.IsNullOrEmpty(name) }).ToList();
+
+            // Assert
+            Assert.Equal(memoryResults.Count, results.Count);
+            for (int i = 0; i < memoryResults.Count; i++)
+            {
+                Assert.Equal(memoryResults[i].Id, results[i].Id);
+                Assert.Equal(memoryResults[i].IsNotEmpty, results[i].IsNotEmpty);
+            }
         }
 
         #endregion

@@ -32,19 +32,12 @@ namespace Inkslab.Linq.Expressions
         {
             using var domain = Writer.Domain();
 
-            if (IsPlainVariable(node.Test, false))
+            if (IsPlainVariable(node.Test, true))
             {
                 var constant = node.Test.GetValueFromExpression<bool>();
                 var valueNode = constant ? node.IfTrue : node.IfFalse;
 
-                if (RequiresConditionalEscape() && IsCondition(valueNode))
-                {
-                    VisitConditionalEscapeInBrace(valueNode, domain);
-                }
-                else
-                {
-                    Visit(valueNode);
-                }
+                VisitConditionalEscape(valueNode);
 
                 return;
             }
@@ -60,22 +53,15 @@ namespace Inkslab.Linq.Expressions
 
             if (domain.IsEmpty)
             {
-                if (RequiresConditionalEscape() && IsCondition(node.IfTrue))
-                {
-                    VisitConditionalEscapeInBrace(node.IfTrue, domain);
-                }
-                else
-                {
-                    Visit(node.IfTrue);
-                }
+                VisitConditionalEscape(node.IfTrue);
 
                 return;
             }
 
             Writer.Keyword(SqlKeyword.THEN);
-            VisitConditionalEscape(node.IfTrue);
+            VisitConditionalEscape(node.IfTrue, true);
             Writer.Keyword(SqlKeyword.ELSE);
-            VisitConditionalEscape(node.IfFalse);
+            VisitConditionalEscape(node.IfFalse, true);
             Writer.Keyword(SqlKeyword.END);
             Writer.CloseBrace();
             domain.Flyback();
@@ -87,11 +73,11 @@ namespace Inkslab.Linq.Expressions
         /// <summary>
         /// 访问条件分支节点，若需要转义则生成 <c>CASE WHEN ... THEN TRUE ELSE FALSE END</c>。
         /// </summary>
-        private void VisitConditionalEscape(Expression node)
+        private void VisitConditionalEscape(Expression node, bool isSubExpression = false)
         {
             if (!RequiresConditionalEscape() || !IsCondition(node))
             {
-                Visit(node);
+                Load(node);
 
                 return;
             }
@@ -103,6 +89,7 @@ namespace Inkslab.Linq.Expressions
             if (domainSub.IsEmpty)
             {
                 Writer.Keyword(SqlKeyword.NULL);
+
                 return;
             }
 
@@ -111,45 +98,37 @@ namespace Inkslab.Linq.Expressions
             Writer.Keyword(SqlKeyword.ELSE);
             Writer.False();
             Writer.Keyword(SqlKeyword.END);
+
+            if (isSubExpression)
+            {
+                Writer.OpenBrace();
+            }
+
             domainSub.Flyback();
+
+            if (isSubExpression)
+            {
+                Writer.CloseBrace();
+            }
+
             Writer.Keyword(SqlKeyword.CASE);
             Writer.Keyword(SqlKeyword.WHEN);
         }
 
         /// <summary>
-        /// 访问条件分支节点，生成 <c>CASE WHEN ... THEN TRUE ELSE FALSE END</c> 并用括号包裹整体表达式。
+        /// 访问条件表达式节点。
         /// </summary>
-        private void VisitConditionalEscapeInBrace(Expression node, ISqlDomain outerDomain)
+        /// <param name="node">条件表达式节点。</param>
+        protected virtual void Load(Expression node)
         {
-            using var domainSub = Writer.Domain();
+            var length = Writer.Length;
 
-            if (RequiresConditionalEscape())
-            {
-                Condition(node);
-            }
-            else
-            {
-                Visit(node);
-            }
+            Visit(node);
 
-            if (domainSub.IsEmpty)
+            if (Writer.Length == length)
             {
                 Writer.Keyword(SqlKeyword.NULL);
-
-                return;
             }
-
-            Writer.Keyword(SqlKeyword.THEN);
-            Writer.True();
-            Writer.Keyword(SqlKeyword.ELSE);
-            Writer.False();
-            Writer.Keyword(SqlKeyword.END);
-            domainSub.Flyback();
-            Writer.Keyword(SqlKeyword.CASE);
-            Writer.Keyword(SqlKeyword.WHEN);
-            Writer.CloseBrace();
-            outerDomain.Flyback();
-            Writer.OpenBrace();
         }
     }
 }

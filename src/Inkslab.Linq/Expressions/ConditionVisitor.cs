@@ -147,7 +147,7 @@ namespace Inkslab.Linq.Expressions
                 }
                 else
                 {
-                    base.MemberHasValue(node);
+                    Writer.AlwaysTrue();
                 }
             }
             else if (_isConditionBalance)

@@ -405,7 +405,7 @@ namespace Inkslab.Linq
         {
             Settings = settings ?? throw new ArgumentNullException(nameof(settings));
 
-            Parameters = new Dictionary<string, object>();
+            Parameters = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
         }
 
         /// <summary>

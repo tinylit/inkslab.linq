@@ -544,9 +544,9 @@ namespace Inkslab.Linq.Tests
             await using (var scope = new SerializableScope())
             {
                 // 并行执行多个查询
-                var task3 = _users.OrderByDescending(x => x.Id).Take(100).ToListAsync();
-                var task1 = _users.CountAsync();
-                var task2 = _users.Where(x => x.Id > 0).Take(10).OrderBy(x => x.Id).ToListAsync();
+                var task3 = _users.OrderByDescending(x => x.Id).Skip(500).Take(100).ToListAsync();
+                var task1 = _users.Where(x => x.Id > 1000).CountAsync();
+                var task2 = _users.Where(x => x.Id > 0).Skip(100).Take(100).OrderBy(x => x.Id).ToListAsync();
 
                 // 串行范围中，不支持并行查询。
                 await Assert.ThrowsAsync<InvalidOperationException>(() => Task.WhenAll(task1, task2, task3));

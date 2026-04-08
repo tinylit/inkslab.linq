@@ -84,8 +84,187 @@ namespace Inkslab.Linq.Tests
             public DateTime? UpdateTime { get; set; }
         }
 
+        /// <summary>
+        /// 商品批次商品库存表
+        /// inventory_commodity_batch_item_stock
+        /// </summary>
+        [Table("inventory_commodity_batch_item_stock")]
+        public class InventoryCommodityBatchItemStock
+        {
+            /// <summary>
+            /// 主键ID
+            /// </summary>
+            [Key]
+            [Field("id")]
+            [DatabaseGenerated]
+            public long Id { get; set; }
+
+            /// <summary>
+            /// 医贸编号
+            /// </summary>
+            [Required]
+            [Field("medical_trade_no")]
+            [StringLength(25)]
+            public string MedicalTradeNo { get; set; } = default!;
+
+            /// <summary>
+            /// ERP商品ID
+            /// </summary>
+            [Required]
+            [Field("erp_product_id")]
+            [StringLength(36)]
+            public string ErpProductId { get; set; } = default!;
+
+            /// <summary>
+            /// ERP商品Code
+            /// </summary>
+            [Required(AllowEmptyStrings = true)]
+            [Field("erp_product_code")]
+            [StringLength(20)]
+            public string ErpProductCode { get; set; } = default!;
+
+            /// <summary>
+            /// 货主编码
+            /// </summary>
+            [Required]
+            [Field("cargo_owner_no")]
+            [StringLength(25)]
+            public string CargoOwnerNo { get; set; } = default!;
+
+            /// <summary>
+            /// 仓库编号
+            /// </summary>
+            [Required]
+            [Field("warehouse_no")]
+            [StringLength(25)]
+            public string WarehouseNo { get; set; } = default!;
+
+            /// <summary>
+            /// 批次
+            /// </summary>
+            [Required]
+            [Field("batch_item_no")]
+            [StringLength(50)]
+            public string BatchItemNo { get; set; } = default!;
+
+            /// <summary>
+            /// 批号
+            /// </summary>
+            [Required]
+            [Field("lot_item_no")]
+            [StringLength(50)]
+            public string LotItemNo { get; set; } = default!;
+
+            /// <summary>
+            /// 实际库存
+            /// </summary>
+            [Required]
+            [Field("stock")]
+            public int Stock { get; set; }
+
+            /// <summary>
+            /// 出库占用库存数
+            /// </summary>
+            [Required]
+            [Field("lock_outbound_stock")]
+            public int LockOutboundStock { get; set; }
+
+            /// <summary>
+            /// 校准时间
+            /// </summary>
+            [Required]
+            [Field("sync_time")]
+            public DateTime SyncTime { get; set; }
+
+            /// <summary>
+            /// 校准差异
+            /// </summary>
+            [Field("is_sync_diff")]
+            public bool IsSyncDiff { get; set; }
+
+
+            /// <summary>
+            /// 仓储校准时间
+            /// </summary>
+            [Field("storage_sync_time")]
+            public DateTime StorageSyncTime { get; set; }
+
+            /// <summary>
+            /// 库存状态（有效库/无效库）
+            /// </summary>
+            [Required]
+            [Field("status")]
+            public int Status { get; set; }
+
+            /// <summary>
+            /// 版本号
+            /// </summary>
+            [Required]
+            [Field("version")]
+            public int Version { get; set; }
+
+            /// <summary>
+            /// 件装量
+            /// </summary>
+            [Required]
+            [Field("packing_quantity")]
+            [StringLength(10)]
+            public string PackingQuantity { get; set; } = default!;
+
+            /// <summary>
+            /// 有效期
+            /// </summary>
+            [Required]
+            [Field("validity_period")]
+            public DateTime ValidityPeriod { get; set; }
+
+            /// <summary>
+            /// 生产日期
+            /// </summary>
+            [Required]
+            [Field("production_date")]
+            public DateTime ProductionDate { get; set; }
+
+            /// <summary>
+            /// 入库时间
+            /// </summary>
+            [Required]
+            [Field("in_warehouse_time")]
+            public DateTime InWarehouseTime { get; set; }
+
+            /// <summary>
+            /// 更新时间
+            /// </summary>
+            [Required]
+            [Field("update_time")]
+            public DateTime UpdateTime { get; set; }
+
+            /// <summary>
+            /// 更新人
+            /// </summary>
+            [Required]
+            [Field("update_by")]
+            public long UpdateBy { get; set; }
+
+            /// <summary>
+            /// 创建时间
+            /// </summary>
+            [Required]
+            [Field("create_time")]
+            public DateTime CreateTime { get; set; }
+
+            /// <summary>
+            /// 创建人
+            /// </summary>
+            [Required]
+            [Field("create_by")]
+            public long CreateBy { get; set; }
+        }
+
+
         private readonly IRepository<User> _userRpo;
         private readonly IRepository<UserEx> _userExRpo;
+        private readonly IRepository<InventoryCommodityBatchItemStock> _inventoryCommodityBatchItemStockRepository;
         private readonly IRepository<UserSharding> _userShardingRpo;
         private readonly IQueryable<User> _users;
         private readonly IQueryable<UserEx> _userExes;
@@ -97,7 +276,8 @@ namespace Inkslab.Linq.Tests
             IQueryable<User> users,
             IQueryable<UserEx> userExes,
             IRepository<ChannelConfig> channelConfigRpo,
-            IRepository<UserEx> userExRpo)
+            IRepository<UserEx> userExRpo,
+            IRepository<InventoryCommodityBatchItemStock> inventoryCommodityBatchItemStockRepository)
         {
             _userRpo = userRpo;
             _userShardingRpo = userShardingRpo;
@@ -105,6 +285,7 @@ namespace Inkslab.Linq.Tests
             _userExes = userExes;
             _channelConfigRpo = channelConfigRpo;
             _userExRpo = userExRpo;
+            _inventoryCommodityBatchItemStockRepository = inventoryCommodityBatchItemStockRepository;
         }
 
         /// <summary>
@@ -419,7 +600,7 @@ namespace Inkslab.Linq.Tests
             using (var tran = new TransactionUnit())
             {
                 int rows = _userRpo.Timeout(100).Ignore().Into(users).Execute();
-                
+
                 Assert.True(rows == length, $"预期插入 {length} 行，实际插入 {rows} 行。");
             }
         }
@@ -549,6 +730,233 @@ namespace Inkslab.Linq.Tests
             {
                 await _userRpo.DeleteAsync();
             }
+        }
+
+        /// <summary>
+        /// 异步条件更新。
+        /// </summary>
+        /// <returns></returns>
+        [Fact]
+        public async Task UpdateAsync()
+        {
+            var existsOut = new
+            {
+                Id = 1,
+                Stock = 10,
+                ValidityPeriod = new DateTime?(DateTime.Now.AddDays(-5)),
+                PackingQuantity = new int?(20),
+                ProductionDate = new DateTime?(DateTime.Now.AddDays(-10)),
+                InWarehouseTime = new DateTime?(DateTime.Now.AddDays(-15)),
+                LockOutboundStock = 2
+            };
+
+            var saveIn = new
+            {
+                Id = 1,
+                Stock = new int?(5),
+                ValidityPeriod = new DateTime?(DateTime.Now.AddDays(-5)),
+                PackingQuantity = new int?(15),
+                ProductionDate = new DateTime?(DateTime.Now.AddDays(-5)),
+                InWarehouseTime = new DateTime?(DateTime.Now.AddDays(-10)),
+                SyncTime = new DateTime?(DateTime.Now),
+                StorageSyncTime = new DateTime?(DateTime.Now),
+                LockOutboundStock = new int?(2),
+                IsSyncDiff = true
+            };
+
+            bool? isSyncDiff = saveIn.IsSyncDiff;
+
+            int diffStock = saveIn.Stock == null ? 0 : saveIn.Stock.Value - existsOut.Stock;
+            int diffLockOutboundStock = saveIn.LockOutboundStock == null ? 0 : saveIn.LockOutboundStock.Value - existsOut.LockOutboundStock;
+            // 判断是否需要更新额外字段（当库存更新后大于0且有效期变小时）
+            var forceUpdateExtraFields = existsOut.Stock + (saveIn.Stock ?? 0) > 0
+                                         && saveIn.ValidityPeriod.HasValue
+                                         && saveIn.ValidityPeriod < existsOut.ValidityPeriod;
+
+            await using (var transaction = new TransactionUnit())
+            {
+                await _inventoryCommodityBatchItemStockRepository
+                   .Where(m => m.Id == saveIn.Id)
+                   .UpdateAsync(m => new()
+                   {
+                       Stock = m.Stock + diffStock,
+                       LockOutboundStock = m.LockOutboundStock + diffLockOutboundStock,
+                       Version = m.Version + 1,
+                       SyncTime = saveIn.SyncTime ?? m.SyncTime,
+                       StorageSyncTime = saveIn.StorageSyncTime ?? m.StorageSyncTime,
+                       IsSyncDiff = isSyncDiff ?? m.IsSyncDiff,
+                       PackingQuantity = forceUpdateExtraFields && saveIn.PackingQuantity.HasValue ? saveIn.PackingQuantity.ToString() : m.PackingQuantity,
+                       ValidityPeriod = forceUpdateExtraFields && saveIn.ValidityPeriod.HasValue ? saveIn.ValidityPeriod.Value : m.ValidityPeriod,
+                       ProductionDate = forceUpdateExtraFields && saveIn.ProductionDate.HasValue ? saveIn.ProductionDate.Value : m.ProductionDate,
+                       InWarehouseTime = forceUpdateExtraFields && saveIn.InWarehouseTime.HasValue ? saveIn.InWarehouseTime.Value : m.InWarehouseTime,
+                   });
+
+
+                await transaction.CompleteAsync();
+            }
+        }
+
+        /// <summary>
+        /// 异步条件更新。
+        /// </summary>
+        /// <returns></returns>
+        [Fact]
+        public async Task Update2Async()
+        {
+            var existsOut = new
+            {
+                Id = 1,
+                Stock = 10,
+                ValidityPeriod = new DateTime?(DateTime.Now.AddDays(-5)),
+                PackingQuantity = new int?(20),
+                ProductionDate = new DateTime?(DateTime.Now.AddDays(-10)),
+                InWarehouseTime = new DateTime?(DateTime.Now.AddDays(-15)),
+                LockOutboundStock = 2
+            };
+
+            var saveIn = new
+            {
+                Id = 1,
+                Stock = new int?(5),
+                ValidityPeriod = new DateTime?(DateTime.Now.AddDays(-5)),
+                PackingQuantity = new int?(15),
+                ProductionDate = new DateTime?(DateTime.Now.AddDays(-5)),
+                InWarehouseTime = new DateTime?(DateTime.Now.AddDays(-10)),
+                SyncTime = new DateTime?(DateTime.Now),
+                StorageSyncTime = new DateTime?(DateTime.Now),
+                LockOutboundStock = new int?(2),
+                IsSyncDiff = true
+            };
+
+            bool? isSyncDiff = null;
+
+            int diffStock = saveIn.Stock == null ? 0 : saveIn.Stock.Value - existsOut.Stock;
+            int diffLockOutboundStock = saveIn.LockOutboundStock == null ? 0 : saveIn.LockOutboundStock.Value - existsOut.LockOutboundStock;
+            // 判断是否需要更新额外字段（当库存更新后大于0且有效期变小时）
+            var forceUpdateExtraFields = existsOut.Stock + (saveIn.Stock ?? 0) > 0
+                                         && saveIn.ValidityPeriod.HasValue
+                                         && saveIn.ValidityPeriod < existsOut.ValidityPeriod;
+
+            await using (var transaction = new TransactionUnit())
+            {
+                await _inventoryCommodityBatchItemStockRepository
+                   .Where(m => m.Id == saveIn.Id)
+                   .UpdateAsync(m => new()
+                   {
+                       Stock = m.Stock + diffStock,
+                       LockOutboundStock = m.LockOutboundStock + diffLockOutboundStock,
+                       Version = m.Version + 1,
+                       SyncTime = saveIn.SyncTime ?? m.SyncTime,
+                       StorageSyncTime = saveIn.StorageSyncTime ?? m.StorageSyncTime,
+                       IsSyncDiff = isSyncDiff ?? m.IsSyncDiff,
+                       PackingQuantity = forceUpdateExtraFields && saveIn.PackingQuantity.HasValue ? saveIn.PackingQuantity.ToString() : m.PackingQuantity,
+                       ValidityPeriod = forceUpdateExtraFields && saveIn.ValidityPeriod.HasValue ? saveIn.ValidityPeriod.Value : m.ValidityPeriod,
+                       ProductionDate = forceUpdateExtraFields && saveIn.ProductionDate.HasValue ? saveIn.ProductionDate.Value : m.ProductionDate,
+                       InWarehouseTime = forceUpdateExtraFields && saveIn.InWarehouseTime.HasValue ? saveIn.InWarehouseTime.Value : m.InWarehouseTime,
+                   });
+
+
+                await transaction.CompleteAsync();
+            }
+        }
+
+        /// <summary>
+        /// 异步条件更新。
+        /// </summary>
+        /// <returns></returns>
+        [Fact]
+        public async Task Update3Async()
+        {
+            var existsOut = new
+            {
+                Id = 117040,
+                Stock = 123123,
+                ValidityPeriod = new DateTime?(new DateTime(2027, 4, 14)),
+                LockOutboundStock = 0,
+                Version = 85
+            };
+
+            var saveIn = new
+            {
+                Id = 117040,
+                Stock = new int?(123123),
+                ValidityPeriod = new DateTime?(new DateTime(2027, 4, 14)),
+                PackingQuantity = new int?(0),
+                ProductionDate = new DateTime?(new DateTime(2027, 4, 15)),
+                InWarehouseTime = new DateTime?(new DateTime(2024, 12, 5)),
+                SyncTime = new DateTime?(new DateTime(2026, 4, 8)),
+                StorageSyncTime = new DateTime?(new DateTime(2026, 4, 8)),
+                LockOutboundStock = new int?()
+            };
+
+            int diffStock = saveIn.Stock == null ? 0 : saveIn.Stock.Value - existsOut.Stock;
+            int diffLockOutboundStock = saveIn.LockOutboundStock == null ? 0 : saveIn.LockOutboundStock.Value - existsOut.LockOutboundStock;
+            // 判断是否需要更新额外字段（当库存更新后大于0且有效期变小时）
+            /*             var forceUpdateExtraFields = existsOut.Stock + (saveIn.Stock ?? 0) > 0
+                                                    && saveIn.ValidityPeriod.HasValue
+                                                    && saveIn.ValidityPeriod < existsOut.ValidityPeriod; */
+            var forceUpdateExtraFields = true;
+
+            bool? isSyncDiff = null;
+            if (saveIn.SyncTime.HasValue)
+            {
+                isSyncDiff = diffStock != 0 || diffLockOutboundStock != 0;
+            }
+
+            int? version = existsOut.Version;
+            var syncTime = saveIn.SyncTime;
+            var predicate = BuildBatchItemUpdatePredicate(existsOut.Id, version, saveIn.SyncTime);
+
+            await using (var transaction = new TransactionUnit())
+            {
+                await _inventoryCommodityBatchItemStockRepository
+                   .Where(predicate)
+                   .UpdateAsync(m => new()
+                   {
+                       Stock = m.Stock + diffStock,
+                       LockOutboundStock = m.LockOutboundStock + diffLockOutboundStock,
+                       Version = m.Version + 1,
+                       SyncTime = saveIn.SyncTime ?? m.SyncTime,
+                       StorageSyncTime = saveIn.StorageSyncTime ?? m.StorageSyncTime,
+                       IsSyncDiff = isSyncDiff ?? m.IsSyncDiff,
+                       PackingQuantity = forceUpdateExtraFields && saveIn.PackingQuantity.HasValue ? saveIn.PackingQuantity.ToString() : m.PackingQuantity,
+                       ValidityPeriod = forceUpdateExtraFields && saveIn.ValidityPeriod.HasValue ? saveIn.ValidityPeriod.Value : m.ValidityPeriod,
+                       ProductionDate = forceUpdateExtraFields && saveIn.ProductionDate.HasValue ? saveIn.ProductionDate.Value : m.ProductionDate,
+                       InWarehouseTime = forceUpdateExtraFields && saveIn.InWarehouseTime.HasValue ? saveIn.InWarehouseTime.Value : m.InWarehouseTime,
+                   });
+
+
+                await transaction.CompleteAsync();
+            }
+        }
+
+        /// <summary>
+        /// 构建更新条件表达式
+        /// </summary>
+        /// <param name="id">记录ID</param>
+        /// <param name="version">版本号（null表示不检查版本）</param>
+        /// <param name="syncTime">校准时间（null表示不检查校准时间）</param>
+        /// <returns>更新条件表达式</returns>
+        private static System.Linq.Expressions.Expression<Func<InventoryCommodityBatchItemStock, bool>> BuildBatchItemUpdatePredicate(
+            long id,
+            long? version,
+            DateTime? syncTime)
+        {
+            System.Linq.Expressions.Expression<Func<InventoryCommodityBatchItemStock, bool>> predicate = m => m.Id == id;
+
+            // 如果指定了版本号，添加版本检查
+            if (version.HasValue)
+            {
+                predicate = predicate.And(m => m.Version == version.Value);
+            }
+
+            // 如果指定了校准时间，添加校准时间检查
+            if (syncTime.HasValue)
+            {
+                predicate = predicate.And(m => syncTime >= m.SyncTime);
+            }
+
+            return predicate;
         }
     }
 }

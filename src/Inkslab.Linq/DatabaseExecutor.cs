@@ -166,7 +166,7 @@ namespace Inkslab.Linq
                 throw new NoElementException(commandSql.NoElementError);
             }
 
-            throw new InvalidOperationException("The input sequence contains more than one element.");
+            throw new InvalidOperationException("The input sequence contains no elements.");
         }
 
         /// <summary>
@@ -231,6 +231,7 @@ namespace Inkslab.Linq
             ConfigureCommand(command, databaseStrings, commandSql);
 
             using var reader = command.ExecuteReader(behavior);
+            
             var results = MapReaderToList<T>(reader, databaseStrings.Engine);
 
             commandSql.Callback(command);

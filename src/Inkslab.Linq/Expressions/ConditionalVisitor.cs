@@ -30,8 +30,6 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override void Conditional(ConditionalExpression node)
         {
-            using var domain = Writer.Domain();
-
             if (IsPlainVariable(node.Test, true))
             {
                 var constant = node.Test.GetValueFromExpression<bool>();
@@ -41,6 +39,8 @@ namespace Inkslab.Linq.Expressions
 
                 return;
             }
+
+            using var domain = Writer.Domain();
 
             if (RequiresConditionalEscape())
             {

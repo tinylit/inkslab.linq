@@ -2451,5 +2451,180 @@ namespace SqlServer.Tests
         }
 
         #endregion
+
+        #region 常量折叠后分支为条件表达式（CASE WHEN 包裹）
+
+        /// <summary>
+        /// 常量 true 折叠后，ifTrue 分支是布尔字段（条件表达式），需生成 CASE WHEN 包裹。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT [x].[Id] AS [Id], CASE WHEN [x].[IsAdministrator] = 1 THEN 1 ELSE 0 END AS [Value] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
+        /// </code>
+        /// 注意：true ? x.IsAdministrator : false → 折叠为 x.IsAdministrator，
+        /// SqlServer 需要 CASE WHEN 包裹布尔条件表达式。
+        /// </remarks>
+        [Fact]
+        [Step(73)]
+        public void Select_Ternary_ConstantTrue_IfTrueIsBoolField()
+        {
+            // Arrange
+            bool flag = true;
+            var memoryResults = (from x in _users
+                                 where x.Id == 100
+                                 select new { x.Id, Value = flag ? x.IsAdministrator : false }).ToList();
+
+            // Act
+            var results = (from x in _users
+                           where x.Id == 100
+                           select new { x.Id, Value = flag ? x.IsAdministrator : false }).ToList();
+
+            // Assert
+            Assert.Equal(memoryResults.Count, results.Count);
+            for (int i = 0; i < memoryResults.Count; i++)
+            {
+                Assert.Equal(memoryResults[i].Id, results[i].Id);
+                Assert.Equal(memoryResults[i].Value, results[i].Value);
+            }
+        }
+
+        /// <summary>
+        /// 常量 false 折叠后，ifFalse 分支是布尔字段（条件表达式）。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT [x].[Id] AS [Id], CASE WHEN [x].[IsAdministrator] = 1 THEN 1 ELSE 0 END AS [Value] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
+        /// </code>
+        /// 注意：false ? true : x.IsAdministrator → 折叠为 x.IsAdministrator。
+        /// </remarks>
+        [Fact]
+        [Step(74)]
+        public void Select_Ternary_ConstantFalse_IfFalseIsBoolField()
+        {
+            // Arrange
+            bool flag = false;
+            var memoryResults = (from x in _users
+                                 where x.Id == 100
+                                 select new { x.Id, Value = flag ? true : x.IsAdministrator }).ToList();
+
+            // Act
+            var results = (from x in _users
+                           where x.Id == 100
+                           select new { x.Id, Value = flag ? true : x.IsAdministrator }).ToList();
+
+            // Assert
+            Assert.Equal(memoryResults.Count, results.Count);
+            for (int i = 0; i < memoryResults.Count; i++)
+            {
+                Assert.Equal(memoryResults[i].Id, results[i].Id);
+                Assert.Equal(memoryResults[i].Value, results[i].Value);
+            }
+        }
+
+        /// <summary>
+        /// 常量 true 折叠后，ifTrue 分支是 Nullable.HasValue（条件表达式）。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT [x].[Id] AS [Id], CASE WHEN [x].[Nullable] IS NOT NULL THEN 1 ELSE 0 END AS [Value] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
+        /// </code>
+        /// 注意：true ? x.Nullable.HasValue : false → 折叠为 x.Nullable.HasValue。
+        /// </remarks>
+        [Fact]
+        [Step(75)]
+        public void Select_Ternary_ConstantTrue_IfTrueIsNullableHasValue()
+        {
+            // Arrange
+            bool flag = true;
+            var memoryResults = (from x in _users
+                                 where x.Id == 100
+                                 select new { x.Id, Value = flag ? x.Nullable.HasValue : false }).ToList();
+
+            // Act
+            var results = (from x in _users
+                           where x.Id == 100
+                           select new { x.Id, Value = flag ? x.Nullable.HasValue : false }).ToList();
+
+            // Assert
+            Assert.Equal(memoryResults.Count, results.Count);
+            for (int i = 0; i < memoryResults.Count; i++)
+            {
+                Assert.Equal(memoryResults[i].Id, results[i].Id);
+                Assert.Equal(memoryResults[i].Value, results[i].Value);
+            }
+        }
+
+        /// <summary>
+        /// 常量 true 折叠后，ifTrue 分支是比较表达式（条件表达式）。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT [x].[Id] AS [Id], CASE WHEN [x].[Id] &gt; 50 THEN 1 ELSE 0 END AS [Value] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
+        /// </code>
+        /// 注意：true ? (x.Id > 50) : false → 折叠为 x.Id > 50，SqlServer 需 CASE WHEN 包裹。
+        /// </remarks>
+        [Fact]
+        [Step(76)]
+        public void Select_Ternary_ConstantTrue_IfTrueIsComparison()
+        {
+            // Arrange
+            bool flag = true;
+            var memoryResults = (from x in _users
+                                 where x.Id == 100
+                                 select new { x.Id, Value = flag ? x.Id > 50 : false }).ToList();
+
+            // Act
+            var results = (from x in _users
+                           where x.Id == 100
+                           select new { x.Id, Value = flag ? x.Id > 50 : false }).ToList();
+
+            // Assert
+            Assert.Equal(memoryResults.Count, results.Count);
+            for (int i = 0; i < memoryResults.Count; i++)
+            {
+                Assert.Equal(memoryResults[i].Id, results[i].Id);
+                Assert.Equal(memoryResults[i].Value, results[i].Value);
+            }
+        }
+
+        /// <summary>
+        /// 常量 false 折叠后，ifFalse 分支是非空检查（条件表达式）。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT [x].[Id] AS [Id], CASE WHEN [x].[Name] IS NOT NULL THEN 1 ELSE 0 END AS [Value] FROM [dbo].[User] AS [x] WHERE [x].[Id] = 100
+        /// </code>
+        /// 注意：false ? true : (x.Name != null) → 折叠为 x.Name != null。
+        /// </remarks>
+        [Fact]
+        [Step(77)]
+        public void Select_Ternary_ConstantFalse_IfFalseIsNotNullCheck()
+        {
+            // Arrange
+            bool flag = false;
+            var memoryResults = (from x in _users
+                                 where x.Id == 100
+                                 select new { x.Id, Value = flag ? true : x.Name != null }).ToList();
+
+            // Act
+            var results = (from x in _users
+                           where x.Id == 100
+                           select new { x.Id, Value = flag ? true : x.Name != null }).ToList();
+
+            // Assert
+            Assert.Equal(memoryResults.Count, results.Count);
+            for (int i = 0; i < memoryResults.Count; i++)
+            {
+                Assert.Equal(memoryResults[i].Id, results[i].Id);
+                Assert.Equal(memoryResults[i].Value, results[i].Value);
+            }
+        }
+
+        #endregion
     }
 }

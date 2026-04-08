@@ -92,10 +92,6 @@ namespace Inkslab.Linq.Expressions
             {
                 LinqCall(node);
             }
-            else if (declaringType.IsGenericType && declaringType.IsLike(typeof(IQueryable<>), TypeLikeKind.IsGenericTypeDefinition)) //? 自定义函数。
-            {
-                LinqCustomCall(node);
-            }
             else if (declaringType.IsAbstract && declaringType.IsSealed && node.Method.ReturnType.IsQueryable()) //? 静态扩展。
             {
                 var queryable = node.GetValueFromExpression<IQueryable>();

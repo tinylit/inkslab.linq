@@ -127,11 +127,11 @@ namespace Inkslab.Linq
                         {
                             if (dbType.IsJsonType())
                             {
-                                command.CommandText = Regex.Replace(command.CommandText, @"(?<![\p{L}\p{N}@_])[?@:](" + name + @")(?![\p{L}\p{N}_])", m => $"{m.Value}::json", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+                                command.CommandText = Regex.Replace(command.CommandText, @"(?<![\p{L}\p{N}@_])[?@:](" + name + @")(?![\p{L}\p{N}_])", m => $"{m.Value}::json", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.CultureInvariant);
                             }
                             else if (dbType.IsJsonbType())
                             {
-                                command.CommandText = Regex.Replace(command.CommandText, @"(?<![\p{L}\p{N}@_])[?@:](" + name + @")(?![\p{L}\p{N}_])", m => $"{m.Value}::jsonb", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+                                command.CommandText = Regex.Replace(command.CommandText, @"(?<![\p{L}\p{N}@_])[?@:](" + name + @")(?![\p{L}\p{N}_])", m => $"{m.Value}::jsonb", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.CultureInvariant);
                             }
                         }
 
@@ -172,11 +172,11 @@ namespace Inkslab.Linq
                         {
                             if (valueDbType.IsJsonType())
                             {
-                                command.CommandText = Regex.Replace(command.CommandText, @"(?<![\p{L}\p{N}@_])[?@:](" + name + @")(?![\p{L}\p{N}_])", m => $"{m.Value}::json", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+                                command.CommandText = Regex.Replace(command.CommandText, @"(?<![\p{L}\p{N}@_])[?@:](" + name + @")(?![\p{L}\p{N}_])", m => $"{m.Value}::json", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.CultureInvariant);
                             }
                             else if (valueDbType.IsJsonbType())
                             {
-                                command.CommandText = Regex.Replace(command.CommandText, @"(?<![\p{L}\p{N}@_])[?@:](" + name + @")(?![\p{L}\p{N}_])", m => $"{m.Value}::jsonb", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+                                command.CommandText = Regex.Replace(command.CommandText, @"(?<![\p{L}\p{N}@_])[?@:](" + name + @")(?![\p{L}\p{N}_])", m => $"{m.Value}::jsonb", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.CultureInvariant);
                             }
                         }
 

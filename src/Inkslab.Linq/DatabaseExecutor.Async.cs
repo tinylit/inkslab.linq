@@ -196,7 +196,7 @@ namespace Inkslab.Linq
             {
                 behavior |= CommandBehavior.CloseConnection;
 
-                await dbConnection.OpenAsync();
+                await dbConnection.OpenAsync().ConfigureAwait(false);
             }
 
             DbCommand command = null;
@@ -219,7 +219,7 @@ namespace Inkslab.Linq
                     LookupDb.AddParameterAuto(command, databaseStrings.Engine, name, value);
                 }
 
-                reader = await command.ExecuteReaderAsync(behavior);
+                reader = await command.ExecuteReaderAsync(behavior).ConfigureAwait(false);
 
                 var adaper = GetOrAddAdaper(reader.GetType(), databaseStrings.Engine);
 

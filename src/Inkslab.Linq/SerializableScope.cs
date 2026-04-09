@@ -145,24 +145,22 @@ namespace Inkslab.Linq
                 throw new ArgumentNullException(nameof(connectionStrings));
             }
 
-            if (_connections.TryGetValue(connectionStrings.Strings, out var connection))
-            {
-                return connection;
-            }
-
             lock (_lockObject)
             {
-                if (_connections.TryGetValue(connectionStrings.Strings, out connection))
+                if (_disposed)
                 {
-                    return connection;
+                    throw new ObjectDisposedException(nameof(Serializable));
                 }
 
-                connection = connections.Get(connectionStrings);
+                if (!_connections.TryGetValue(connectionStrings.Strings, out var connection))
+                {
+                    connection = connections.Get(connectionStrings);
+                    
+                    _connections[connectionStrings.Strings] = connection;
+                }
 
-                _connections[connectionStrings.Strings] = connection;
+                return connection;
             }
-
-            return connection;
         }
 
         /// <summary>
@@ -178,11 +176,28 @@ namespace Inkslab.Linq
                 return;
             }
 
-            _disposed = true;
+            List<DbConnection> toDispose = null;
 
-            if (Trusteeship)
+            lock (_lockObject)
             {
-                foreach (var connection in _connections.Values)
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _disposed = true;
+
+                if (Trusteeship)
+                {
+                    toDispose = new List<DbConnection>(_connections.Values);
+                }
+
+                _connections.Clear();
+            }
+
+            if (toDispose != null)
+            {
+                foreach (var connection in toDispose)
                 {
                     if (connection.State != ConnectionState.Closed)
                     {
@@ -192,8 +207,6 @@ namespace Inkslab.Linq
                     connection.Dispose();
                 }
             }
-
-            _connections.Clear();
 
             GC.SuppressFinalize(this);
         }
@@ -206,11 +219,28 @@ namespace Inkslab.Linq
                 return;
             }
 
-            _disposed = true;
+            List<DbConnection> toDispose = null;
 
-            if (Trusteeship)
+            lock (_lockObject)
             {
-                foreach (var connection in _connections.Values)
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _disposed = true;
+
+                if (Trusteeship)
+                {
+                    toDispose = new List<DbConnection>(_connections.Values);
+                }
+
+                _connections.Clear();
+            }
+
+            if (toDispose != null)
+            {
+                foreach (var connection in toDispose)
                 {
                     if (connection.State != ConnectionState.Closed)
                     {
@@ -220,8 +250,6 @@ namespace Inkslab.Linq
                     await connection.DisposeAsync();
                 }
             }
-
-            _connections.Clear();
 
             GC.SuppressFinalize(this);
         }

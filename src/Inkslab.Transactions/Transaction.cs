@@ -174,7 +174,7 @@ namespace Inkslab.Transactions
             }
         }
 
-        private bool _complete;
+        private volatile bool _complete;
 
         /// <summary>
         /// 提交事务。
@@ -348,7 +348,7 @@ namespace Inkslab.Transactions
             }
         }
 
-        private bool _disposed;
+        private volatile bool _disposed;
 
         /// <summary>
         /// 释放事务。

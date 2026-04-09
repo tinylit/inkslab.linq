@@ -67,7 +67,7 @@ namespace Inkslab.Transactions
             _transactionOption = transactionOption;
         }
 
-        private bool _complete;
+        private volatile bool _complete;
 
         /// <summary>
         /// 提交事务，若提交失败自动回滚。
@@ -98,7 +98,7 @@ namespace Inkslab.Transactions
             }
         }
 
-        private bool _disposed;
+        private volatile bool _disposed;
 
         /// <inheritdoc/>
         public void Dispose()

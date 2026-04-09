@@ -125,14 +125,9 @@ namespace Inkslab.Linq
                     return new Dictionary<string, TransactionEntry>();
                 });
 
-                if (dictionary.TryGetValue(databaseStrings.Strings, out TransactionEntry transactionEntry))
-                {
-                    return transactionEntry;
-                }
-
                 lock (dictionary)
                 {
-                    if (!dictionary.TryGetValue(databaseStrings.Strings, out transactionEntry))
+                    if (!dictionary.TryGetValue(databaseStrings.Strings, out TransactionEntry transactionEntry))
                     {
                         if (serializable is null)
                         {
@@ -155,9 +150,9 @@ namespace Inkslab.Linq
                             );
                         }
                     }
-                }
 
-                return transactionEntry;
+                    return transactionEntry;
+                }
             }
 
             public static DbConnection Get(OwnerTransaction transaction, Serializable serializable, IConnection databaseStrings, IConnections connections)
@@ -253,7 +248,9 @@ namespace Inkslab.Linq
 
                 public void Dispose()
                 {
+                    var transaction = Transaction;
                     Transaction = null;
+                    transaction?.Dispose();
 
                     if (_trusteeship)
                     {
@@ -281,9 +278,25 @@ namespace Inkslab.Linq
 
                     public ValueTask DisposeAsync() => _transaction.DisposeAsync();
 
-                    public void Rollback() => _transaction.Rollback();
+                    public void Rollback()
+                    {
+                        // 连接已断开时，服务端事务已自动回滚，无需再执行。
+                        if (_transaction.Connection?.State == ConnectionState.Open)
+                        {
+                            _transaction.Rollback();
+                        }
+                    }
 
-                    public Task RollbackAsync(CancellationToken cancellationToken = default) => _transaction.RollbackAsync(cancellationToken);
+                    public Task RollbackAsync(CancellationToken cancellationToken = default)
+                    {
+                        // 连接已断开时，服务端事务已自动回滚，无需再执行。
+                        if (_transaction.Connection?.State == ConnectionState.Open)
+                        {
+                            return _transaction.RollbackAsync(cancellationToken);
+                        }
+
+                        return Task.CompletedTask;
+                    }
                 }
             }
 

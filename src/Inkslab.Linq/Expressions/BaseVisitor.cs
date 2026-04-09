@@ -1024,7 +1024,7 @@ namespace Inkslab.Linq.Expressions
             {
                 case IQueryable queryable:
 
-                    Visit(queryable.Expression);
+                    Variable(name, queryable);
 
                     break;
                 case Expression node:
@@ -1039,6 +1039,13 @@ namespace Inkslab.Linq.Expressions
                     break;
             }
         }
+
+        /// <summary>
+        /// 变量。
+        /// </summary>
+        /// <param name="name">名称。</param>
+        /// <param name="value">值。</param>
+        protected virtual void Variable(string name, IQueryable value) => Visit(value.Expression);
 
         /// <summary>
         /// 准备参数信息。

@@ -26,7 +26,7 @@ namespace Inkslab.Linq.Expressions
                     return false;
 
                 case ExpressionType.Constant:
-                    return ((ConstantExpression)node).Value is not IQueryable;
+                    return true;
 
                 case ExpressionType.MemberAccess:
                     var member = (MemberExpression)node;
@@ -156,7 +156,7 @@ namespace Inkslab.Linq.Expressions
         /// <returns>是否是常规变量。</returns>
         protected virtual bool IsPlainVariable(Expression node, bool depthVerification = true)
         {
-            if (node is null)
+            if (node is null || node.NodeType == ExpressionType.Constant)
             {
                 return true;
             }
@@ -168,8 +168,6 @@ namespace Inkslab.Linq.Expressions
 
             switch (node)
             {
-                case ConstantExpression:
-                    return true;
                 case MemberExpression member:
                     if (member.Expression is null)
                     {

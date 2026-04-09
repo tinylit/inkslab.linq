@@ -61,6 +61,11 @@ namespace Inkslab.Linq.Expressions
         private bool _parameterRef = true;
 
         /// <summary>
+        /// 根分析器。
+        /// </summary>
+        private bool _isRootAnalyze = false;
+
+        /// <summary>
         /// 已预热参数。
         /// </summary>
         private bool _preheatedParameter;
@@ -178,17 +183,19 @@ namespace Inkslab.Linq.Expressions
         /// <param name="node">节点。</param>
         public override void Startup(Expression node)
         {
-            if (node.NodeType == ExpressionType.Constant
-                && node is ConstantExpression { Value: IQueryable queryable })
-            {
-                var variable = queryable.Expression;
+            _isRootAnalyze = true;
 
-                base.Startup(variable.NodeType == ExpressionType.Constant ? node : variable);
-            }
-            else
-            {
-                base.Startup(node);
-            }
+            base.Startup(node);
+
+            _isRootAnalyze = false;
+        }
+
+        /// <inheritdoc/>
+        protected override void MethodCall(MethodCallExpression node)
+        {
+            _isRootAnalyze = false;
+
+            base.MethodCall(node);
         }
 
         private bool SkipLinqCall(MethodCallExpression node)
@@ -406,6 +413,57 @@ namespace Inkslab.Linq.Expressions
         /// <inheritdoc/>
         protected override void Constant(IQueryable value)
         {
+            if (_isRootAnalyze)
+            {
+                _isRootAnalyze = false;
+
+                var node = value.Expression;
+
+                if (node.NodeType == ExpressionType.Constant)
+                {
+                    PrivateConstant(node);
+                }
+                else
+                {
+                    base.Startup(node);
+                }
+            }
+            else
+            {
+                PrivateConstant(value.Expression);
+            }
+        }
+
+        /// <summary>
+        /// 变量。
+        /// </summary>
+        /// <param name="name">名称。</param>
+        /// <param name="value">值。</param>
+        protected override void Variable(string name, IQueryable value)
+        {
+            if (_isRootAnalyze)
+            {
+                _isRootAnalyze = false;
+
+                var node = value.Expression;
+
+                if (node.NodeType == ExpressionType.Constant)
+                {
+                    base.Visit(node);
+                }
+                else
+                {
+                    base.Startup(node);
+                }
+            }
+            else
+            {
+                base.Variable(name, value);
+            }
+        }
+
+        private void PrivateConstant(Expression node)
+        {
             if (_buildSelect)
             {
                 Writer.Keyword(SqlKeyword.SELECT);
@@ -415,7 +473,7 @@ namespace Inkslab.Linq.Expressions
                     Writer.Keyword(SqlKeyword.DISTINCT);
                 }
 
-                Select(value.Expression);
+                Select(node);
 
                 _buildSelect = false;
             }

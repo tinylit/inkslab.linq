@@ -2276,6 +2276,42 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
+        /// 内置包含测试。
+        /// </summary>
+        /// <remarks>
+        /// <b>SQL预览</b>：
+        /// <code>
+        /// SELECT `x`.`Id` FROM `fmk_users` AS `x` WHERE `x`.`Id`=100 AND `x`.`Id` IN(SELECT `y`.`Id` FROM `fmk_user_exs` AS `y` WHERE `y`.`Age`&gt;12) ORDER BY `x`.`DateAt` ASC,`x`.`Name` ASC
+        /// </code>
+        /// </remarks>
+        [Fact]
+        public void TestNested2Contains()
+        {
+            var allUsers = _users.ToList();
+            var allUserExes = _userExes.ToList();
+
+            var memoryResults = (from x in allUsers
+                                 where
+                                     x.Id == 100 && allUserExes.Where(y => y.Age > 12).Select(y => y.Id).Contains(x.Id)
+                                 orderby x.DateAt, x.Name
+                                 select x.Id).ToList();
+
+            var idsQuery = _userExes.Where(y => y.Age > 12).Select(y => y.Id);
+
+            var linq =
+                from x in _users
+                where
+                    x.Id == 100 && idsQuery.Contains(x.Id)
+                orderby x.DateAt, x.Name
+                select x.Id;
+
+            var results = linq.ToList();
+
+            Assert.Equal(memoryResults.Count, results.Count);
+            Assert.Equal(memoryResults.OrderBy(x => x), results.OrderBy(x => x));
+        }
+
+        /// <summary>
         /// 内置不包含测试。
         /// </summary>
         /// <remarks>

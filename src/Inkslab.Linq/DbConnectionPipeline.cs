@@ -97,7 +97,7 @@ namespace Inkslab.Linq
 
             if (connection is IDatabase database)
             {
-                return await database.CreateBulkCopyAsync(bulkCopyFactory, cancellationToken);
+                return await database.CreateBulkCopyAsync(bulkCopyFactory, cancellationToken).ConfigureAwait(false);
             }
 
             return bulkCopyFactory.Create(connection);
@@ -122,36 +122,37 @@ namespace Inkslab.Linq
                 {
                     trans.TransactionCompleted += OnTransactionCompleted;
 
-                    return new Dictionary<string, TransactionEntry>();
+                    return new Dictionary<string, TransactionEntry>(StringComparer.Ordinal);
                 });
 
+                //? 同一个事务内并发很低，直接使用锁即可。
                 lock (dictionary)
                 {
-                    if (!dictionary.TryGetValue(databaseStrings.Strings, out TransactionEntry transactionEntry))
+                    if (dictionary.TryGetValue(databaseStrings.Strings, out var entry))
                     {
-                        if (serializable is null)
-                        {
-                            dictionary.Add(databaseStrings.Strings,
-                                transactionEntry = new TransactionEntry(
-                                    transaction,
-                                    connections.Get(databaseStrings),
-                                    true
-                                )
-                            );
-                        }
-                        else
-                        {
-                            dictionary.Add(databaseStrings.Strings,
-                                transactionEntry = new TransactionEntry(
-                                    transaction,
-                                    serializable.Get(connections, databaseStrings),
-                                    !serializable.Trusteeship
-                                )
-                            );
-                        }
+                        return entry;
                     }
 
-                    return transactionEntry;
+                    if (serializable is null)
+                    {
+                        entry = new TransactionEntry(
+                            transaction,
+                            connections.Get(databaseStrings),
+                            true
+                        );
+                    }
+                    else
+                    {
+                        entry = new TransactionEntry(
+                            transaction,
+                            serializable.Get(connections, databaseStrings),
+                            !serializable.Trusteeship
+                        );
+                    }
+
+                    dictionary.Add(databaseStrings.Strings, entry);
+
+                    return entry;
                 }
             }
 
@@ -173,12 +174,15 @@ namespace Inkslab.Linq
             {
                 if (_transactionConnections.TryRemove(e.Transaction, out Dictionary<string, TransactionEntry> dictionary))
                 {
-                    foreach (TransactionEntry connection in dictionary.Values)
+                    lock (dictionary)
                     {
-                        connection.Dispose();
-                    }
+                        foreach (var entry in dictionary.Values)
+                        {
+                            entry.Dispose();
+                        }
 
-                    dictionary.Clear();
+                        dictionary.Clear();
+                    }
                 }
             }
 
@@ -215,7 +219,7 @@ namespace Inkslab.Linq
                             return Transaction;
                         }
 
-                        Transaction = await _connection.BeginTransactionAsync(ToIsolationLevel(_transaction.IsolationLevel), cancellationToken);
+                        Transaction = await _connection.BeginTransactionAsync(ToIsolationLevel(_transaction.IsolationLevel), cancellationToken).ConfigureAwait(false);
 
                         _transaction.EnlistTransaction(new LinqTransaction(Transaction));
 
@@ -300,53 +304,16 @@ namespace Inkslab.Linq
                 }
             }
 
-            private class TransactionLink : DbConnection, IDatabase
+            private class TransactionLink : MyDatabase
             {
                 private readonly TransactionEntry _transaction;
-                private readonly DbConnection _connection;
 
-                private ConnectionState _connectionState = ConnectionState.Closed;
-
-                public TransactionLink(TransactionEntry transaction, DbConnection connection)
+                public TransactionLink(TransactionEntry transaction, DbConnection connection) : base(connection)
                 {
                     _transaction = transaction ?? throw new ArgumentNullException(nameof(transaction));
-                    _connection = connection ?? throw new ArgumentNullException(nameof(connection));
                 }
 
-                public override string ConnectionString { get => _connection.ConnectionString; set => _connection.ConnectionString = value; }
-
-                public override string Database => _connection.Database;
-
-                public override string DataSource => _connection.DataSource;
-
-                public override string ServerVersion => _connection.ServerVersion;
-
-                public override int ConnectionTimeout => _connection.ConnectionTimeout;
-
-#if NET6_0_OR_GREATER
-                [Obsolete]
-#endif
-                public override object InitializeLifetimeService() => _connection.InitializeLifetimeService();
-
-                public override DataTable GetSchema() => _connection.GetSchema();
-
-                public override DataTable GetSchema(string collectionName) => _connection.GetSchema(collectionName);
-
-                public override DataTable GetSchema(string collectionName, string[] restrictionValues) => _connection.GetSchema(collectionName, restrictionValues);
-
-                public override ISite Site { get => _connection.Site; set => _connection.Site = value; }
-
-                public override event StateChangeEventHandler StateChange { add { _connection.StateChange += value; } remove { _connection.StateChange -= value; } }
-
-                public override ConnectionState State => _connectionState == ConnectionState.Closed ? _connectionState : _connection.State;
-
-                public override void ChangeDatabase(string databaseName) => _connection.ChangeDatabase(databaseName);
-
-                public override void EnlistTransaction(Transaction transaction) => _connection.EnlistTransaction(transaction);
-
-                public override void Close() => _connectionState = ConnectionState.Closed;
-
-                public IDatabaseBulkCopy CreateBulkCopy(IDbConnectionBulkCopyFactory bulkCopyFactory)
+                public override IDatabaseBulkCopy CreateBulkCopy(IDbConnectionBulkCopyFactory bulkCopyFactory)
                 {
                     if (_connection.State == ConnectionState.Closed)
                     {
@@ -358,187 +325,33 @@ namespace Inkslab.Linq
                     return bulkCopyFactory.Create(_connection, transaction);
                 }
 
-                public async Task<IDatabaseBulkCopy> CreateBulkCopyAsync(IDbConnectionBulkCopyFactory bulkCopyFactory, CancellationToken cancellationToken)
+                public override async Task<IDatabaseBulkCopy> CreateBulkCopyAsync(IDbConnectionBulkCopyFactory bulkCopyFactory, CancellationToken cancellationToken)
                 {
                     if (_connection.State == ConnectionState.Closed)
                     {
-                        await _connection.OpenAsync(cancellationToken);
+                        await _connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                     }
 
-                    var transaction = await _transaction.BeginTransactionAsync(cancellationToken);
+                    var transaction = await _transaction.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
 
                     return bulkCopyFactory.Create(_connection, transaction);
                 }
 
-                public override void Open()
-                {
-                    switch (_connection.State)
-                    {
-                        case ConnectionState.Connecting:
-                            do
-                            {
-                                Thread.Sleep(5);
+                protected override System.Data.Common.DbCommand CreateDbCommand() => new TransactionalCommand(_connection.CreateCommand(), _transaction);
 
-                            } while (_connection.State == ConnectionState.Connecting);
-
-                            goto default;
-                        case ConnectionState.Broken:
-                            _connection.Close();
-
-                            goto default;
-                        default:
-                            if (_connection.State == ConnectionState.Closed)
-                            {
-                                _connection.Open();
-                            }
-                            break;
-                    }
-
-                    _connectionState = _connection.State;
-                }
-
-                public override async Task OpenAsync(CancellationToken cancellationToken)
-                {
-                    switch (_connection.State)
-                    {
-                        case ConnectionState.Connecting:
-                            do
-                            {
-                                await Task.Delay(5, cancellationToken);
-
-                            } while (State == ConnectionState.Connecting);
-
-                            goto default;
-                        case ConnectionState.Broken:
-                            await _connection.CloseAsync();
-
-                            goto default;
-                        default:
-                            if (_connection.State == ConnectionState.Closed)
-                            {
-                                await _connection.OpenAsync(cancellationToken);
-                            }
-                            break;
-                    }
-
-                    _connectionState = _connection.State;
-                }
-
-                public override Task ChangeDatabaseAsync(string databaseName, CancellationToken cancellationToken = default) => _connection.ChangeDatabaseAsync(databaseName, cancellationToken);
-
-                protected override ValueTask<DbTransaction> BeginDbTransactionAsync(IsolationLevel isolationLevel, CancellationToken cancellationToken) => _connection.BeginTransactionAsync(isolationLevel, cancellationToken);
-
-                public override Task CloseAsync()
-                {
-                    _connectionState = ConnectionState.Closed;
-
-                    return Task.CompletedTask;
-                }
-
-                public override async ValueTask DisposeAsync()
-                {
-                    if (_disposed)
-                    {
-                        return;
-                    }
-
-                    _disposed = true;
-
-                    await CloseAsync();
-
-                    await base.DisposeAsync();
-                }
-
-                private bool _disposed;
-
-                protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel) => _connection.BeginTransaction(isolationLevel);
-
-                protected override System.Data.Common.DbCommand CreateDbCommand()
-                {
-                    var command = _connection.CreateCommand();
-
-                    return new DbCommand(command, _transaction);
-                }
-
-                protected override void Dispose(bool disposing)
-                {
-                    if (_disposed)
-                    {
-                        return;
-                    }
-
-                    _disposed = true;
-
-                    Close();
-
-                    base.Dispose(disposing);
-                }
-
-                private class DbCommand : System.Data.Common.DbCommand, IDbCommand
+                private class TransactionalCommand : DbCommand
                 {
                     private readonly TransactionEntry _transaction;
-                    private readonly System.Data.Common.DbCommand _command;
 
-                    public DbCommand(System.Data.Common.DbCommand command, TransactionEntry transaction)
+                    public TransactionalCommand(System.Data.Common.DbCommand command, TransactionEntry transaction) : base(command)
                     {
-                        _command = command;
                         _transaction = transaction;
                     }
 
-                    public override string CommandText { get => _command.CommandText; set => _command.CommandText = value; }
-                    public override int CommandTimeout { get => _command.CommandTimeout; set => _command.CommandTimeout = value; }
-                    public override CommandType CommandType { get => _command.CommandType; set => _command.CommandType = value; }
-                    public override bool DesignTimeVisible { get => _command.DesignTimeVisible; set => _command.DesignTimeVisible = value; }
-                    public override UpdateRowSource UpdatedRowSource { get => _command.UpdatedRowSource; set => _command.UpdatedRowSource = value; }
-                    protected override DbConnection DbConnection { get => _command.Connection; set => _command.Connection = value; }
-                    protected override DbParameterCollection DbParameterCollection => _command.Parameters;
-                    protected override DbTransaction DbTransaction { get => _command.Transaction; set => _command.Transaction = value; }
-                    public override void Cancel() => _command.Cancel();
-                    public override int ExecuteNonQuery()
-                    {
-                        _command.Transaction ??= _transaction.BeginTransaction();
+                    protected override void BeforeExecute() => _command.Transaction ??= _transaction.BeginTransaction();
 
-                        return _command.ExecuteNonQuery();
-                    }
-                    public override object ExecuteScalar()
-                    {
-                        _command.Transaction ??= _transaction.BeginTransaction();
-
-                        return _command.ExecuteScalar();
-                    }
-                    public override void Prepare() => _command.Prepare();
-
-#if NET6_0_OR_GREATER
-                    [Obsolete]
-#endif
-                    public override object InitializeLifetimeService() => _command.InitializeLifetimeService();
-                    protected override DbParameter CreateDbParameter() => _command.CreateParameter();
-                    protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
-                    {
-                        _command.Transaction ??= _transaction.BeginTransaction();
-
-                        return _command.ExecuteReader(behavior & ~CommandBehavior.CloseConnection);
-                    }
-                    protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior, CancellationToken cancellationToken)
-                    {
-                        _command.Transaction ??= await _transaction.BeginTransactionAsync(cancellationToken);
-
-                        return await _command.ExecuteReaderAsync(behavior & ~CommandBehavior.CloseConnection, cancellationToken);
-                    }
-
-                    public override async Task<int> ExecuteNonQueryAsync(CancellationToken cancellationToken)
-                    {
-                        _command.Transaction ??= await _transaction.BeginTransactionAsync(cancellationToken);
-
-                        return await _command.ExecuteNonQueryAsync(cancellationToken);
-                    }
-
-                    public override async Task<object> ExecuteScalarAsync(CancellationToken cancellationToken)
-                    {
-                        _command.Transaction ??= await _transaction.BeginTransactionAsync(cancellationToken);
-
-                        return await _command.ExecuteScalarAsync(cancellationToken);
-                    }
+                    protected override async ValueTask BeforeExecuteAsync(CancellationToken cancellationToken)
+                        => _command.Transaction ??= await _transaction.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
                 }
             }
             #endregion
@@ -553,44 +366,40 @@ namespace Inkslab.Linq
 
             private static TransactionEntry PrivateGet(Transaction transaction, Serializable serializable, IConnection databaseStrings, IConnections connections)
             {
-                Dictionary<string, TransactionEntry> dictionary = _transactionConnections.GetOrAdd(transaction, transaction =>
+                Dictionary<string, TransactionEntry> dictionary = _transactionConnections.GetOrAdd(transaction, trans =>
                 {
-                    transaction.TransactionCompleted += OnTransactionCompleted;
+                    trans.TransactionCompleted += OnTransactionCompleted;
 
-                    return new Dictionary<string, TransactionEntry>();
+                    return new Dictionary<string, TransactionEntry>(StringComparer.Ordinal);
                 });
 
-                if (dictionary.TryGetValue(databaseStrings.Strings, out TransactionEntry transactionEntry))
-                {
-                    return transactionEntry;
-                }
-
+                //? 同一个事务内并发很低，直接使用锁即可。
                 lock (dictionary)
                 {
-                    if (!dictionary.TryGetValue(databaseStrings.Strings, out transactionEntry))
+                    if (dictionary.TryGetValue(databaseStrings.Strings, out var entry))
                     {
-                        if (serializable is null)
-                        {
-                            dictionary.Add(databaseStrings.Strings,
-                                transactionEntry = new TransactionEntry(
-                                    connections.Get(databaseStrings),
-                                    true
-                                )
-                            );
-                        }
-                        else
-                        {
-                            dictionary.Add(databaseStrings.Strings,
-                                transactionEntry = new TransactionEntry(
-                                    serializable.Get(connections, databaseStrings),
-                                    !serializable.Trusteeship
-                                )
-                            );
-                        }
+                        return entry;
                     }
-                }
 
-                return transactionEntry;
+                    if (serializable is null)
+                    {
+                        entry = new TransactionEntry(
+                            connections.Get(databaseStrings),
+                            true
+                        );
+                    }
+                    else
+                    {
+                        entry = new TransactionEntry(
+                            serializable.Get(connections, databaseStrings),
+                            !serializable.Trusteeship
+                        );
+                    }
+
+                    dictionary.Add(databaseStrings.Strings, entry);
+
+                    return entry;
+                }
             }
 
             public static DbConnection Get(Transaction transaction, Serializable serializable, IConnection databaseStrings, IConnections connections)
@@ -604,12 +413,15 @@ namespace Inkslab.Linq
             {
                 if (_transactionConnections.TryRemove(e.Transaction, out Dictionary<string, TransactionEntry> dictionary))
                 {
-                    foreach (TransactionEntry connection in dictionary.Values)
+                    lock (dictionary)
                     {
-                        connection.Dispose();
-                    }
+                        foreach (var entry in dictionary.Values)
+                        {
+                            entry.Dispose();
+                        }
 
-                    dictionary.Clear();
+                        dictionary.Clear();
+                    }
                 }
             }
 
@@ -645,7 +457,7 @@ namespace Inkslab.Linq
 
         private class MyDatabase : DbConnection, IDatabase
         {
-            private readonly DbConnection _connection;
+            protected readonly DbConnection _connection;
             private ConnectionState _connectionState = ConnectionState.Closed;
 
             public MyDatabase(DbConnection connection)
@@ -719,19 +531,19 @@ namespace Inkslab.Linq
                     case ConnectionState.Connecting:
                         do
                         {
-                            await Task.Delay(5, cancellationToken);
+                            await Task.Delay(5, cancellationToken).ConfigureAwait(false);
 
                         } while (State == ConnectionState.Connecting);
 
                         goto default;
                     case ConnectionState.Broken:
-                        await _connection.CloseAsync();
+                        await _connection.CloseAsync().ConfigureAwait(false);
 
                         goto default;
                     default:
                         if (_connection.State == ConnectionState.Closed)
                         {
-                            await _connection.OpenAsync(cancellationToken);
+                            await _connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                         }
                         break;
                 }
@@ -759,9 +571,9 @@ namespace Inkslab.Linq
 
                 _disposed = true;
 
-                await CloseAsync();
+                await CloseAsync().ConfigureAwait(false);
 
-                await base.DisposeAsync();
+                await base.DisposeAsync().ConfigureAwait(false);
             }
 
             private volatile bool _disposed;
@@ -784,7 +596,7 @@ namespace Inkslab.Linq
                 base.Dispose(disposing);
             }
 
-            public IDatabaseBulkCopy CreateBulkCopy(IDbConnectionBulkCopyFactory bulkCopyFactory)
+            public virtual IDatabaseBulkCopy CreateBulkCopy(IDbConnectionBulkCopyFactory bulkCopyFactory)
             {
                 if (_connection.State == ConnectionState.Closed)
                 {
@@ -794,19 +606,19 @@ namespace Inkslab.Linq
                 return bulkCopyFactory.Create(_connection);
             }
 
-            public async Task<IDatabaseBulkCopy> CreateBulkCopyAsync(IDbConnectionBulkCopyFactory bulkCopyFactory, CancellationToken cancellationToken)
+            public virtual async Task<IDatabaseBulkCopy> CreateBulkCopyAsync(IDbConnectionBulkCopyFactory bulkCopyFactory, CancellationToken cancellationToken)
             {
                 if (_connection.State == ConnectionState.Closed)
                 {
-                    await _connection.OpenAsync(cancellationToken);
+                    await _connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 }
 
                 return bulkCopyFactory.Create(_connection);
             }
 
-            private class DbCommand : System.Data.Common.DbCommand, IDbCommand
+            protected class DbCommand : System.Data.Common.DbCommand, IDbCommand
             {
-                private readonly System.Data.Common.DbCommand _command;
+                protected readonly System.Data.Common.DbCommand _command;
 
                 public DbCommand(System.Data.Common.DbCommand command)
                 {
@@ -821,19 +633,54 @@ namespace Inkslab.Linq
                 protected override DbConnection DbConnection { get => _command.Connection; set => _command.Connection = value; }
                 protected override DbParameterCollection DbParameterCollection => _command.Parameters;
                 protected override DbTransaction DbTransaction { get => _command.Transaction; set => _command.Transaction = value; }
+
+                /// <summary>
+                /// 同步执行前置钩子，派生类可按需开启事务。
+                /// </summary>
+                protected virtual void BeforeExecute() { }
+
+                /// <summary>
+                /// 异步执行前置钩子，派生类可按需开启事务。
+                /// </summary>
+                protected virtual ValueTask BeforeExecuteAsync(CancellationToken cancellationToken) => default;
+
                 public override void Cancel() => _command.Cancel();
-                public override int ExecuteNonQuery() => _command.ExecuteNonQuery();
-                public override object ExecuteScalar() => _command.ExecuteScalar();
+                public override int ExecuteNonQuery()
+                {
+                    BeforeExecute();
+                    return _command.ExecuteNonQuery();
+                }
+                public override object ExecuteScalar()
+                {
+                    BeforeExecute();
+                    return _command.ExecuteScalar();
+                }
                 public override void Prepare() => _command.Prepare();
 #if NET6_0_OR_GREATER
                 [Obsolete]
 #endif
                 public override object InitializeLifetimeService() => _command.InitializeLifetimeService();
                 protected override DbParameter CreateDbParameter() => _command.CreateParameter();
-                protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior) => _command.ExecuteReader(behavior & ~CommandBehavior.CloseConnection);
-                protected override Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior, CancellationToken cancellationToken) => _command.ExecuteReaderAsync(behavior & ~CommandBehavior.CloseConnection, cancellationToken);
-                public override Task<int> ExecuteNonQueryAsync(CancellationToken cancellationToken) => _command.ExecuteNonQueryAsync(cancellationToken);
-                public override Task<object> ExecuteScalarAsync(CancellationToken cancellationToken) => _command.ExecuteScalarAsync(cancellationToken);
+                protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
+                {
+                    BeforeExecute();
+                    return _command.ExecuteReader(behavior & ~CommandBehavior.CloseConnection);
+                }
+                protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior, CancellationToken cancellationToken)
+                {
+                    await BeforeExecuteAsync(cancellationToken).ConfigureAwait(false);
+                    return await _command.ExecuteReaderAsync(behavior & ~CommandBehavior.CloseConnection, cancellationToken).ConfigureAwait(false);
+                }
+                public override async Task<int> ExecuteNonQueryAsync(CancellationToken cancellationToken)
+                {
+                    await BeforeExecuteAsync(cancellationToken).ConfigureAwait(false);
+                    return await _command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                }
+                public override async Task<object> ExecuteScalarAsync(CancellationToken cancellationToken)
+                {
+                    await BeforeExecuteAsync(cancellationToken).ConfigureAwait(false);
+                    return await _command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+                }
             }
         }
         #endregion

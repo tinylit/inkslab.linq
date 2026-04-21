@@ -317,17 +317,18 @@ namespace Inkslab.Linq
 
         private static bool Register(Type tableType, TabelOptions options)
         {
+            if (options is null)
+            {
+                throw new NotSupportedException();
+            }
+
+            // 快速路径：已注册则直接跳过。非原子检查（真正的原子写入由末尾 TryAdd 保证）。
             if (_tables.ContainsKey(tableType))
             {
                 return false;
             }
 
             var optionsGlobal = _analyzer.Table(tableType);
-
-            if (options is null)
-            {
-                throw new NotSupportedException();
-            }
 
             if (options.Name.IsEmpty())
             {

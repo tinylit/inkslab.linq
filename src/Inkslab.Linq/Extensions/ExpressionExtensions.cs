@@ -132,11 +132,13 @@ namespace System.Linq.Expressions
             {
                 null => null,
                 ConstantExpression constant => constant.Value,
+                MemberExpression member when TryEvaluateMember(member, out var memberValue) => memberValue,
                 LambdaExpression lambda when lambda.Parameters.Count > 0 => throw new NotSupportedException(),
-                LambdaExpression lambda => lambda.Body is ConstantExpression body
-                    ? body.Value
-                    : lambda.Compile().DynamicInvoke(),
+                LambdaExpression lambda when lambda.Body is ConstantExpression body => body.Value,
+                LambdaExpression lambda when lambda.Body is MemberExpression memberBody && TryEvaluateMember(memberBody, out var lambdaMemberValue) => lambdaMemberValue,
+                LambdaExpression lambda => lambda.Compile().DynamicInvoke(),
                 UnaryExpression unary when unary.NodeType == ExpressionType.Quote => unary.Operand.GetValueFromExpression(),
+                UnaryExpression unary when unary.NodeType == ExpressionType.Convert && unary.Operand is MemberExpression memberOperand && TryEvaluateMember(memberOperand, out var convertedValue) => ConvertValue(convertedValue, unary.Type),
                 _ => Expression.Lambda(node).Compile().DynamicInvoke(),
             };
         }
@@ -152,8 +154,10 @@ namespace System.Linq.Expressions
             {
                 null => default,
                 ConstantExpression constant => (T)constant.Value,
+                MemberExpression member when TryEvaluateMember(member, out var memberValue) => (T)memberValue,
                 Expression<Func<T>> lambda => lambda.Compile().Invoke(),
                 LambdaExpression lambda when lambda.Body.NodeType == ExpressionType.Constant => lambda.Body.GetValueFromExpression<T>(),
+                LambdaExpression lambda when lambda.Body is MemberExpression memberBody && TryEvaluateMember(memberBody, out var lambdaMemberValue) => (T)lambdaMemberValue,
                 LambdaExpression lambda when lambda.Parameters.Count == 0 => (T)lambda.Compile().DynamicInvoke(),
                 LambdaExpression => throw new NotSupportedException(),
                 UnaryExpression unary when unary.NodeType == ExpressionType.Quote => unary.Operand.GetValueFromExpression<T>(),
@@ -161,6 +165,76 @@ namespace System.Linq.Expressions
                     .Compile()
                     .Invoke()
             };
+        }
+
+        /// <summary>
+        /// 尝试通过反射直接求值成员访问表达式（用于绕过 Compile+DynamicInvoke）。
+        /// 仅处理静态成员与对常量表达式（闭包实例、静态类型）链式访问。
+        /// </summary>
+        private static bool TryEvaluateMember(MemberExpression member, out object value)
+        {
+            value = null;
+
+            object target;
+
+            if (member.Expression is null)
+            {
+                // 静态成员。
+                target = null;
+            }
+            else if (member.Expression is ConstantExpression constantExpression)
+            {
+                target = constantExpression.Value;
+            }
+            else if (member.Expression is MemberExpression inner && TryEvaluateMember(inner, out var innerValue))
+            {
+                target = innerValue;
+            }
+            else
+            {
+                return false;
+            }
+
+            switch (member.Member)
+            {
+                case System.Reflection.PropertyInfo property when property.CanRead:
+                    try
+                    {
+                        value = property.GetValue(target);
+                        return true;
+                    }
+                    catch
+                    {
+                        return false;
+                    }
+                case System.Reflection.FieldInfo field:
+                    value = field.GetValue(target);
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private static object ConvertValue(object value, Type targetType)
+        {
+            if (value is null)
+            {
+                return null;
+            }
+
+            if (targetType.IsInstanceOfType(value))
+            {
+                return value;
+            }
+
+            var underlying = Nullable.GetUnderlyingType(targetType) ?? targetType;
+
+            if (underlying.IsEnum)
+            {
+                return Enum.ToObject(underlying, value);
+            }
+
+            return Convert.ChangeType(value, underlying);
         }
 
         internal static T GetValueFromExpressionWithArgs<T>(this Expression node, params object[] args)

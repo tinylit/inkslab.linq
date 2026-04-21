@@ -227,7 +227,7 @@ namespace Inkslab.Linq
             }
             catch
             {
-                await CleanupQueryMultipleResourcesAsync(reader, command, dbConnection, isClosedConnection);
+                await CleanupQueryMultipleResourcesAsync(reader, command, dbConnection, isClosedConnection).ConfigureAwait(false);
                 throw;
             }
         }
@@ -243,20 +243,20 @@ namespace Inkslab.Linq
                 {
                     try { command?.Cancel(); } catch { }
                 }
-                await reader.DisposeAsync();
+                await reader.DisposeAsync().ConfigureAwait(false);
             }
 
             if (command != null)
             {
-                await command.DisposeAsync();
+                await command.DisposeAsync().ConfigureAwait(false);
             }
 
             if (isClosedConnection)
             {
-                await connection.CloseAsync();
+                await connection.CloseAsync().ConfigureAwait(false);
             }
 
-            await connection.DisposeAsync();
+            await connection.DisposeAsync().ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
@@ -277,12 +277,12 @@ namespace Inkslab.Linq
 
             if (isClosedConnection)
             {
-                await connection.OpenAsync(cancellationToken);
+                await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
             }
 
             try
             {
-                await multipleAction.Invoke(multipleExecutor);
+                await multipleAction.Invoke(multipleExecutor).ConfigureAwait(false);
 
                 return multipleExecutor.RowsExecuted;
             }
@@ -290,7 +290,7 @@ namespace Inkslab.Linq
             {
                 if (isClosedConnection)
                 {
-                    await connection.CloseAsync();
+                    await connection.CloseAsync().ConfigureAwait(false);
                 }
             }
         }
@@ -314,26 +314,26 @@ namespace Inkslab.Linq
 
             if (isClosedConnection)
             {
-                await connection.OpenAsync(cancellationToken);
+                await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
             }
 
             try
             {
-                using (var bulkCopy = await _connectionPipeline.CreateAsync(connection, databaseStrings.Engine, cancellationToken))
+                using (var bulkCopy = await _connectionPipeline.CreateAsync(connection, databaseStrings.Engine, cancellationToken).ConfigureAwait(false))
                 {
                     if (commandTimeout.HasValue)
                     {
                         bulkCopy.BulkCopyTimeout = commandTimeout.Value;
                     }
 
-                    return await bulkCopy.WriteToServerAsync(dataTable, cancellationToken);
+                    return await bulkCopy.WriteToServerAsync(dataTable, cancellationToken).ConfigureAwait(false);
                 }
             }
             finally
             {
                 if (isClosedConnection)
                 {
-                    await connection.CloseAsync();
+                    await connection.CloseAsync().ConfigureAwait(false);
                 }
             }
         }
@@ -453,7 +453,7 @@ namespace Inkslab.Linq
                         LookupDb.AddParameterAuto(command, _engine, name, value);
                     }
 
-                    int influenceRows = await command.ExecuteNonQueryAsync(_cancellationToken);
+                    int influenceRows = await command.ExecuteNonQueryAsync(_cancellationToken).ConfigureAwait(false);
 
                     commandSql.Callback(command);
 
@@ -475,14 +475,14 @@ namespace Inkslab.Linq
                     throw new ArgumentException("请通过“DataTable.TableName”指定目标表名称！");
                 }
 
-                using (var bulkCopy = await _pipeline.CreateAsync(_connection, _engine, _cancellationToken))
+                using (var bulkCopy = await _pipeline.CreateAsync(_connection, _engine, _cancellationToken).ConfigureAwait(false))
                 {
                     if (commandTimeout.HasValue)
                     {
                         bulkCopy.BulkCopyTimeout = commandTimeout.Value;
                     }
 
-                    int influenceRows = await bulkCopy.WriteToServerAsync(dt, _cancellationToken);
+                    int influenceRows = await bulkCopy.WriteToServerAsync(dt, _cancellationToken).ConfigureAwait(false);
 
                     RowsExecuted += influenceRows;
 
@@ -545,7 +545,7 @@ namespace Inkslab.Linq
 
                     try
                     {
-                        int influenceRows = await command.ExecuteNonQueryAsync(_cancellationToken);
+                        int influenceRows = await command.ExecuteNonQueryAsync(_cancellationToken).ConfigureAwait(false);
 
                         commandSql.Callback(command);
 
@@ -582,14 +582,14 @@ namespace Inkslab.Linq
 
                 try
                 {
-                    using (var bulkCopy = await _pipeline.CreateAsync(_connection, _engine, _cancellationToken))
+                    using (var bulkCopy = await _pipeline.CreateAsync(_connection, _engine, _cancellationToken).ConfigureAwait(false))
                     {
                         if (commandTimeout.HasValue)
                         {
                             bulkCopy.BulkCopyTimeout = commandTimeout.Value;
                         }
 
-                        influenceRows = await bulkCopy.WriteToServerAsync(dt, _cancellationToken);
+                        influenceRows = await bulkCopy.WriteToServerAsync(dt, _cancellationToken).ConfigureAwait(false);
                     }
                 }
                 finally
@@ -635,7 +635,7 @@ namespace Inkslab.Linq
 
                 T result = default;
 
-                if (await _reader.ReadAsync(cancellationToken) && _reader.FieldCount > 0)
+                if (await _reader.ReadAsync(cancellationToken).ConfigureAwait(false) && _reader.FieldCount > 0)
                 {
                     var map = _adaper.CreateMap<T>();
 
@@ -643,20 +643,20 @@ namespace Inkslab.Linq
 
                     if ((rowStyle & RowStyle.Single) == RowStyle.Single)
                     {
-                        if (await _reader.ReadAsync(cancellationToken))
+                        if (await _reader.ReadAsync(cancellationToken).ConfigureAwait(false))
                         {
                             ThrowByRowStyle(rowStyle);
                         }
                     }
 
-                    while (await _reader.ReadAsync(cancellationToken)) { /* ignore subsequent rows */ }
+                    while (await _reader.ReadAsync(cancellationToken).ConfigureAwait(false)) { /* ignore subsequent rows */ }
                 }
                 else if ((rowStyle & RowStyle.FirstOrDefault) == 0) // demanding a row, and don't have one
                 {
                     ThrowByRowStyle(rowStyle);
                 }
 
-                await NextResultAsync(cancellationToken);
+                await NextResultAsync(cancellationToken).ConfigureAwait(false);
 
                 return result;
             }
@@ -679,9 +679,9 @@ namespace Inkslab.Linq
                 {
                     var map = _adaper.CreateMap<T>();
 
-                    while (index == _gridIndex && await _reader.ReadAsync(cancellationToken))
+                    while (index == _gridIndex && await _reader.ReadAsync(cancellationToken).ConfigureAwait(false))
                     {
-                        if (!await map.IsInvalidAsync(_reader, cancellationToken))
+                        if (!await map.IsInvalidAsync(_reader, cancellationToken).ConfigureAwait(false))
                         {
                             yield return map.Map(_reader);
                         }
@@ -691,7 +691,7 @@ namespace Inkslab.Linq
                 {
                     if (index == _gridIndex)
                     {
-                        await NextResultAsync(cancellationToken);
+                        await NextResultAsync(cancellationToken).ConfigureAwait(false);
                     }
                 }
             }
@@ -701,7 +701,7 @@ namespace Inkslab.Linq
 
             private async Task NextResultAsync(CancellationToken cancellationToken)
             {
-                if (await _reader.NextResultAsync(cancellationToken))
+                if (await _reader.NextResultAsync(cancellationToken).ConfigureAwait(false))
                 {
                     Interlocked.Increment(ref _gridIndex);
 
@@ -709,7 +709,7 @@ namespace Inkslab.Linq
                 }
                 else
                 {
-                    await DisposeAsync();
+                    await DisposeAsync().ConfigureAwait(false);
                 }
             }
 
@@ -730,13 +730,13 @@ namespace Inkslab.Linq
                     _command.Cancel();
                 }
 
-                await _reader.DisposeAsync();
+                await _reader.DisposeAsync().ConfigureAwait(false);
 
                 _commandSql.Callback(_command);
 
-                await _command.DisposeAsync();
+                await _command.DisposeAsync().ConfigureAwait(false);
 
-                await _connection.DisposeAsync();
+                await _connection.DisposeAsync().ConfigureAwait(false);
 
                 GC.SuppressFinalize(this);
             }

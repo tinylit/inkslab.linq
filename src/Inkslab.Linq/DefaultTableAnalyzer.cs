@@ -34,46 +34,69 @@ namespace Inkslab.Linq
 
             foreach (var propertyInfo in propertyInfos)
             {
-                var key = propertyInfo.Name;
-
                 if (propertyInfo.IsIgnore())
                 {
                     continue;
                 }
 
-                bool isPrimaryKey = propertyInfo.IsDefined(typeof(KeyAttribute), true);
+                // 一次性取出该属性上的所有特性，避免反复触发反射扫描。
+                var attributes = propertyInfo.GetCustomAttributes(true);
 
-                bool isReadOnly = propertyInfo.IsDefined(typeof(DatabaseGeneratedAttribute), true);
+                bool isPrimaryKey = false;
+                bool isReadOnly = false;
+                VersionAttribute versionAttr = null;
+                FieldAttribute nameAttr = null;
+
+                for (int i = 0; i < attributes.Length; i++)
+                {
+                    switch (attributes[i])
+                    {
+                        case KeyAttribute:
+                            isPrimaryKey = true;
+                            break;
+                        case DatabaseGeneratedAttribute:
+                            isReadOnly = true;
+                            break;
+                        case VersionAttribute v:
+                            versionAttr = v;
+                            break;
+                        case FieldAttribute f:
+                            nameAttr = f;
+                            break;
+                    }
+                }
 
                 VersionKind version = VersionKind.None;
 
-                if (propertyInfo.IsDefined(typeof(VersionAttribute), true))
+                if (versionAttr != null)
                 {
-                    if (propertyInfo.PropertyType == typeof(int))
+                    var propertyType = propertyInfo.PropertyType;
+
+                    if (propertyType == typeof(int))
                     {
                         version = VersionKind.Increment;
                     }
-                    else if (propertyInfo.PropertyType == typeof(long))
+                    else if (propertyType == typeof(long))
                     {
                         version = VersionKind.Ticks;
                     }
-                    else if (propertyInfo.PropertyType == typeof(DateTime))
+                    else if (propertyType == typeof(DateTime))
                     {
                         version = VersionKind.Now;
                     }
-                    else if (propertyInfo.PropertyType == typeof(double))
+                    else if (propertyType == typeof(double))
                     {
                         version = VersionKind.Timestamp;
                     }
                     else
                     {
                         throw new NotSupportedException(
-                            $"不支持“{propertyInfo.PropertyType}”类型属性的版本控制！"
+                            $"不支持“{propertyType}”类型属性的版本控制！"
                         );
                     }
                 }
 
-                var nameAttr = propertyInfo.GetCustomAttribute<FieldAttribute>(true);
+                var key = propertyInfo.Name;
 
                 cloumns.Add(
                     key,

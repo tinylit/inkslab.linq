@@ -546,7 +546,7 @@ namespace Inkslab.Linq
             var targetVar = Variable(type, "value");
             var dictionariesVar = Variable(_dictionaryType, "dictionaries");
 
-            var propertyInfos = type.GetProperties();
+            var propertyInfos = Array.FindAll(type.GetProperties(), static p => p.CanRead);
 
             var expressions = new List<Expression>
             {
@@ -554,24 +554,8 @@ namespace Inkslab.Linq
                 Assign(dictionariesVar, New(_dictionaryType.GetConstructor(new[]{ typeof(int)}), Constant(propertyInfos.Length)))
             };
 
-            foreach (var propertyInfo in type.GetProperties())
+            foreach (var propertyInfo in propertyInfos)
             {
-                if (!propertyInfo.CanRead)
-                {
-                    continue;
-                }
-
-                var propertyType = propertyInfo.PropertyType;
-
-                if (propertyType.IsNullable())
-                {
-                    propertyType = Nullable.GetUnderlyingType(propertyType);
-                }
-
-                DbType dbType = propertyType.IsArray && propertyType != typeof(byte[]) || propertyType != typeof(string) && typeof(IEnumerable).IsAssignableFrom(propertyType)
-                    ? LookupDb.EnumerableDbType
-                    : LookupDb.For(propertyType);
-
                 expressions.Add(Call(dictionariesVar, _dictionaryAdd, Constant(propertyInfo.Name), Convert(Property(targetVar, propertyInfo), typeof(object))));
             }
 

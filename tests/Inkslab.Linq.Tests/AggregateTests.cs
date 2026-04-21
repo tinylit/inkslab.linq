@@ -844,13 +844,13 @@ namespace Inkslab.Linq.Tests
 
             var expectedGroups = allUsers
                 .GroupBy(x => x.IsAdministrator)
-                .Select(g => new { Key = g.Key, SumId = g.Sum(x => x.Id) })
+                .Select(g => new { Key = g.Key, SumId = g.Sum(x => (long)x.Id) })
                 .ToList();
 
             // Act
             var result = (from x in _users
                           group x by x.IsAdministrator into g
-                          select new { Key = g.Key, SumId = g.Sum(x => x.Id) })
+                          select new { Key = g.Key, SumId = g.Sum(x => (long)x.Id) })
                          .ToList();
 
             // Assert

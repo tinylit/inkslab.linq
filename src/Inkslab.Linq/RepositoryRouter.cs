@@ -28,6 +28,7 @@ namespace Inkslab.Linq
     {
         private static readonly Type _elementType;
         private static readonly ITableInfo _instance;
+        private static readonly IReadOnlyDictionary<string, string> _columnToProperty;
         private readonly IDatabaseExecutor _databaseExecutor;
         private readonly DbStrictAdapter _adapter;
         private readonly IDatabaseStrings _databaseStrings;
@@ -38,6 +39,15 @@ namespace Inkslab.Linq
             _elementType = typeof(TEntity);
 
             _instance = TableAnalyzer.Table(_elementType);
+
+            var reverse = new Dictionary<string, string>(_instance.Fields.Count, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var kv in _instance.Fields)
+            {
+                reverse[kv.Value] = kv.Key;
+            }
+
+            _columnToProperty = reverse;
         }
 
         /// <summary>
@@ -487,9 +497,9 @@ namespace Inkslab.Linq
                     {
                         if (!Fields.Remove(column))
                         {
-                            if (_instance.Fields.TryGetValue(column, out var value))
+                            if (_columnToProperty.TryGetValue(column, out var propertyName))
                             {
-                                Fields.Remove(value);
+                                Fields.Remove(propertyName);
                             }
                         }
                     }
@@ -513,19 +523,9 @@ namespace Inkslab.Linq
                         {
                             fields.Add(column);
                         }
-                        else
+                        else if (_columnToProperty.TryGetValue(column, out var propertyName))
                         {
-                            foreach (var (key, value) in _instance.Fields)
-                            {
-                                if (
-                                    string.Equals(value, column, StringComparison.OrdinalIgnoreCase)
-                                )
-                                {
-                                    fields.Add(key);
-
-                                    break;
-                                }
-                            }
+                            fields.Add(propertyName);
                         }
                     }
                 );

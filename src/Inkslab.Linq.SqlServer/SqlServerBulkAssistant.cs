@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace Inkslab.Linq.SqlServer
 {
     /// <summary>
-    /// MySql 批处理助手。
+    /// SQL Server 批处理助手。
     /// </summary>
     public class SqlServerBulkAssistant : IDatabaseBulkCopy
     {

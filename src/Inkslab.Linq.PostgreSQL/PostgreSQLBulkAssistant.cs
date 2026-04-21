@@ -40,15 +40,7 @@ namespace Inkslab.Linq.PostgreSQL
         /// <inheritdoc/>
         public int WriteToServer(DataTable dt)
         {
-            if (dt == null)
-            {
-                throw new ArgumentNullException(nameof(dt));
-            }
-
-            if (string.IsNullOrEmpty(dt.TableName))
-            {
-                throw new ArgumentException("请通过DataTable.TableName指定目标表名称！");
-            }
+            ValidateDataTable(dt);
 
             // 生成COPY命令
             var copyCommand = GenerateCopyCommand(dt);
@@ -95,15 +87,7 @@ namespace Inkslab.Linq.PostgreSQL
         /// <inheritdoc/>
         public async Task<int> WriteToServerAsync(DataTable dt, CancellationToken cancellationToken = default)
         {
-            if (dt == null)
-            {
-                throw new ArgumentNullException(nameof(dt));
-            }
-
-            if (string.IsNullOrEmpty(dt.TableName))
-            {
-                throw new ArgumentException("请通过DataTable.TableName指定目标表名称！");
-            }
+            ValidateDataTable(dt);
 
             // 生成COPY命令
             var copyCommand = GenerateCopyCommand(dt);
@@ -151,6 +135,19 @@ namespace Inkslab.Linq.PostgreSQL
         /// </summary>
         /// <param name="dt">数据表</param>
         /// <returns>COPY命令字符串</returns>
+        private static void ValidateDataTable(DataTable dt)
+        {
+            if (dt == null)
+            {
+                throw new ArgumentNullException(nameof(dt));
+            }
+
+            if (string.IsNullOrEmpty(dt.TableName))
+            {
+                throw new ArgumentException("请通过\u201cDataTable.TableName\u201d指定目标表名称！");
+            }
+        }
+
         private static string GenerateCopyCommand(DataTable dt)
         {
             var sb = new StringBuilder();
@@ -405,15 +402,7 @@ namespace Inkslab.Linq.PostgreSQL
             /// <inheritdoc/>
             public int WriteToServer(DataTable dt)
             {
-                if (dt == null)
-                {
-                    throw new ArgumentNullException(nameof(dt));
-                }
-
-                if (string.IsNullOrEmpty(dt.TableName))
-                {
-                    throw new ArgumentException("请通过DataTable.TableName指定目标表名称！");
-                }
+                ValidateDataTable(dt);
 
                 if (dt.Rows.Count == 0)
                 {
@@ -456,15 +445,7 @@ namespace Inkslab.Linq.PostgreSQL
             /// <inheritdoc/>
             public async Task<int> WriteToServerAsync(DataTable dt, CancellationToken cancellationToken = default)
             {
-                if (dt == null)
-                {
-                    throw new ArgumentNullException(nameof(dt));
-                }
-
-                if (string.IsNullOrEmpty(dt.TableName))
-                {
-                    throw new ArgumentException("请通过DataTable.TableName指定目标表名称！");
-                }
+                ValidateDataTable(dt);
 
                 if (dt.Rows.Count == 0)
                 {

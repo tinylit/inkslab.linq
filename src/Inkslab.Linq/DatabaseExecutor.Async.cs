@@ -144,7 +144,7 @@ namespace Inkslab.Linq
                                 if (commandSql.RowStyle >= RowStyle.Single
                                     && await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
                                 {
-                                    ThrowMultipleRows(commandSql.RowStyle);
+                                    ThrowByRowStyle(commandSql.RowStyle);
                                 }
 
                                 return result;
@@ -166,7 +166,7 @@ namespace Inkslab.Linq
                         }
 
                         throw new InvalidOperationException(
-                            "The input sequence contains more than one element."
+                            "The input sequence contains no elements."
                         );
                     }
 
@@ -179,7 +179,7 @@ namespace Inkslab.Linq
         }
 
         /// <inheritdoc/>
-        public async Task<IAsyncDbGridReader> QueryMultipleAsync(IConnection databaseStrings, CommandSql commandSql)
+        public async Task<IAsyncDbGridReader> QueryMultipleAsync(IConnection databaseStrings, CommandSql commandSql, CancellationToken cancellationToken = default)
         {
             if (_logger.IsEnabled(LogLevel.Debug))
             {
@@ -196,7 +196,7 @@ namespace Inkslab.Linq
             {
                 behavior |= CommandBehavior.CloseConnection;
 
-                await dbConnection.OpenAsync().ConfigureAwait(false);
+                await dbConnection.OpenAsync(cancellationToken).ConfigureAwait(false);
             }
 
             DbCommand command = null;
@@ -219,7 +219,7 @@ namespace Inkslab.Linq
                     LookupDb.AddParameterAuto(command, databaseStrings.Engine, name, value);
                 }
 
-                reader = await command.ExecuteReaderAsync(behavior).ConfigureAwait(false);
+                reader = await command.ExecuteReaderAsync(behavior, cancellationToken).ConfigureAwait(false);
 
                 var adaper = GetOrAddAdaper(reader.GetType(), databaseStrings.Engine);
 
@@ -296,16 +296,16 @@ namespace Inkslab.Linq
         }
 
         /// <inheritdoc/>
-        public async Task<int> WriteToServerAsync(IConnection databaseStrings, DataTable dt, int? commandTimeout, CancellationToken cancellationToken = default)
+        public async Task<int> WriteToServerAsync(IConnection databaseStrings, DataTable dataTable, int? commandTimeout, CancellationToken cancellationToken = default)
         {
-            if (dt is null)
+            if (dataTable is null)
             {
-                throw new ArgumentNullException(nameof(dt));
+                throw new ArgumentNullException(nameof(dataTable));
             }
 
-            if (string.IsNullOrEmpty(dt.TableName))
+            if (string.IsNullOrEmpty(dataTable.TableName))
             {
-                throw new ArgumentException("请通过\"DataTable.TableName\"指定目标表名称！");
+                throw new ArgumentException("请通过“DataTable.TableName”指定目标表名称！");
             }
 
             using var connection = _connectionPipeline.Get(databaseStrings);
@@ -326,7 +326,7 @@ namespace Inkslab.Linq
                         bulkCopy.BulkCopyTimeout = commandTimeout.Value;
                     }
 
-                    return await bulkCopy.WriteToServerAsync(dt, cancellationToken);
+                    return await bulkCopy.WriteToServerAsync(dataTable, cancellationToken);
                 }
             }
             finally
@@ -472,7 +472,7 @@ namespace Inkslab.Linq
 
                 if (string.IsNullOrEmpty(dt.TableName))
                 {
-                    throw new ArgumentException("请通过\"DataTable.TableName\"指定目标表名称！");
+                    throw new ArgumentException("请通过“DataTable.TableName”指定目标表名称！");
                 }
 
                 using (var bulkCopy = await _pipeline.CreateAsync(_connection, _engine, _cancellationToken))
@@ -543,15 +543,20 @@ namespace Inkslab.Linq
 
                     _stopwatch.Start();
 
-                    int influenceRows = await command.ExecuteNonQueryAsync(_cancellationToken);
+                    try
+                    {
+                        int influenceRows = await command.ExecuteNonQueryAsync(_cancellationToken);
 
-                    _stopwatch.Stop();
+                        commandSql.Callback(command);
 
-                    commandSql.Callback(command);
+                        RowsExecuted += influenceRows;
 
-                    RowsExecuted += influenceRows;
-
-                    return influenceRows;
+                        return influenceRows;
+                    }
+                    finally
+                    {
+                        _stopwatch.Stop();
+                    }
                 }
             }
 
@@ -564,7 +569,7 @@ namespace Inkslab.Linq
 
                 if (string.IsNullOrEmpty(dt.TableName))
                 {
-                    throw new ArgumentException("请通过\"DataTable.TableName\"指定目标表名称！");
+                    throw new ArgumentException("请通过“DataTable.TableName”指定目标表名称！");
                 }
 
                 commandTimeout = commandTimeout.HasValue
@@ -575,17 +580,22 @@ namespace Inkslab.Linq
 
                 int influenceRows = 0;
 
-                using (var bulkCopy = await _pipeline.CreateAsync(_connection, _engine, _cancellationToken))
+                try
                 {
-                    if (commandTimeout.HasValue)
+                    using (var bulkCopy = await _pipeline.CreateAsync(_connection, _engine, _cancellationToken))
                     {
-                        bulkCopy.BulkCopyTimeout = commandTimeout.Value;
+                        if (commandTimeout.HasValue)
+                        {
+                            bulkCopy.BulkCopyTimeout = commandTimeout.Value;
+                        }
+
+                        influenceRows = await bulkCopy.WriteToServerAsync(dt, _cancellationToken);
                     }
-
-                    influenceRows = await bulkCopy.WriteToServerAsync(dt, _cancellationToken);
                 }
-
-                _stopwatch.Stop();
+                finally
+                {
+                    _stopwatch.Stop();
+                }
 
                 RowsExecuted += influenceRows;
 
@@ -635,7 +645,7 @@ namespace Inkslab.Linq
                     {
                         if (await _reader.ReadAsync(cancellationToken))
                         {
-                            ThrowMultipleRows(rowStyle);
+                            ThrowByRowStyle(rowStyle);
                         }
                     }
 
@@ -643,7 +653,7 @@ namespace Inkslab.Linq
                 }
                 else if ((rowStyle & RowStyle.FirstOrDefault) == 0) // demanding a row, and don't have one
                 {
-                    ThrowMultipleRows(rowStyle);
+                    ThrowByRowStyle(rowStyle);
                 }
 
                 await NextResultAsync(cancellationToken);

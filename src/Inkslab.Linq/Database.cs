@@ -194,7 +194,7 @@ namespace Inkslab.Linq
 
             var commandSql = MakeCommandSql(sql, dictionaries, commandTimeout);
 
-            return _executor.QueryMultipleAsync(_databaseStrings, commandSql);
+            return _executor.QueryMultipleAsync(_databaseStrings, commandSql, cancellationToken);
         }
 
         /// <inheritdoc/>

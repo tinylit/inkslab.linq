@@ -1880,7 +1880,7 @@ namespace Inkslab.Linq
 
         #endregion
 
-        #region ToList/Array
+        #region ToList/Array/Dictionary/HashSet
 
         /// <summary>
         ///     Asynchronously creates a <see cref="List{T}" /> from an <see cref="IQueryable{T}" /> by enumerating it
@@ -2015,6 +2015,270 @@ namespace Inkslab.Linq
             this IQueryable<TSource> source,
             CancellationToken cancellationToken = default)
             => (await source.ToListAsync(cancellationToken)).ToArray();
+
+        /// <summary>
+        ///     Asynchronously creates a <see cref="Dictionary{TKey, TValue}" /> from an <see cref="IQueryable{T}" /> by enumerating it
+        ///     asynchronously.
+        /// </summary>
+        /// <typeparam name="TSource">
+        ///     The type of the elements of <paramref name="source" />.
+        /// </typeparam>
+        /// <typeparam name="TKey">
+        ///     The type of the key returned by <paramref name="keySelector" />.
+        /// </typeparam>
+        /// <param name="source">
+        ///     An <see cref="IQueryable{T}" /> to create a dictionary from.
+        /// </param>
+        /// <param name="keySelector">
+        ///     A function to extract a key from each element.
+        /// </param>
+        /// <param name="cancellationToken">
+        ///     A <see cref="CancellationToken" /> to observe while waiting for the task to complete.
+        /// </param>
+        /// <returns>
+        ///     A task that represents the asynchronous operation.
+        ///     The task result contains a <see cref="Dictionary{TKey, TValue}" /> that contains selected keys and values from the input sequence.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        ///     <paramref name="source" /> or <paramref name="keySelector" /> is <see langword="null" />.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        ///     <paramref name="source" /> contains one or more duplicate keys.
+        /// </exception>
+        public static Task<Dictionary<TKey, TSource>> ToDictionaryAsync<TSource, TKey>(
+            this IQueryable<TSource> source,
+            Func<TSource, TKey> keySelector,
+            CancellationToken cancellationToken = default)
+            => ToDictionaryAsync(source, keySelector, x => x, comparer: null, cancellationToken);
+
+        /// <summary>
+        ///     Asynchronously creates a <see cref="Dictionary{TKey, TValue}" /> from an <see cref="IQueryable{T}" /> by enumerating it
+        ///     asynchronously.
+        /// </summary>
+        /// <typeparam name="TSource">
+        ///     The type of the elements of <paramref name="source" />.
+        /// </typeparam>
+        /// <typeparam name="TKey">
+        ///     The type of the key returned by <paramref name="keySelector" />.
+        /// </typeparam>
+        /// <param name="source">
+        ///     An <see cref="IQueryable{T}" /> to create a dictionary from.
+        /// </param>
+        /// <param name="keySelector">
+        ///     A function to extract a key from each element.
+        /// </param>
+        /// <param name="comparer">
+        ///     An <see cref="IEqualityComparer{T}" /> to compare keys.
+        /// </param>
+        /// <param name="cancellationToken">
+        ///     A <see cref="CancellationToken" /> to observe while waiting for the task to complete.
+        /// </param>
+        /// <returns>
+        ///     A task that represents the asynchronous operation.
+        ///     The task result contains a <see cref="Dictionary{TKey, TValue}" /> that contains selected keys and values from the input sequence.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        ///     <paramref name="source" /> or <paramref name="keySelector" /> is <see langword="null" />.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        ///     <paramref name="source" /> contains one or more duplicate keys.
+        /// </exception>
+        public static Task<Dictionary<TKey, TSource>> ToDictionaryAsync<TSource, TKey>(
+            this IQueryable<TSource> source,
+            Func<TSource, TKey> keySelector,
+            IEqualityComparer<TKey> comparer,
+            CancellationToken cancellationToken = default)
+            => ToDictionaryAsync(source, keySelector, x => x, comparer, cancellationToken);
+
+        /// <summary>
+        ///     Asynchronously creates a <see cref="Dictionary{TKey, TValue}" /> from an <see cref="IQueryable{T}" /> by enumerating it
+        ///     asynchronously.
+        /// </summary>
+        /// <typeparam name="TSource">
+        ///     The type of the elements of <paramref name="source" />.
+        /// </typeparam>
+        /// <typeparam name="TKey">
+        ///     The type of the key returned by <paramref name="keySelector" />.
+        /// </typeparam>
+        /// <typeparam name="TElement">
+        ///     The type of the value returned by <paramref name="elementSelector" />.
+        /// </typeparam>
+        /// <param name="source">
+        ///     An <see cref="IQueryable{T}" /> to create a dictionary from.
+        /// </param>
+        /// <param name="keySelector">
+        ///     A function to extract a key from each element.
+        /// </param>
+        /// <param name="elementSelector">
+        ///     A transform function to produce a result element value from each element.
+        /// </param>
+        /// <param name="cancellationToken">
+        ///     A <see cref="CancellationToken" /> to observe while waiting for the task to complete.
+        /// </param>
+        /// <returns>
+        ///     A task that represents the asynchronous operation.
+        ///     The task result contains a <see cref="Dictionary{TKey, TValue}" /> that contains selected keys and values from the input sequence.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        ///     <paramref name="source" />, <paramref name="keySelector" />, or <paramref name="elementSelector" /> is <see langword="null" />.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        ///     <paramref name="source" /> contains one or more duplicate keys.
+        /// </exception>
+        public static Task<Dictionary<TKey, TElement>> ToDictionaryAsync<TSource, TKey, TElement>(
+            this IQueryable<TSource> source,
+            Func<TSource, TKey> keySelector,
+            Func<TSource, TElement> elementSelector,
+            CancellationToken cancellationToken = default)
+            => ToDictionaryAsync(source, keySelector, elementSelector, comparer: null, cancellationToken);
+
+        /// <summary>
+        ///     Asynchronously creates a <see cref="Dictionary{TKey, TValue}" /> from an <see cref="IQueryable{T}" /> by enumerating it
+        ///     asynchronously.
+        /// </summary>
+        /// <typeparam name="TSource">
+        ///     The type of the elements of <paramref name="source" />.
+        /// </typeparam>
+        /// <typeparam name="TKey">
+        ///     The type of the key returned by <paramref name="keySelector" />.
+        /// </typeparam>
+        /// <typeparam name="TElement">
+        ///     The type of the value returned by <paramref name="elementSelector" />.
+        /// </typeparam>
+        /// <param name="source">
+        ///     An <see cref="IQueryable{T}" /> to create a dictionary from.
+        /// </param>
+        /// <param name="keySelector">
+        ///     A function to extract a key from each element.
+        /// </param>
+        /// <param name="elementSelector">
+        ///     A transform function to produce a result element value from each element.
+        /// </param>
+        /// <param name="comparer">
+        ///     An <see cref="IEqualityComparer{T}" /> to compare keys.
+        /// </param>
+        /// <param name="cancellationToken">
+        ///     A <see cref="CancellationToken" /> to observe while waiting for the task to complete.
+        /// </param>
+        /// <returns>
+        ///     A task that represents the asynchronous operation.
+        ///     The task result contains a <see cref="Dictionary{TKey, TValue}" /> that contains selected keys and values from the input sequence.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        ///     <paramref name="source" />, <paramref name="keySelector" />, or <paramref name="elementSelector" /> is <see langword="null" />.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        ///     <paramref name="source" /> contains one or more duplicate keys.
+        /// </exception>
+        public static async Task<Dictionary<TKey, TElement>> ToDictionaryAsync<TSource, TKey, TElement>(
+            this IQueryable<TSource> source,
+            Func<TSource, TKey> keySelector,
+            Func<TSource, TElement> elementSelector,
+            IEqualityComparer<TKey> comparer,
+            CancellationToken cancellationToken = default)
+        {
+            if (source is null)
+            {
+                throw new ArgumentNullException(nameof(source));
+            }
+
+            if (keySelector is null)
+            {
+                throw new ArgumentNullException(nameof(keySelector));
+            }
+
+            if (elementSelector is null)
+            {
+                throw new ArgumentNullException(nameof(elementSelector));
+            }
+
+            var dictionary = comparer is null
+                ? new Dictionary<TKey, TElement>()
+                : new Dictionary<TKey, TElement>(comparer);
+
+            await using (var enumerator = source.AsAsyncEnumerable().GetAsyncEnumerator(cancellationToken))
+            {
+                while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                {
+                    var current = enumerator.Current;
+
+                    dictionary.Add(keySelector(current), elementSelector(current));
+                }
+            }
+
+            return dictionary;
+        }
+
+        /// <summary>
+        ///     Asynchronously creates a <see cref="HashSet{T}" /> from an <see cref="IQueryable{T}" />
+        ///     by enumerating it asynchronously.
+        /// </summary>
+        /// <typeparam name="TSource">
+        ///     The type of the elements of <paramref name="source" />.
+        /// </typeparam>
+        /// <param name="source">
+        ///     An <see cref="IQueryable{T}" /> to create a <see cref="HashSet{T}" /> from.
+        /// </param>
+        /// <param name="cancellationToken">
+        ///     A <see cref="CancellationToken" /> to observe while waiting for the task to complete.
+        /// </param>
+        /// <returns>
+        ///     A task that represents the asynchronous operation.
+        ///     The task result contains a <see cref="HashSet{T}" /> that contains distinct elements from the input sequence.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        ///     <paramref name="source" /> is <see langword="null" />.
+        /// </exception>
+        public static Task<HashSet<TSource>> ToHashSetAsync<TSource>(
+            this IQueryable<TSource> source,
+            CancellationToken cancellationToken = default)
+            => ToHashSetAsync(source, comparer: null, cancellationToken);
+
+        /// <summary>
+        ///     Asynchronously creates a <see cref="HashSet{T}" /> from an <see cref="IQueryable{T}" />
+        ///     by enumerating it asynchronously, using the specified equality comparer.
+        /// </summary>
+        /// <typeparam name="TSource">
+        ///     The type of the elements of <paramref name="source" />.
+        /// </typeparam>
+        /// <param name="source">
+        ///     An <see cref="IQueryable{T}" /> to create a <see cref="HashSet{T}" /> from.
+        /// </param>
+        /// <param name="comparer">
+        ///     An <see cref="IEqualityComparer{T}" /> to compare elements.
+        /// </param>
+        /// <param name="cancellationToken">
+        ///     A <see cref="CancellationToken" /> to observe while waiting for the task to complete.
+        /// </param>
+        /// <returns>
+        ///     A task that represents the asynchronous operation.
+        ///     The task result contains a <see cref="HashSet{T}" /> that contains distinct elements from the input sequence.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        ///     <paramref name="source" /> is <see langword="null" />.
+        /// </exception>
+        public static async Task<HashSet<TSource>> ToHashSetAsync<TSource>(
+            this IQueryable<TSource> source,
+            IEqualityComparer<TSource> comparer,
+            CancellationToken cancellationToken = default)
+        {
+            if (source is null)
+            {
+                throw new ArgumentNullException(nameof(source));
+            }
+
+            var hashSet = new HashSet<TSource>(comparer);
+
+            await using (var enumerator = source.AsAsyncEnumerable().GetAsyncEnumerator(cancellationToken))
+            {
+                while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                {
+                    hashSet.Add(enumerator.Current);
+                }
+            }
+
+            return hashSet;
+        }
 
         /// <summary>
         /// Asynchronously enumerates the query results and performs the specified action on each element.

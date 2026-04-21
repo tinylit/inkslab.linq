@@ -85,8 +85,9 @@ namespace Inkslab.Linq
         /// </summary>
         /// <param name="databaseStrings">数据库链接。</param>
         /// <param name="commandSql">T-SQL 命令。</param>
+        /// <param name="cancellationToken">取消操作的标记。</param>
         /// <returns>异步查询器。</returns>
-        Task<IAsyncDbGridReader> QueryMultipleAsync(IConnection databaseStrings, CommandSql commandSql);
+        Task<IAsyncDbGridReader> QueryMultipleAsync(IConnection databaseStrings, CommandSql commandSql, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 执行命令。

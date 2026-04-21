@@ -149,7 +149,7 @@ namespace Inkslab.Linq
 
                     if (commandSql.RowStyle >= RowStyle.Single && reader.Read())
                     {
-                        ThrowMultipleRows(commandSql.RowStyle);
+                        ThrowByRowStyle(commandSql.RowStyle);
                     }
 
                     return result;
@@ -603,7 +603,7 @@ namespace Inkslab.Linq
         #region 读取器
         private static readonly int[] _errTwoRows = new int[2], _errZeroRows = Array.Empty<int>();
 
-        private static void ThrowMultipleRows(RowStyle rowStyle)
+        private static void ThrowByRowStyle(RowStyle rowStyle)
         {
             switch (rowStyle)
             {
@@ -663,7 +663,7 @@ namespace Inkslab.Linq
                     {
                         if (_reader.Read())
                         {
-                            ThrowMultipleRows(rowStyle);
+                            ThrowByRowStyle(rowStyle);
                         }
                     }
 
@@ -671,7 +671,7 @@ namespace Inkslab.Linq
                 }
                 else if ((rowStyle & RowStyle.FirstOrDefault) == 0) // demanding a row, and don't have one
                 {
-                    ThrowMultipleRows(rowStyle);
+                    ThrowByRowStyle(rowStyle);
                 }
 
                 NextResult();

@@ -110,5 +110,26 @@ namespace Microsoft.Extensions.DependencyInjection
 
             return new DatabaseLinqBuilder(engine, typeof(TDbAdapter), services, sharedOptions);
         }
+
+        /// <summary>
+        /// 注册数据库工厂 <see cref="IDatabaseFactory"/>。
+        /// </summary>
+        /// <remarks>
+        /// 必须在调用一次或多次 <c>UseXxx()</c>（如 <c>UseMySql</c>、<c>UsePostgreSQL</c>、<c>UseSqlServer</c>）后调用。
+        /// 注册后可通过注入 <see cref="IDatabaseFactory"/>，在运行时按引擎 + 连接字符串创建 <see cref="IDatabase"/> 会话。
+        /// </remarks>
+        /// <param name="services">服务池。</param>
+        /// <returns>服务池。</returns>
+        public static IServiceCollection AddDatabaseFactory(this IServiceCollection services)
+        {
+            if (services is null)
+            {
+                throw new ArgumentNullException(nameof(services));
+            }
+
+            services.TryAddSingleton<IDatabaseFactory, DatabaseFactory>();
+
+            return services;
+        }
     }
 }

@@ -195,15 +195,55 @@ namespace Inkslab.Linq
                     dbParameter.ParameterName = name;
                     dbParameter.Direction = ParameterDirection.Input;
 
-                    if (realValue is string text && text.Length < 4000)
+                    if (realValue is string text)
                     {
-                        dbParameter.Size = 4000;
+                        // 区分 varchar/nvarchar 的引擎（SqlServer、Oracle、DB2、Sybase）：
+                        // 使用 AnsiString (varchar) 替代 String (nvarchar)，
+                        // 避免 nvarchar/varchar 隐式转换导致索引失效。
+                        if (IsAnsiPreferredEngine(databaseEngine) && IsAscii(text))
+                        {
+                            dbParameter.DbType = DbType.AnsiString;
+
+                            // varchar 非 MAX 上限为 8000，统一 Size 使执行计划缓存可复用。
+                            if (text.Length < 8000)
+                            {
+                                dbParameter.Size = 8000;
+                            }
+                        }
+                        else if (text.Length < 4000)
+                        {
+                            // nvarchar 非 MAX 上限为 4000，统一 Size 使执行计划缓存可复用。
+                            dbParameter.Size = 4000;
+                        }
                     }
 
                     break;
             }
 
             command.Parameters.Add(dbParameter);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static bool IsAnsiPreferredEngine(DatabaseEngine engine)
+        {
+            return engine is DatabaseEngine.SqlServer
+                or DatabaseEngine.Oracle
+                or DatabaseEngine.DB2
+                or DatabaseEngine.Sybase;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static bool IsAscii(string text)
+        {
+            foreach (var c in text)
+            {
+                if (c > 127)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static object ChangeValue(DatabaseEngine databaseEngine, Type valueType, object value)
@@ -217,13 +257,12 @@ namespace Inkslab.Linq
             return value switch
             {
                 // PostgreSQL 要求 UTC 时间
-                DateTime dt when dt.Kind != DateTimeKind.Utc && databaseEngine == DatabaseEngine.PostgreSQL => dt.ToUniversalTime(), // 转为 UTC 时间
-                DateTimeOffset dto when databaseEngine == DatabaseEngine.PostgreSQL => dto.ToUniversalTime(), // 转为 UTC 时间
-                Guid guid when databaseEngine == DatabaseEngine.MySQL => guid.ToString(),// MySQL 通常使用 CHAR(36) 或 BINARY(16) 存储 GUID                                                                                         
-                Guid guid when databaseEngine == DatabaseEngine.Oracle => guid.ToByteArray(),// 返回字符串格式；如果需要二进制请改为 guid.ToByteArray()
-                bool b when databaseEngine == DatabaseEngine.SQLite => b ? 1 : 0,
-                TimeSpan ts when databaseEngine == DatabaseEngine.SQLite => ts.Ticks,// 或使用 ts.ToString()
-                bool b when databaseEngine == DatabaseEngine.Oracle => b ? 1 : 0,
+                DateTime dt when dt.Kind != DateTimeKind.Utc && databaseEngine == DatabaseEngine.PostgreSQL => dt.ToUniversalTime(),
+                DateTimeOffset dto when databaseEngine == DatabaseEngine.PostgreSQL => dto.ToUniversalTime(),
+                Guid guid when databaseEngine == DatabaseEngine.MySQL => guid.ToString(),
+                Guid guid when databaseEngine == DatabaseEngine.Oracle => guid.ToByteArray(),
+                bool b when databaseEngine is DatabaseEngine.SQLite or DatabaseEngine.Oracle => b ? 1 : 0,
+                TimeSpan ts when databaseEngine == DatabaseEngine.SQLite => ts.Ticks,
                 Version v => v.ToString(),
                 JsonPayload jp => jp.ToString(),
                 JsonbPayload jbp => jbp.ToString(),

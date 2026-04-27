@@ -196,11 +196,13 @@ namespace SqlServer.Tests
     {
         private readonly IQueryable<Activity> _activities;
         private readonly IQueryable<CustomerActivity> _customerActivities;
+        private readonly IDatabaseFactory _databaseFactory;
 
-        public QuerybleTests(IQueryable<Activity> activities, IQueryable<CustomerActivity> customerActivities)
+        public QuerybleTests(IQueryable<Activity> activities, IQueryable<CustomerActivity> customerActivities, IDatabaseFactory databaseFactory)
         {
             _activities = activities;
             _customerActivities = customerActivities;
+            _databaseFactory = databaseFactory;
         }
 
         [Fact]
@@ -238,6 +240,44 @@ namespace SqlServer.Tests
                         .Where(s => activityIds.Contains(s.Id) && s.EndTime > now && !s.IsEnable)
                         .OrderByDescending(s => s.Id)
                         .ToListAsync();
+        }
+
+        private class TestObject
+        {
+            public string ERPCustomerId { get; set; }
+            public string BusinessScope { get; set; }
+        }
+
+        [Fact]
+        public async Task Test4Async()
+        {
+            var connectionStrings = "Data Source=erp-sqlserver.local.com,63436;Initial Catalog=CR_V11_ERP_XJND;uid=sa;pwd=Hysyyl@123*;PERSIST SECURITY INFO=True;TrustServerCertificate=True;";
+
+            var database = _databaseFactory.Create(DatabaseEngine.SqlServer, connectionStrings);
+
+            var results = await database.QueryAsync<TestObject>(@"SELECT
+                         TRIM(wldwid) AS ERPCustomerId,
+                         shangplx AS BusinessScope
+                         FROM [dbo].[wldwjyfw] WITH (NOLOCK) WHERE  wldwid IN ('ID00001','ID00003','TYCZ0000002','TYCZ0000003','TYCZ0000004','TYCZ0000005','TYCZ0000006','TYCZ0000007','TYCZ0000008','TYCZ0000009')");
+
+            Assert.NotNull(results);
+        }
+
+        [Fact]
+        public async Task Test5Async()
+        {
+            var connectionStrings = "Data Source=erp-sqlserver.local.com,63436;Initial Catalog=CR_V11_ERP_XJND;uid=sa;pwd=Hysyyl@123*;PERSIST SECURITY INFO=True;TrustServerCertificate=True;";
+
+            var database = _databaseFactory.Create(DatabaseEngine.SqlServer, connectionStrings);
+
+            var wldwids = new List<string> { "ID00001", "ID00003", "TYCZ0000002", "TYCZ0000003", "TYCZ0000004", "TYCZ0000005", "TYCZ0000006", "TYCZ0000007", "TYCZ0000008", "TYCZ0000009" };
+
+            var results = await database.QueryAsync<TestObject>(@"SELECT
+                         TRIM(wldwid) AS ERPCustomerId,
+                         shangplx AS BusinessScope
+                         FROM [dbo].[wldwjyfw] WITH (NOLOCK) WHERE wldwid IN @wldwids", new { wldwids });
+
+            Assert.NotNull(results);
         }
     }
 }

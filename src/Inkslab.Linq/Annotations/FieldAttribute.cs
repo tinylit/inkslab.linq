@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace Inkslab.Linq.Annotations
 {
@@ -14,9 +14,14 @@ namespace Inkslab.Linq.Annotations
         /// <param name="name">名称。</param>
         public FieldAttribute(string name)
         {
-            if (string.IsNullOrEmpty(name))
+            if (string.IsNullOrWhiteSpace(name))
             {
-                throw new ArgumentException($"“{nameof(name)}”不能为 null 或空。", nameof(name));
+                throw new ArgumentException($"“{nameof(name)}”不能为 null 或空白。", nameof(name));
+            }
+
+            if (char.IsWhiteSpace(name[0]) || char.IsWhiteSpace(name[name.Length - 1]))
+            {
+                throw new ArgumentException($"“{nameof(name)}”不能以空白字符开头或结尾。", nameof(name));
             }
 
             Name = name;

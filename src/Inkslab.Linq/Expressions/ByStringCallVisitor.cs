@@ -53,6 +53,11 @@ namespace Inkslab.Linq.Expressions
                 case nameof(string.EndsWith) when node.Arguments.Count == 1:
                 case nameof(string.StartsWith) when node.Arguments.Count == 1:
 
+                    if (node.Arguments[0] is ConstantExpression { Value: null })
+                    {
+                        throw new ArgumentNullException("value");
+                    }
+
                     using (var domain = Writer.Domain())
                     {
                         _ignoreNull = true;

@@ -91,6 +91,11 @@ namespace Inkslab.Linq
         {
             if (leftNode is null)
             {
+                if (rightNode is null)
+                {
+                    return Conditions.True<T>();
+                }
+
                 return rightNode;
             }
 

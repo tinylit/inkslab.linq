@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
@@ -91,7 +91,7 @@ namespace Inkslab.Linq
                     else
                     {
                         throw new NotSupportedException(
-                            $"不支持“{propertyType}”类型属性的版本控制！"
+                            $"不支持 {propertyType} 类型的属性 {propertyInfo.Name} 进行版本控制！"
                         );
                     }
                 }

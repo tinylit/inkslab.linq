@@ -51,14 +51,17 @@ namespace System.Linq
                 throw new ArgumentNullException(nameof(source));
             }
 
+            if (!test)
+            {
+                return source;
+            }
+
             if (ifTrue is null)
             {
                 throw new ArgumentNullException(nameof(ifTrue));
             }
 
-            return test
-                ? source.Where(ifTrue)
-                : source;
+            return source.Where(ifTrue);
         }
 
         /// <summary>

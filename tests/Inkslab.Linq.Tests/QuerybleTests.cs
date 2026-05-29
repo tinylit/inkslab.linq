@@ -1312,6 +1312,7 @@ namespace Inkslab.Linq.Tests
 
             var memoryResults = (from x in allUsers
                                  from y in allUserShardings
+                                 where x.Id < 150 && y.Id < 150
                                  orderby x.Id descending
                                  select new
                                  {
@@ -1319,11 +1320,12 @@ namespace Inkslab.Linq.Tests
                                      x.Name,
                                      RelationId = y.Id,
                                      RelationName = y.Name
-                                 }).Take(1).ToList(); // 限制结果数量以避免大量数据
+                                 }).Take(1).ToList();
 
             var linq =
                 from x in _users
                 from y in _userShardings.DataSharding("2025")
+                where x.Id < 150 && y.Id < 150
                 orderby x.Id descending
                 select new
                 {

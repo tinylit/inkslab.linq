@@ -289,6 +289,15 @@ namespace Inkslab.Linq
                 }
             }
 
+            public void Clear()
+            {
+                _sb.Length = 0;
+                _cursorPosition = -1;
+                _lastIsWhitespace = false;
+                _ignoreNOT = false;
+                _writtenNOT = false;
+            }
+
             public ISqlDomain Domain() => new SqlDomain(this, _sb, _sb.Length, _cursorPosition);
 
             public override string ToString() => _sb.ToString();
@@ -386,6 +395,7 @@ namespace Inkslab.Linq
 
         private int _takeSize = 0;
         private int _skipSize = 0;
+        private bool _hasTakeSize = false;
 
         private readonly Writer _main;
         private readonly Writer _rank;
@@ -627,12 +637,12 @@ namespace Inkslab.Linq
         /// <param name="takeSize">查询条目数。</param>
         public void TakeSize(int takeSize)
         {
-            if (takeSize < 1)
+            if (takeSize < 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(takeSize), "参数值必须大于零!");
+                throw new ArgumentOutOfRangeException(nameof(takeSize), "Take 参数不能为负数!");
             }
 
-            if (_takeSize > 0 && takeSize > _takeSize)
+            if (_hasTakeSize && _takeSize > 0 && takeSize > _takeSize)
             {
                 throw new IndexOutOfRangeException();
             }
@@ -648,6 +658,7 @@ namespace Inkslab.Linq
             }
 
             _takeSize = takeSize;
+            _hasTakeSize = true;
         }
 
         /// <summary>
@@ -681,6 +692,7 @@ namespace Inkslab.Linq
             }
 
             _takeSize = 1;
+            _hasTakeSize = true;
 
             _skipSize += index;
         }
@@ -993,6 +1005,17 @@ namespace Inkslab.Linq
         public IDisposable ConditionReversal() => new Reverse(this, IsConditionReversal ^= true);
 
         /// <summary>
+        /// 清除当前上下文内容：排序中清除 rank，否则清除 main。
+        /// </summary>
+        public void Clear()
+        {
+            if (IsRankingAnalysis)
+                _rank.Clear();
+            else
+                _main.Clear();
+        }
+
+        /// <summary>
         /// 排序分析。
         /// </summary>
         /// <returns>释放后结束排序。</returns>
@@ -1014,7 +1037,7 @@ namespace Inkslab.Linq
             string mainSql = _main.ToString();
             string rankSql = _rank.ToString();
 
-            if (_takeSize > 0)
+            if (_hasTakeSize)
             {
                 return Settings.ToSQL(mainSql, _takeSize, _skipSize, rankSql.TrimStart());
             }

@@ -21,11 +21,6 @@ namespace Inkslab.Linq.Expressions
         private readonly bool _showAs;
 
         /// <summary>
-        /// 排序开关。
-        /// </summary>
-        private readonly OrderBySwitch _orderBySwitch;
-
-        /// <summary>
         /// 父级是否条件反转。
         /// </summary>
         private readonly bool _parentIsConditionReversal;
@@ -34,7 +29,6 @@ namespace Inkslab.Linq.Expressions
         protected SelectVisitor(DbStrictAdapter adapter) : base(adapter)
         {
             _showAs = true;
-            _orderBySwitch = new OrderBySwitch(Writer);
         }
 
         /// <inheritdoc/>
@@ -46,7 +40,6 @@ namespace Inkslab.Linq.Expressions
         protected SelectVisitor(BaseVisitor visitor, ConditionType conditionType, bool isNewWriter = false, bool showAs = false) : base(visitor, conditionType, isNewWriter)
         {
             _showAs = showAs;
-            _orderBySwitch = new OrderBySwitch(Writer);
             _parentIsConditionReversal = visitor.IsConditionReversal;
         }
 
@@ -289,9 +282,7 @@ namespace Inkslab.Linq.Expressions
 
                     break;
                 case nameof(Queryable.OrderBy):
-                case nameof(Queryable.ThenBy):
                 case nameof(Queryable.OrderByDescending):
-                case nameof(Queryable.ThenByDescending):
 
                     bool isDescending = _reversed ^ name.EndsWith("Descending"); //? 是否降序，前置分析是否倒序，否则实际顺序会乱序。
 
@@ -299,7 +290,21 @@ namespace Inkslab.Linq.Expressions
 
                     using (Writer.OrderByAnalysis())
                     {
-                        OrderBy(node.Arguments[1], _orderBySwitch.Execute, isDescending);
+                        OrderBy(node.Arguments[1], OrderByDeclaration, isDescending);
+                    }
+
+                    break;
+
+                case nameof(Queryable.ThenBy):
+                case nameof(Queryable.ThenByDescending):
+
+                    bool isThenDescending = _reversed ^ name.EndsWith("Descending"); //? 是否降序。
+
+                    Visit(node.Arguments[0]);
+
+                    using (Writer.OrderByAnalysis())
+                    {
+                        OrderBy(node.Arguments[1], Writer.Delimiter, isThenDescending);
                     }
 
                     break;
@@ -349,6 +354,13 @@ namespace Inkslab.Linq.Expressions
             }
         }
 
+        private void OrderByDeclaration()
+        {
+            Writer.Clear();
+            Writer.Keyword(SqlKeyword.ORDER);
+            Writer.Keyword(SqlKeyword.BY);
+        }
+
         /// <summary>
         /// 排序。
         /// </summary>
@@ -389,33 +401,6 @@ namespace Inkslab.Linq.Expressions
         }
 
         #region 内嵌类。
-        private class OrderBySwitch
-        {
-            private bool isFirst = true;
-
-            private readonly SqlWriter _writer;
-
-            public OrderBySwitch(SqlWriter writer)
-            {
-                _writer = writer;
-            }
-
-            public void Execute()
-            {
-                if (isFirst)
-                {
-                    isFirst = false;
-
-                    _writer.Keyword(SqlKeyword.ORDER);
-                    _writer.Keyword(SqlKeyword.BY);
-                }
-                else
-                {
-                    _writer.Delimiter();
-                }
-            }
-        }
-
         /// <summary>
         /// <see cref="Queryable.Any{TSource}(IQueryable{TSource})"/> 或
         /// <see cref="Queryable.Any{TSource}(IQueryable{TSource}, Expression{Func{TSource, bool}})"/>

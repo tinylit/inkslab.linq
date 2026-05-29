@@ -22,6 +22,10 @@ namespace Inkslab.Linq
             private static readonly MethodInfo _stringToChar;
             private static readonly ConstructorInfo _errorCtor;
             private static readonly ConstructorInfo _errorOutOfRangeCtor;
+            private static readonly ConstructorInfo _invalidCastCtor;
+            private static readonly MethodInfo _concatArray;
+            private static readonly PropertyInfo _typeName;
+            private static readonly PropertyInfo _exceptionMessage;
             private static readonly HashSet<string> _nameHooks = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             {
                 "GetBoolean",
@@ -233,6 +237,14 @@ namespace Inkslab.Linq
                 var type = typeof(Type);
 
                 _typeCode = type.GetMethod(nameof(Type.GetTypeCode), BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly, null, new[] { type }, null);
+
+                _invalidCastCtor = typeof(InvalidCastException).GetConstructor(new[] { Types.String, typeof(Exception) });
+
+                _concatArray = Types.String.GetMethod(nameof(string.Concat), new[] { typeof(string[]) });
+
+                _typeName = typeof(Type).GetProperty(nameof(Type.Name));
+
+                _exceptionMessage = typeof(Exception).GetProperty(nameof(Exception.Message));
             }
 
             /// <summary>
@@ -331,6 +343,10 @@ namespace Inkslab.Linq
             }
 
             public static MethodInfo IgnoreCaseEquals => _equals;
+            public static ConstructorInfo InvalidCastWithInnerCtor => _invalidCastCtor;
+            public static MethodInfo ConcatArray => _concatArray;
+            public static PropertyInfo TypeName => _typeName;
+            public static PropertyInfo ExceptionMessage => _exceptionMessage;
 
             public ParameterExpression DbVariable() => Parameter(_type);
 
@@ -542,6 +558,9 @@ namespace Inkslab.Linq
 
             public Expression GetName(ParameterExpression dbVar, Expression iVar) =>
                 Call(dbVar, _getName, iVar);
+
+            public Expression GetFieldType(ParameterExpression dbVar, Expression iVar) =>
+                Call(dbVar, _getFieldType, iVar);
 
             public DbMapper<T> CreateMap<T>() => (DbMapper<T>)_mappers.Get(typeof(T));
         }
@@ -816,14 +835,37 @@ namespace Inkslab.Linq
                 ParameterExpression iVar
             )
             {
-                Expression body = UncheckedValue(propertyItem.PropertyType, dbVar, iVar);
+                var propType = propertyItem.PropertyType;
+
+                Expression body = UncheckedValue(propType, dbVar, iVar);
+
+                var exVar = Parameter(typeof(InvalidCastException), "ex");
+                var messageExpr = Call(MapAdaper.ConcatArray,
+                    NewArrayInit(Types.String,
+                        Constant("映射失败，列 "),
+                        _adaper.GetName(dbVar, iVar),
+                        Constant("("),
+                        Property(_adaper.GetFieldType(dbVar, iVar), MapAdaper.TypeName),
+                        Constant(") → 属性 "),
+                        Constant(propertyItem.Name),
+                        Constant("("),
+                        Constant(propType.Name),
+                        Constant(") 类型不匹配！")
+                    )
+                );
+                var wrappedBody = TryCatch(
+                    body,
+                    Catch(exVar,
+                        Throw(New(MapAdaper.InvalidCastWithInnerCtor, messageExpr, exVar), propType)
+                    )
+                );
 
                 var testValues = new List<Expression>(1) { Constant(propertyItem.Name) };
 
                 return SwitchCase(
                     IfThen(
                         Not(_adaper.IsDbNull(dbVar, iVar)),
-                        Assign(Property(instanceExp, propertyItem), body)
+                        Assign(Property(instanceExp, propertyItem), wrappedBody)
                     ),
                     testValues
                 );

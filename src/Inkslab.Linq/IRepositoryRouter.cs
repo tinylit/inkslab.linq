@@ -18,7 +18,7 @@ namespace Inkslab.Linq
         /// <param name="shardingKey">分区键。</param>
         /// <param name="commandTimeout">超时时间。</param>
         IInsertable<TEntity> AsInsertable(
-            IReadOnlyCollection<TEntity> entries,
+            IReadOnlyList<TEntity> entries,
             bool ignore = false,
             string shardingKey = null,
             int? commandTimeout = null

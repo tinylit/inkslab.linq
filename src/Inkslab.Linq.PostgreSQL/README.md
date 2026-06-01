@@ -47,6 +47,20 @@ public class UserContents
 - `JsonbPayload`：映射 `jsonb` 类型，参数自动添加 `::jsonb` 转换
 - 批量操作（`WriteToServerAsync`）完整支持 JSON/JSONB 异步写入
 
+## 自增主键反写（PopulateIdentity）
+
+`Into(entries).PopulateIdentity()` 在插入后将数据库生成的自增 ID 回填到实体（要求「单主键 + `[DatabaseGenerated]`」）。
+
+| 能力 | 支持 | 实现方式 |
+|------|------|----------|
+| 反写（非 Ignore） | ✅ | RETURNING 族：`RETURNING` 单条多值语句逐行返回，超过 100 行自动拆批，往返 ⌈N/100⌉ 次 |
+| `Ignore` + 反写 | ✅ | 逐行执行，按 `RETURNING` 行数判定是否反写；被冲突跳过的实体保持原值 |
+
+```csharp
+await _userRepository.Into(users).PopulateIdentity().ExecuteAsync();
+await _userRepository.Ignore().Into(users).PopulateIdentity().ExecuteAsync();
+```
+
 ## DateTime 成员映射
 
 PostgreSQL 使用 `EXTRACT` 函数：

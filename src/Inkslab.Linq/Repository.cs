@@ -379,7 +379,10 @@ namespace Inkslab.Linq
             var shardingKey = ShardingKey();
             var commandTimeout = CommandTimeout();
 
-            return _router.AsInsertable(entries, ignore, shardingKey, commandTimeout);
+            //! 入口处一次性物化为 IReadOnlyList，下游（拆批/反写）按索引取窗口，全程不再做集合转换。
+            var entryList = entries as IReadOnlyList<TEntity> ?? new List<TEntity>(entries);
+
+            return _router.AsInsertable(entryList, ignore, shardingKey, commandTimeout);
         }
 
         /// <inheritdoc/>

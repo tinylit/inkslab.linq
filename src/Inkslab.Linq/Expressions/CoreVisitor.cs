@@ -726,7 +726,7 @@ namespace Inkslab.Linq.Expressions
 
         private class LinqAnyAllVisitor : BaseVisitor
         {
-            private object valueCurrent;
+            private object _valueCurrent;
 
             public LinqAnyAllVisitor(BaseVisitor visitor) : base(visitor)
             {
@@ -757,7 +757,7 @@ namespace Inkslab.Linq.Expressions
                 {
                     Writer.OpenBrace();
 
-                    valueCurrent = enumerator.Current;
+                    _valueCurrent = enumerator.Current;
 
                     Visit(node.Arguments[^1]);
 
@@ -767,7 +767,7 @@ namespace Inkslab.Linq.Expressions
                     {
                         Writer.Keyword(flag ? SqlKeyword.OR : SqlKeyword.AND);
 
-                        valueCurrent = enumerator.Current;
+                        _valueCurrent = enumerator.Current;
 
                         Visit(node.Arguments[^1]);
                     }
@@ -792,7 +792,7 @@ namespace Inkslab.Linq.Expressions
 
             protected override void Lambda<T>(Expression<T> node)
             {
-                var visitor = new ReplaceExpressionVisitor(node.Parameters[0], Expression.Constant(valueCurrent));
+                var visitor = new ReplaceExpressionVisitor(node.Parameters[0], Expression.Constant(_valueCurrent));
 
                 Visit(visitor.Visit(node.Body));
             }

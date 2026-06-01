@@ -10,6 +10,11 @@
 		<LangVersion>9.0</LangVersion>
 		<!-- 提升警告为异常 -->
 		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+		<!-- CA/IDE 分析器警告独立于编译器警告，需单独提升为错误 -->
+		<CodeAnalysisTreatWarningsAsErrors>true</CodeAnalysisTreatWarningsAsErrors>
+		<!-- @AI-Generated-End -->
+		<SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
 
 		<Authors>影子和树</Authors>
 		<Company>TINYLIT</Company>

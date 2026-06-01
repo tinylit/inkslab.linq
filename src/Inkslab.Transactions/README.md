@@ -51,12 +51,45 @@ await using (var transaction = new TransactionUnit())
 
 ### Transaction
 
-内部事务实现，通过 `AsyncLocal` 在异步上下文中传递。
+公开事务实现（`public sealed class`，实现 `ITransaction`），通过 `AsyncLocal` 在异步上下文中传递。一般无需直接 `new`，由 `TransactionUnit` 管理其生命周期。
 
 | 成员 | 说明 |
 |------|------|
-| `CommitAsync()` | 异步提交 |
-| `Rollback()` / `RollbackAsync()` | 回滚 |
+| `static Transaction Current` | 当前异步上下文中的环境事务（无则为 `null`） |
+| `static void Delegation(IDelivery delivery)` | 注册交付：存在事务则在提交成功后触发 `Done()`，无事务则立即 `Done()` |
+| `void RegisterDelivery(IDelivery delivery)` | 向本事务注册交付（提交成功后触发） |
+| `void EnlistTransaction(ITransaction transaction)` | 签署子事务 |
+| `Task CommitAsync(CancellationToken)` | 异步提交（失败时回滚已签署子事务） |
+| `void Rollback()` / `Task RollbackAsync(CancellationToken)` | 回滚 |
+| `event TransactionCompletedEventHandler TransactionCompleted` | 提交或回滚完成后触发 |
+| `Guid TransactionId` | 事务唯一标识（父子事务一致） |
+| `IsolationLevel IsolationLevel` | 隔离级别 |
+| `TransactionStatus Status` | 事务状态 |
+
+### IDelivery 与提交后交付
+
+`IDelivery` 用于「仅当事务提交成功后才执行」的副作用（如发送消息、写 outbox）：当前存在事务时延迟到提交成功，无事务时立即执行。
+
+```csharp
+public interface IDelivery
+{
+    void Done();   // 事务提交成功（或无事务）时被调用
+}
+
+// 在事务作用域内登记交付
+Transaction.Delegation(new SendMailDelivery(mail));
+
+await using (var transaction = new TransactionUnit())
+{
+    await _userRepository.Into(newUser).ExecuteAsync();
+    Transaction.Delegation(new SendMailDelivery(mail));  // 提交成功后才真正发送
+    await transaction.CompleteAsync();
+}
+```
+
+### ITransaction
+
+事务契约（`IAsyncDisposable` + `IDisposable`），定义 `CommitAsync`、`Rollback`、`RollbackAsync`，供自定义事务参与者（通过 `EnlistTransaction` 签署）实现。
 
 ### TransactionStatus
 

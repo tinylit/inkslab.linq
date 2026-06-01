@@ -4,6 +4,8 @@
 	</ItemGroup>
 	<ItemGroup>
 	  <ProjectReference Include="..\..\src\Inkslab.Linq.MySql\Inkslab.Linq.MySql.csproj" />
+  <ProjectReference Include="..\..\src\Inkslab.Linq.SqlServer\Inkslab.Linq.SqlServer.csproj" />
+  <ProjectReference Include="..\..\src\Inkslab.Linq.PostgreSQL\Inkslab.Linq.PostgreSQL.csproj" />
 	</ItemGroup>
 
 </Project>

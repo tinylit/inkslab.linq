@@ -3,7 +3,7 @@
 高性能 .NET LINQ-to-SQL ORM 框架，支持 MySQL、SQL Server、PostgreSQL 多数据库引擎，提供类型安全的查询构建、仓储模式、事务管理和批量操作能力。
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.2.75-green.svg)](Directory.Build.props)
+[![Version](https://img.shields.io/badge/version-1.2.78-green.svg)](Directory.Build.props)
 [![.NET](https://img.shields.io/badge/.NET-6.0%20%7C%20Standard%202.1-purple.svg)](Directory.Build.props)
 [![GitHub Issues](https://img.shields.io/github/issues-raw/tinylit/inkslab.linq)](../../issues)
 
@@ -369,6 +369,38 @@ await _userRepository.Into(user).Except(x => x.DateAt).ExecuteAsync();
 var linq = _users.Where(u => u.Id > 100).Select(u => new User { Name = u.Name });
 await _userRepository.InsertAsync(linq);
 ```
+
+#### 自增主键反写（PopulateIdentity）
+
+`PopulateIdentity()` 在插入执行后，将数据库为**每一行**真实生成的自增 ID 回填到对应实体属性上（不做任何「ID 连续」假设）：
+
+```csharp
+var users = new List<User>
+{
+    new User { Name = "张三" },
+    new User { Name = "李四" }
+};
+
+await _userRepository.Into(users).PopulateIdentity().ExecuteAsync();
+
+// 执行后 users[0].Id、users[1].Id 已被回填为数据库生成的值
+```
+
+**前置条件**：实体必须满足「单主键 + `[DatabaseGenerated]`」，否则在调用处 fail-fast 抛 `InvalidOperationException`；引擎或 `Ignore` 组合不支持时抛 `NotSupportedException`。
+
+**引擎支持矩阵**：
+
+| 场景 | 支持的引擎 | 实现方式 |
+|------|-----------|----------|
+| 反写（非 Ignore） | PostgreSQL、SqlServer、MySQL、SQLite（3.35+）、DB2、Sybase | `RETURNING` / `OUTPUT INSERTED` / `LAST_INSERT_ID()` / `FINAL TABLE` / `@@IDENTITY` |
+| `Ignore` + 反写 | PostgreSQL、MySQL、SQLite | 原生 INSERT 忽略并配合 id 返回 |
+| 不支持 | Oracle（批量自增反写）、其余引擎的 Ignore 组合 | fail-fast |
+
+**各路径行为**（遵循「能大批量绝不小批量，能小批量绝不单行」）：
+
+- **RETURNING 族**（PG/SqlServer/SQLite/DB2，非 Ignore）：单条多值语句逐行返回，超过 100 行自动拆批，往返 ⌈N/100⌉ 次。
+- **标量族**（MySQL/Sybase，含 MySQL Ignore）：无多行 RETURNING，改为单条命令内多组「单行 INSERT + 标量回读」（MySQL Ignore 另读 `ROW_COUNT()` 判定是否被跳过），按参数预算分块，往返 ⌈N/K⌉ 次——绝不逐行往返。
+- **RETURNING 族 Ignore**（PG/SQLite）：逐行执行，按 RETURNING 行数判定是否反写，被冲突跳过的实体保持原值。
 
 ### 更新
 
@@ -855,6 +887,7 @@ IRepository<TEntity>
   │           ├── Ignore() → IRepositoryIgnore<TEntity>
   │           │     ├── Into(entries) → IInsertable<TEntity>
   │           │     │     ├── Limit(columns) / Except(columns) → ICommandExecutor
+  │           │     │     ├── PopulateIdentity() → IInsertable<TEntity>  // 自增主键反写
   │           │     │     ├── Execute() / ExecuteAsync()
   │           │     │     └── (直接执行)
   │           │     ├── Insert(IQueryable) / InsertAsync(IQueryable)

@@ -4,6 +4,10 @@ using Xunit;
 using Inkslab.Linq;
 using XunitPlus;
 
+//! 本测试以裸三元 `flag ? a : b` 显式驱动 LINQ 翻译器，禁止 IDE0075 自动简化为 `&&`/`||`——
+//! 那将偏离测试目的（验证条件折叠的 SQL 形态）。
+#pragma warning disable IDE0075
+
 namespace SqlServer.Tests
 {
     /// <summary>

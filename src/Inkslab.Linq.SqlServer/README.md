@@ -27,6 +27,19 @@ services.UseSqlServer()
 | `SqlServerBulkCopyFactory` | 实现 `IDbConnectionBulkCopyFactory`，使用 `SqlBulkCopy` 批量复制 |
 | `SqlServerBulkAssistant` | 批量复制辅助类 |
 
+## 自增主键反写（PopulateIdentity）
+
+`Into(entries).PopulateIdentity()` 在插入后将数据库生成的自增 ID 回填到实体（要求「单主键 + `[DatabaseGenerated]`」）。
+
+| 能力 | 支持 | 实现方式 |
+|------|------|----------|
+| 反写（非 Ignore） | ✅ | RETURNING 族：`OUTPUT INSERTED` 单条多值语句逐行返回，超过 100 行自动拆批，往返 ⌈N/100⌉ 次 |
+| `Ignore` + 反写 | ❌ | SQL Server 不支持该组合，于调用处 fail-fast 抛 `NotSupportedException` |
+
+```csharp
+await _userRepository.Into(users).PopulateIdentity().ExecuteAsync();
+```
+
 ## DateTime 成员映射
 
 SQL Server 使用 `DATEPART` 和 `DATEDIFF` 系列函数：

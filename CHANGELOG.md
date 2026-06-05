@@ -4,7 +4,21 @@
 
 ---
 
-## v1.2.75 (当前版本)
+## v1.2.78 (当前版本)
+
+> 版本号参见 [Directory.Build.props](Directory.Build.props)
+
+### 变更
+
+- **ORM 列值类型映射增强（数据库 → 实体）**，核心原则「在不丢失数值的前提下，支持小类型 → 大类型」：
+  - **数值无损小转大**：`int` → `long`、`uint` → `ulong`、`uint` → `long`、`short` → `int`、`int`/`long`/`float`/`double` → `decimal`、`float` → `double`、`decimal` → `double`/`float` 等均自动转换；反向「大转小」执行运行时区间校验，超界抛出友好异常，绝不静默截断。
+  - **任意类型 → `string`**：实体属性为 `string` 时，任意数据库字段类型（`int`/`decimal`/`bool`/`DateTime`/`Guid` 等）自动按 `ToString()` 转换。
+  - **枚举双向来源**：枚举（含 `enum?`）属性同时支持「数字来源」（按底层类型读取并复用无损小转大）与「字符串来源」（`Enum.Parse` 忽略大小写，兼容枚举名称与数字文本）。
+- **修复**：`decimal` 列映射到 `double`/`float` 属性时，区间校验计算 `(decimal)double.MaxValue` 触发 `OverflowException` 的问题（归类为安全的范围加宽，改为直接转换）。
+
+---
+
+## v1.2.75
 
 > 版本号参见 [Directory.Build.props](Directory.Build.props)
 

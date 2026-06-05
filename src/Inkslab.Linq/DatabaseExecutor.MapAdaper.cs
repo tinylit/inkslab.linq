@@ -16,9 +16,9 @@ namespace Inkslab.Linq
         private class MapAdaper
         {
             private static readonly MethodInfo _equals;
-            private static readonly MethodInfo _concat;
             private static readonly MethodInfo _typeCode;
-            private static readonly MethodInfo _charToString;
+            private static readonly MethodInfo _objectToString;
+            private static readonly MethodInfo _enumParse;
             private static readonly MethodInfo _stringToChar;
             private static readonly ConstructorInfo _errorCtor;
             private static readonly ConstructorInfo _errorOutOfRangeCtor;
@@ -223,14 +223,9 @@ namespace Inkslab.Linq
                     BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.DeclaredOnly
                 );
 
-                _concat = Types.String.GetMethod(
-                    nameof(string.Concat),
-                    BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly,
-                    null,
-                    new[] { Types.String, Types.String, Types.String },
-                    null);
+                _objectToString = Types.Object.GetMethod(nameof(object.ToString), BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly, null, Type.EmptyTypes, null);
 
-                _charToString = Types.Char.GetMethod(nameof(char.ToString), BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly, null, Type.EmptyTypes, null);
+                _enumParse = typeof(Enum).GetMethod(nameof(Enum.Parse), BindingFlags.Static | BindingFlags.Public, null, new[] { typeof(Type), Types.String, typeof(bool) }, null);
 
                 _stringToChar = Types.String.GetMethod("get_Chars", BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly, null, new[] { Types.Int32 }, null);
 
@@ -401,7 +396,9 @@ namespace Inkslab.Linq
                     return Call(dbVar, originalFn, iVar);
                 }
 
-                if (propertyType == Types.Char || propertyType == Types.String)
+                //? 字符/字符串，或登记了类型转换表的数值类型：先比对数据库字段类型，
+                //? 与属性类型一致时直接读取；不一致时走类型转换（不丢失精度的小转大、任意类型 ToString 等）。
+                if (propertyType == Types.Char || propertyType == Types.String || _typeTransforms.ContainsKey(propertyType))
                 {
                     var typeArg = Variable(typeof(Type));
 
@@ -409,7 +406,7 @@ namespace Inkslab.Linq
                         Assign(typeArg, Call(dbVar, _getFieldType, iVar)),
                         Condition(Equal(typeArg, Constant(propertyType)),
                             Call(dbVar, originalFn, iVar),
-                            ToSolveByTransform(propertyType, dbVar, iVar, typeArg)
+                            ToSolveByTransform(propertyType, dbVar, iVar, typeArg, originalFn)
                         )
                     );
                 }
@@ -417,7 +414,59 @@ namespace Inkslab.Linq
                 return Call(dbVar, originalFn, iVar);
             }
 
-            private Expression ToSolveByTransform(Type propertyType, ParameterExpression dbVar, Expression iVar, ParameterExpression typeArg)
+            /// <summary>
+            /// 枚举映射：同时支持“数字来源”与“字符串来源”。
+            /// 数据库字段为字符串时，使用 <see cref="Enum.Parse(Type, string, bool)"/>（忽略大小写，同时兼容“名称”与“数字文本”）；
+            /// 否则按枚举底层数值类型读取（复用 <see cref="ToSolve"/> 的无损小转大能力）后转换为枚举。
+            /// </summary>
+            /// <param name="enumType">枚举类型。</param>
+            /// <param name="underlyingType">枚举的底层数值类型。</param>
+            /// <param name="dbVar">数据读取器变量。</param>
+            /// <param name="iVar">列序号表达式。</param>
+            public Expression ToSolveEnum(Type enumType, Type underlyingType, ParameterExpression dbVar, Expression iVar)
+            {
+                //? 数字（或数字底层字段）→ 枚举：读取底层数值后转换为枚举。
+                Expression numeric = Expression.Convert(ToSolve(underlyingType, dbVar, iVar), enumType);
+
+                if (!_typeMap.TryGetValue(Types.String, out var getStringFn))
+                {
+                    return numeric;
+                }
+
+                //? 字符串 → 枚举：Enum.Parse 同时支持“名称”和“数字字符串”，忽略大小写。
+                var typeArg = Variable(typeof(Type));
+
+                Expression parse = Expression.Convert(
+                    Call(_enumParse, Constant(enumType), Call(dbVar, getStringFn, iVar), Constant(true)),
+                    enumType
+                );
+
+                return Block(enumType, new[] { typeArg },
+                    Assign(typeArg, Call(dbVar, _getFieldType, iVar)),
+                    Condition(Equal(typeArg, Constant(Types.String)), parse, numeric)
+                );
+            }
+
+            /// <summary>
+            /// 构造与 <see cref="DbMapperGen{T}"/> 列映射一致格式的异常消息：
+            /// “映射失败，列 {列名}({字段类型}) → 属性({属性类型}){后缀}”。
+            /// </summary>
+            private Expression MappingErrorMessage(Type propertyType, ParameterExpression dbVar, Expression iVar, ParameterExpression typeArg, string suffix)
+            {
+                return Call(_concatArray,
+                    NewArrayInit(Types.String,
+                        Constant("映射失败，列 "),
+                        GetName(dbVar, iVar),
+                        Constant("("),
+                        Property(typeArg, _typeName),
+                        Constant(") → 属性("),
+                        Constant(propertyType.Name),
+                        Constant(")" + suffix)
+                    )
+                );
+            }
+
+            private Expression ToSolveByTransform(Type propertyType, ParameterExpression dbVar, Expression iVar, ParameterExpression typeArg, MethodInfo originalFn = null)
             {
                 var valueVar = Variable(propertyType);
 
@@ -426,7 +475,7 @@ namespace Inkslab.Linq
                     valueVar
                 };
 
-                var throwUnary = Throw(New(_errorCtor, Call(_concat, Constant("数据库字段“"), GetName(dbVar, iVar), Constant("”的类型和实体属性的类型映射不被支持，请检查映射实体的属性类型！"))));
+                var throwUnary = Throw(New(_errorCtor, MappingErrorMessage(propertyType, dbVar, iVar, typeArg, " 类型不被支持！")));
 
                 if (propertyType == Types.Object)
                 {
@@ -439,9 +488,10 @@ namespace Inkslab.Linq
                 {
                     switch (Type.GetTypeCode(propertyType))
                     {
-                        case TypeCode.String when _typeMap.TryGetValue(Types.Char, out var transformFn):
+                        case TypeCode.String:
 
-                            expressions.Add(IfThenElse(Equal(typeArg, Constant(Types.Char)), Assign(valueVar, Call(Call(dbVar, transformFn, iVar), _charToString)), throwUnary));
+                            //? 任意数据库字段类型 → 字符串：读取原始值并调用 ToString()（此处值已确保非 DBNull）。
+                            expressions.Add(Assign(valueVar, Call(Call(dbVar, _getValue, iVar), _objectToString)));
 
                             break;
                         case TypeCode.Char when _typeMap.TryGetValue(Types.String, out var transformFn):
@@ -453,7 +503,7 @@ namespace Inkslab.Linq
                                     Assign(stringVar, Call(dbVar, transformFn, iVar)),
                                     IfThenElse(Equal(Property(stringVar, "Length"), Constant(1)),
                                         Assign(valueVar, Call(stringVar, _stringToChar, Constant(0))),
-                                        Throw(New(_errorOutOfRangeCtor, Call(_concat, Constant("数据库字段“"), GetName(dbVar, iVar), Constant("”的值超出了实体属性的类型容值范围，请检查映射实体的属性类型！"))))
+                                        Throw(New(_errorOutOfRangeCtor, MappingErrorMessage(propertyType, dbVar, iVar, typeArg, " 值超出范围！")))
                                     )
                                 ),
                                 throwUnary)
@@ -478,7 +528,7 @@ namespace Inkslab.Linq
 
                 bool unsignedCode = code is TypeCode.Byte or TypeCode.UInt16 or TypeCode.UInt32 or TypeCode.UInt64;
 
-                var throwOutUnary = Throw(New(_errorOutOfRangeCtor, Call(_concat, Constant("数据库字段“"), GetName(dbVar, iVar), Constant("”的值超出了实体属性的类型容值范围，请检查映射实体的属性类型！"))));
+                var throwOutUnary = Throw(New(_errorOutOfRangeCtor, MappingErrorMessage(propertyType, dbVar, iVar, typeArg, " 值超出范围！")));
 
                 foreach (var (key, typeCode) in transforms)
                 {
@@ -491,7 +541,12 @@ namespace Inkslab.Linq
 
                     bool unsignedTypeCode = typeCode is TypeCode.Byte or TypeCode.UInt16 or TypeCode.UInt32 or TypeCode.UInt64;
 
-                    if (isGreaterThan && (!unsignedCode || unsignedTypeCode))
+                    //? TypeCode 序值（Single 13 < Double 14 < Decimal 15）与浮点/定点类型的取值范围序不一致：
+                    //? decimal 的取值范围被 float/double 完整覆盖（仅丢失精度，不会数值溢出），属于安全的小转大，应直接转换。
+                    //? 否则会进入下方区间校验，计算 (decimal)double.MaxValue 时抛出 OverflowException。
+                    bool floatingWidening = (code is TypeCode.Single or TypeCode.Double) && typeCode == TypeCode.Decimal;
+
+                    if (floatingWidening || (isGreaterThan && (!unsignedCode || unsignedTypeCode)))
                     {
                         switchCases.Add(SwitchCase(Assign(valueVar, Expression.Convert(Call(dbVar, transformFn, iVar), propertyType)), Constant(typeCode)));
 
@@ -540,10 +595,17 @@ namespace Inkslab.Linq
                     );
                 }
 
+                //? 字段类型未登记在转换表中：若属性类型自身可被读取器直接读取（originalFn 非空），
+                //? 则回退为直接读取（与历史行为一致，由读取器自行决定成功或抛 InvalidCastException）；
+                //? 否则抛出友好的不支持异常。
+                Expression defaultBody = originalFn is null
+                    ? (Expression)throwUnary
+                    : Block(typeof(void), Assign(valueVar, Call(dbVar, originalFn, iVar)));
+
                 expressions.Add(Switch(
                     typeof(void),
                     Call(_typeCode, typeArg),
-                    throwUnary,
+                    defaultBody,
                     null,
                     switchCases.ToArray()
                 ));
@@ -813,12 +875,9 @@ namespace Inkslab.Linq
                     }
                 }
 
-                Expression body = _adaper.ToSolve(propertyType, dbVar, iVar);
-
-                if (isEnum)
-                {
-                    body = Convert(body, nonullableType);
-                }
+                Expression body = isEnum
+                    ? _adaper.ToSolveEnum(nonullableType, propertyType, dbVar, iVar)
+                    : _adaper.ToSolve(propertyType, dbVar, iVar);
 
                 if (isNullable)
                 {

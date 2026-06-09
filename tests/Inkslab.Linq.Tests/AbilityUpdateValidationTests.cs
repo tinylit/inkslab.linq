@@ -197,6 +197,87 @@ namespace Inkslab.Linq.Tests
         }
 
         // ─────────────────────────────────────────────────────────────────
+        // 4. 枚举字段验证（回归：列映射会把枚举转为基础类型，
+        //    校验时必须使用属性原始值，否则 Validator 抛类型不匹配 ArgumentException）
+        // ─────────────────────────────────────────────────────────────────
+
+        private enum OrderStatus
+        {
+            Pending = 0,
+            Paid = 1,
+            Shipped = 2,
+        }
+
+        private enum OrderKind
+        {
+            Normal = 1,
+            Gift = 2,
+        }
+
+        [Table("update_validation_enum_test")]
+        private class ValidatedOrder
+        {
+            [Key]
+            [Field("id")]
+            public int Id { get; set; }
+
+            [Field("status")]
+            public OrderStatus Status { get; set; }
+
+            [Field("kind")]
+            public OrderKind? Kind { get; set; }
+        }
+
+        private static RepositoryRouter<ValidatedOrder> CreateOrderRouter()
+        {
+            return new RepositoryRouter<ValidatedOrder>(
+                new NeverReachedExecutor(),
+                new DbStrictAdapter(DatabaseEngine.MySQL, new MySqlAdapter()),
+                new StubDatabaseStrings(),
+                NullLogger<RepositoryRouter<ValidatedOrder>>.Instance
+            );
+        }
+
+        /// <summary>
+        /// 更新含（非空）枚举字段的实体：列映射会把枚举转为基础类型，
+        /// 但 DataAnnotations 校验必须使用属性原始枚举值。
+        /// 修复前会抛 ArgumentException（“值必须是 OrderStatus 类型”），
+        /// 修复后校验通过、执行流到达 DB 层（NeverReachedExecutor 抛 NotImplementedException）。
+        /// </summary>
+        [Fact]
+        public void UpdateTo_EnumField_ValidValue_ReachesExecutor()
+        {
+            var router = CreateOrderRouter();
+            var entity = new ValidatedOrder
+            {
+                Id = 1,
+                Status = OrderStatus.Paid,
+                Kind = OrderKind.Gift,
+            };
+
+            Assert.Throws<NotImplementedException>(() =>
+                router.AsUpdateable(new[] { entity }, null, null).Execute());
+        }
+
+        /// <summary>
+        /// 可空枚举字段取值为 null 时，校验同样不应因类型不匹配而抛 ArgumentException。
+        /// </summary>
+        [Fact]
+        public void UpdateTo_NullableEnumField_NullValue_ReachesExecutor()
+        {
+            var router = CreateOrderRouter();
+            var entity = new ValidatedOrder
+            {
+                Id = 1,
+                Status = OrderStatus.Pending,
+                Kind = null,
+            };
+
+            Assert.Throws<NotImplementedException>(() =>
+                router.AsUpdateable(new[] { entity }, null, null).Execute());
+        }
+
+        // ─────────────────────────────────────────────────────────────────
         // Stubs
         // ─────────────────────────────────────────────────────────────────
 

@@ -197,7 +197,7 @@ namespace Inkslab.Linq.Tests
             var ex = new NoElementException(msg);
 
             Assert.Equal(msg, ex.Message);
-            Assert.Equal(1, ex.ErrorCode); // 默认错误码为 1
+            Assert.Equal(404, ex.ErrorCode); // 默认错误码为 404
         }
 
         /// <summary>
@@ -488,6 +488,72 @@ namespace Inkslab.Linq.Tests
 
             Assert.IsType<InvalidOperationException>(ex.InnerException);
             Assert.Contains("consumed", ex.InnerException.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // #9.1  DbGridReader — ThrowByRowStyle 行级约束异常
+        // ─────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// DbGridReader.Read&lt;T&gt;(Single) 读到第二行时，应抛多行数据异常 MultipleRowsException。
+        /// </summary>
+        [Fact]
+        public void DbGridReader_Read_MultipleRows_Single_ThrowsMultipleRowsException()
+        {
+            var inner = InvokeDbGridReaderRead(new MultiRowInt32Reader(), RowStyle.Single);
+
+            Assert.IsType<MultipleRowsException>(inner);
+        }
+
+        /// <summary>
+        /// DbGridReader.Read&lt;T&gt;(SingleOrDefault) 读到第二行时，应抛多行数据异常 MultipleRowsException。
+        /// </summary>
+        [Fact]
+        public void DbGridReader_Read_MultipleRows_SingleOrDefault_ThrowsMultipleRowsException()
+        {
+            var inner = InvokeDbGridReaderRead(new MultiRowInt32Reader(), RowStyle.SingleOrDefault);
+
+            Assert.IsType<MultipleRowsException>(inner);
+        }
+
+        /// <summary>
+        /// DbGridReader.Read&lt;T&gt;(First) 无数据时，应抛无元素异常 NoElementException。
+        /// </summary>
+        [Fact]
+        public void DbGridReader_Read_NoElement_First_ThrowsNoElementException()
+        {
+            var inner = InvokeDbGridReaderRead(new TwoResultSetFakeReader(), RowStyle.First);
+
+            Assert.IsType<NoElementException>(inner);
+        }
+
+        /// <summary>
+        /// DbGridReader.Read&lt;T&gt;(Single) 无数据时，应抛无元素异常 NoElementException（而非误报多行）。
+        /// </summary>
+        [Fact]
+        public void DbGridReader_Read_NoElement_Single_ThrowsNoElementException()
+        {
+            var inner = InvokeDbGridReaderRead(new TwoResultSetFakeReader(), RowStyle.Single);
+
+            Assert.IsType<NoElementException>(inner);
+        }
+
+        /// <summary>
+        /// 反射调用 DbGridReader.Read&lt;int&gt;(rowStyle) 并返回被抛出的内部异常。
+        /// </summary>
+        private static Exception InvokeDbGridReaderRead(DbDataReader reader, RowStyle rowStyle)
+        {
+            var gridReader = CreateDbGridReader(reader);
+
+            var readMethod = gridReader.GetType()
+                .GetMethod("Read", new[] { typeof(RowStyle) })
+                ?.MakeGenericMethod(typeof(int));
+            Assert.NotNull(readMethod);
+
+            var ex = Assert.Throws<TargetInvocationException>(() =>
+                readMethod.Invoke(gridReader, new object[] { rowStyle }));
+
+            return ex.InnerException;
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -831,6 +897,46 @@ namespace Inkslab.Linq.Tests
             public override int GetInt32(int ordinal) => _value;
             public override int GetValues(object[] values) { values[0] = _value; return 1; }
             public override bool Read() { if (!_advanced) { _advanced = true; return true; } return false; }
+            public override bool NextResult() => false;
+            public override object this[int ordinal] => GetValue(ordinal);
+            public override object this[string name] => GetValue(0);
+            public override IEnumerator GetEnumerator() => throw new NotImplementedException();
+            public override bool GetBoolean(int ordinal) => throw new NotImplementedException();
+            public override byte GetByte(int ordinal) => throw new NotImplementedException();
+            public override long GetBytes(int o, long d, byte[] b, int bo, int l) => throw new NotImplementedException();
+            public override char GetChar(int ordinal) => throw new NotImplementedException();
+            public override long GetChars(int o, long d, char[] b, int bo, int l) => throw new NotImplementedException();
+            public override DateTime GetDateTime(int ordinal) => throw new NotImplementedException();
+            public override decimal GetDecimal(int ordinal) => throw new NotImplementedException();
+            public override double GetDouble(int ordinal) => throw new NotImplementedException();
+            public override float GetFloat(int ordinal) => throw new NotImplementedException();
+            public override Guid GetGuid(int ordinal) => throw new NotImplementedException();
+            public override short GetInt16(int ordinal) => throw new NotImplementedException();
+            public override long GetInt64(int ordinal) => throw new NotImplementedException();
+            public override string GetString(int ordinal) => throw new NotImplementedException();
+        }
+
+        /// <summary>单列 int 列、可返回多行的 FakeReader，用于触发多行约束异常。</summary>
+        private sealed class MultiRowInt32Reader : DbDataReader
+        {
+            private int _row;
+
+            public override int FieldCount => 1;
+            public override bool HasRows => true;
+            public override bool IsClosed => false;
+            public override int RecordsAffected => -1;
+            public override int Depth => 0;
+
+            public override string GetName(int ordinal) => "Id";
+            public override Type GetFieldType(int ordinal) => typeof(int);
+            public override string GetDataTypeName(int ordinal) => "int";
+            public override int GetOrdinal(string name) => 0;
+            public override bool IsDBNull(int ordinal) => false;
+            public override object GetValue(int ordinal) => _row;
+            public override int GetInt32(int ordinal) => _row;
+            public override int GetValues(object[] values) { values[0] = _row; return 1; }
+            // 返回两行数据：前两次 Read() 为 true，之后为 false。
+            public override bool Read() { if (_row < 2) { _row++; return true; } return false; }
             public override bool NextResult() => false;
             public override object this[int ordinal] => GetValue(ordinal);
             public override object this[string name] => GetValue(0);

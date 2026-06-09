@@ -8,7 +8,7 @@ namespace Inkslab.Linq.Exceptions
     public class NoElementException : CodeException
     {
         /// <inheritdoc/>
-        public NoElementException(string message, int errorCode = 1) : base(message, errorCode)
+        public NoElementException(string message, int errorCode = 404) : base(message, errorCode)
         {
         }
     }

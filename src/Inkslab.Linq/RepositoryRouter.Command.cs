@@ -7,10 +7,8 @@ using System.Linq.Expressions;
 using Inkslab.Linq.Enums;
 using static System.Linq.Expressions.Expression;
 
-#if NET6_0_OR_GREATER
 using System.Reflection;
 using System.ComponentModel.DataAnnotations;
-#endif
 
 namespace Inkslab.Linq
 {
@@ -20,10 +18,12 @@ namespace Inkslab.Linq
         private class Entry
         {
             private readonly Func<TEntity, object> _factory;
+            private readonly Func<TEntity, object> _sourceFactory;
 
-            public Entry(Func<TEntity, object> factory)
+            public Entry(Func<TEntity, object> factory, Func<TEntity, object> sourceFactory)
             {
                 _factory = factory;
+                _sourceFactory = sourceFactory;
             }
 
             public string Name { get; set; }
@@ -39,6 +39,11 @@ namespace Inkslab.Linq
             public Type ColumnType { get; set; }
 
             public object GetValue(TEntity entry) => _factory.Invoke(entry);
+
+            //! 返回属性的原始值（保持声明类型），不做枚举→基础类型等列映射转换。
+            //! 专供 DataAnnotations 校验使用：Validator 要求值的运行时类型与属性声明类型兼容，
+            //! 若传入列映射后的值（如枚举被转成 int）会抛“类型不匹配”的 ArgumentException。
+            public object GetSourceValue(TEntity entry) => _sourceFactory.Invoke(entry);
         }
 
         /// <summary>
@@ -292,7 +297,6 @@ namespace Inkslab.Linq
 
                             int length = -1;
 
-#if NET6_0_OR_GREATER
                             if (destinationType == Types.String)
                             {
                                 var maxLengthAttr = property.GetCustomAttribute<MaxLengthAttribute>(true);
@@ -315,16 +319,24 @@ namespace Inkslab.Linq
                                     length = maxLengthAttr.Length;
                                 }
                             }
-#endif
 
                             var lambdaEx = Lambda<Func<TEntity, object>>(
                                 Block(new[] { valueVar }, expressions),
                                 entryArg
                             );
 
+                            //! 原始值访问器：仅读取属性并装箱，保留声明类型，供校验使用。
+                            var sourceLambdaEx = Lambda<Func<TEntity, object>>(
+                                Convert(Property(entryArg, property), Types.Object),
+                                entryArg
+                            );
+
                             fields.Add(
                                 property.Name,
-                                new Entry(lambdaEx.Compile())
+                                new Entry(
+                                    lambdaEx.Compile(),
+                                    sourceLambdaEx.Compile()
+                                )
                                 {
                                     Name = property.Name,
                                     ColumnName = value,

@@ -136,7 +136,7 @@ namespace Inkslab.Linq.Tests
 
             // Assert
             Assert.Equal(message, exception.Message);
-            Assert.Equal(1, exception.ErrorCode); // 默认错误码
+            Assert.Equal(404, exception.ErrorCode); // 默认错误码
         }
 
         /// <summary>
@@ -209,6 +209,87 @@ namespace Inkslab.Linq.Tests
 
             // Assert
             Assert.Equal(message, exception.Message);
+        }
+    }
+
+    /// <summary>
+    /// MultipleRowsException 单元测试
+    /// </summary>
+    public class MultipleRowsExceptionTests
+    {
+        /// <summary>
+        /// 测试：使用消息创建异常
+        /// </summary>
+        [Fact]
+        public void Constructor_WithMessage_CreatesException()
+        {
+            // Arrange
+            string message = "More than one row";
+
+            // Act
+            var exception = new MultipleRowsException(message);
+
+            // Assert
+            Assert.Equal(message, exception.Message);
+            Assert.Equal(409, exception.ErrorCode); // 默认错误码
+        }
+
+        /// <summary>
+        /// 测试：使用消息和错误码创建异常
+        /// </summary>
+        [Fact]
+        public void Constructor_WithMessageAndErrorCode_CreatesException()
+        {
+            // Arrange
+            string message = "More than one row";
+            int errorCode = 409;
+
+            // Act
+            var exception = new MultipleRowsException(message, errorCode);
+
+            // Assert
+            Assert.Equal(message, exception.Message);
+            Assert.Equal(errorCode, exception.ErrorCode);
+        }
+
+        /// <summary>
+        /// 测试：异常可以被抛出和捕获
+        /// </summary>
+        [Fact]
+        public void MultipleRowsException_CanBeThrownAndCaught()
+        {
+            // Arrange
+            string message = "Sequence contains more than one element";
+
+            // Act & Assert
+            void act() => throw new MultipleRowsException(message);
+            var exception = Assert.Throws<MultipleRowsException>(act);
+
+            Assert.Equal(message, exception.Message);
+        }
+
+        /// <summary>
+        /// 测试：可被基类 CodeException 捕获（继承链正确）
+        /// </summary>
+        [Fact]
+        public void MultipleRowsException_CanBeCaughtAsCodeException()
+        {
+            // Arrange
+            Inkslab.Exceptions.CodeException caught = null;
+
+            // Act
+            try
+            {
+                throw new MultipleRowsException("more than one");
+            }
+            catch (Inkslab.Exceptions.CodeException ex)
+            {
+                caught = ex;
+            }
+
+            // Assert
+            Assert.NotNull(caught);
+            Assert.IsType<MultipleRowsException>(caught);
         }
     }
 }

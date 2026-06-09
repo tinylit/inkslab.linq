@@ -149,7 +149,7 @@ namespace Inkslab.Linq
 
                     if (commandSql.RowStyle >= RowStyle.Single && reader.Read())
                     {
-                        ThrowByRowStyle(commandSql.RowStyle);
+                        ThrowByRowStyle(commandSql.RowStyle, true);
                     }
 
                     return result;
@@ -601,26 +601,20 @@ namespace Inkslab.Linq
         #endregion
 
         #region 读取器
-        private static readonly int[] _errTwoRows = new int[2], _errZeroRows = Array.Empty<int>();
 
-        private static void ThrowByRowStyle(RowStyle rowStyle)
+        private static void ThrowByRowStyle(RowStyle rowStyle, bool moreThanOneRow)
         {
-            switch (rowStyle)
+            if (moreThanOneRow)
             {
-                case RowStyle.FirstOrDefault:
-                    break;
-                case RowStyle.First:
-                    _errZeroRows.First();
-                    break;
-                case RowStyle.Single:
-                    _errTwoRows.Single();
-                    break;
-                case RowStyle.SingleOrDefault:
-                    _errTwoRows.SingleOrDefault();
-                    break;
-                default:
-                    throw new InvalidOperationException();
+                throw new MultipleRowsException("The input sequence contains more than one element.");
             }
+
+            if ((rowStyle & RowStyle.FirstOrDefault) == RowStyle.FirstOrDefault)
+            {
+                return;
+            }
+
+            throw new NoElementException("The input sequence contains no elements.");
         }
 
         private class DbGridReader : IDbGridReader
@@ -663,7 +657,7 @@ namespace Inkslab.Linq
                     {
                         if (_reader.Read())
                         {
-                            ThrowByRowStyle(rowStyle);
+                            ThrowByRowStyle(rowStyle, true);
                         }
                     }
 
@@ -671,7 +665,7 @@ namespace Inkslab.Linq
                 }
                 else if ((rowStyle & RowStyle.FirstOrDefault) == 0) // demanding a row, and don't have one
                 {
-                    ThrowByRowStyle(rowStyle);
+                    ThrowByRowStyle(rowStyle, false);
                 }
 
                 NextResult();

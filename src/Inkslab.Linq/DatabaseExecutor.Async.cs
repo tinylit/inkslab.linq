@@ -144,7 +144,7 @@ namespace Inkslab.Linq
                                 if (commandSql.RowStyle >= RowStyle.Single
                                     && await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
                                 {
-                                    ThrowByRowStyle(commandSql.RowStyle);
+                                    ThrowByRowStyle(commandSql.RowStyle, true);
                                 }
 
                                 return result;
@@ -645,7 +645,7 @@ namespace Inkslab.Linq
                     {
                         if (await _reader.ReadAsync(cancellationToken).ConfigureAwait(false))
                         {
-                            ThrowByRowStyle(rowStyle);
+                            ThrowByRowStyle(rowStyle, true);
                         }
                     }
 
@@ -653,7 +653,7 @@ namespace Inkslab.Linq
                 }
                 else if ((rowStyle & RowStyle.FirstOrDefault) == 0) // demanding a row, and don't have one
                 {
-                    ThrowByRowStyle(rowStyle);
+                    ThrowByRowStyle(rowStyle, false);
                 }
 
                 await NextResultAsync(cancellationToken).ConfigureAwait(false);

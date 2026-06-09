@@ -6,9 +6,7 @@ using System.Text;
 using Inkslab.Linq.Enums;
 using Microsoft.Extensions.Logging;
 
-#if NET6_0_OR_GREATER
 using System.ComponentModel.DataAnnotations;
-#endif
 
 namespace Inkslab.Linq
 {
@@ -348,11 +346,9 @@ namespace Inkslab.Linq
                     }
                 );
 
-#if NET6_0_OR_GREATER
                 //! 反复构造 GetEntries(Fields) 时会包含 Version 列；预过滤一次而非循环内逐项判断。
                 var condValidEntries = GetEntries(conditions);
                 var updateValidEntries = BuildValidatableEntries(Fields);
-#endif
 
                 foreach (var entity in Entities)
                 {
@@ -361,11 +357,9 @@ namespace Inkslab.Linq
                         throw new InvalidOperationException("实体不能为空！");
                     }
 
-#if NET6_0_OR_GREATER
                     var validationCtx = new ValidationContext(entity);
                     ValidateEntries(validationCtx, entity, condValidEntries);
                     ValidateEntries(validationCtx, entity, updateValidEntries);
-#endif
 
                     var dr = dt.NewRow();
 
@@ -384,7 +378,6 @@ namespace Inkslab.Linq
                 return (createSql, dt, updateSql, updateArgs, dropSql);
             }
 
-#if NET6_0_OR_GREATER
             //! 排除 Version 列：版本字段由框架自动写值，业务无须校验。
             private static Entry[] BuildValidatableEntries(ICollection<string> fields)
             {
@@ -407,10 +400,9 @@ namespace Inkslab.Linq
                 foreach (var entry in entries)
                 {
                     ctx.MemberName = entry.Name;
-                    Validator.ValidateProperty(entry.GetValue(entity), ctx);
+                    Validator.ValidateProperty(entry.GetSourceValue(entity), ctx);
                 }
             }
-#endif
 
             public override void CheckValid()
             {
@@ -442,10 +434,8 @@ namespace Inkslab.Linq
                 var updateEntries = GetEntries();
                 var conditionEntries = GetEntries(conditions);
 
-#if NET6_0_OR_GREATER
                 //! 预先剔除 Version 列；版本由框架写值，不参与业务校验。
                 var updateValidEntries = BuildValidatableEntries(Fields);
-#endif
 
                 var parameters = new Dictionary<string, object>();
 
@@ -462,11 +452,9 @@ namespace Inkslab.Linq
                         throw new InvalidOperationException("实体不能为空！");
                     }
 
-#if NET6_0_OR_GREATER
                     var validationCtx = new ValidationContext(entity);
                     ValidateEntries(validationCtx, entity, conditionEntries);
                     ValidateEntries(validationCtx, entity, updateValidEntries);
-#endif
 
                     sb.Append("UPDATE ");
 

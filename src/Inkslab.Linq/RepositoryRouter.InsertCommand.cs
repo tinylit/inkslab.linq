@@ -7,9 +7,7 @@ using System.Text;
 using Inkslab.Linq.Enums;
 using static System.Linq.Expressions.Expression;
 
-#if NET6_0_OR_GREATER
 using System.ComponentModel.DataAnnotations;
-#endif
 
 namespace Inkslab.Linq
 {
@@ -291,9 +289,7 @@ namespace Inkslab.Linq
                         throw new InvalidOperationException("实体不能为空！");
                     }
 
-#if NET6_0_OR_GREATER
                     Validator.ValidateObject(entity, new ValidationContext(entity), true);
-#endif
 
                     sb.Append("INSERT ");
 
@@ -387,9 +383,7 @@ namespace Inkslab.Linq
                         throw new InvalidOperationException("实体不能为空！");
                     }
 
-#if NET6_0_OR_GREATER
                     Validator.ValidateObject(entity, new ValidationContext(entity), true);
-#endif
                     var dr = dt.NewRow();
 
                     Array.ForEach(
@@ -554,9 +548,7 @@ namespace Inkslab.Linq
                         throw new InvalidOperationException("实体不能为空！");
                     }
 
-#if NET6_0_OR_GREATER
                     Validator.ValidateObject(entity, new ValidationContext(entity), true);
-#endif
 
                     var dr = dt.NewRow();
 
@@ -658,9 +650,7 @@ namespace Inkslab.Linq
                         throw new InvalidOperationException("实体不能为空！");
                     }
 
-#if NET6_0_OR_GREATER
                     Validator.ValidateObject(entity, new ValidationContext(entity), true);
-#endif
 
                     sb.Append(i == 0 ? "VALUES(" : ",(");
 

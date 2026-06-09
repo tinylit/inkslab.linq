@@ -55,12 +55,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             return services.UseEngine<TDbAdapter>(engine, connectionString =>
             {
-                var connection = factory.CreateConnection();
-
-                if (connection is null)
-                {
-                    throw new AbandonedMutexException();
-                }
+                var connection = factory.CreateConnection() ?? throw new AbandonedMutexException();
 
                 connection.ConnectionString = connectionString;
 

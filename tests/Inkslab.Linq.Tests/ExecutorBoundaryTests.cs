@@ -822,12 +822,8 @@ namespace Inkslab.Linq.Tests
         private static object CreateDbGridReader(DbDataReader fakeReader)
         {
             var databaseExecutorType = typeof(DatabaseExecutor);
-            var gridReaderType = databaseExecutorType.GetNestedType("DbGridReader", BindingFlags.NonPublic);
-
-            if (gridReaderType is null)
-            {
-                throw new InvalidOperationException("Cannot find nested type DbGridReader via reflection.");
-            }
+            var gridReaderType = databaseExecutorType.GetNestedType("DbGridReader", BindingFlags.NonPublic)
+                ?? throw new InvalidOperationException("Cannot find nested type DbGridReader via reflection.");
 
             var mapAdaperType = databaseExecutorType.GetNestedType("MapAdaper", BindingFlags.NonPublic);
             var adaper = Activator.CreateInstance(mapAdaperType, fakeReader.GetType(), 100);

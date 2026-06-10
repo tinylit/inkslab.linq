@@ -14,7 +14,7 @@ namespace Inkslab.Linq.Tests
     /// 2. 浮点型（float/double）→ decimal 支持；
     /// 3. 在不丢失精度的前提下，支持小类型 → 大类型（如 int→long、uint→ulong、uint→long、int→decimal、float→double）。
     ///
-    /// 测试不需要真实数据库连接：通过反射构造内部 MapAdaper，并以可配置的伪 DbDataReader 驱动单列标量映射。
+    /// 测试不需要真实数据库连接：通过反射构造内部 MapAdapter，并以可配置的伪 DbDataReader 驱动单列标量映射。
     /// </summary>
     public class TypeMappingWideningTests
     {
@@ -81,17 +81,17 @@ namespace Inkslab.Linq.Tests
         private static T MapScalar<T>(Type fieldType, object value)
         {
             var databaseExecutorType = typeof(DatabaseExecutor);
-            var mapAdaperType = databaseExecutorType.GetNestedType("MapAdaper", BindingFlags.NonPublic);
+            var mapAdapterType = databaseExecutorType.GetNestedType("MapAdapter", BindingFlags.NonPublic);
 
-            Assert.NotNull(mapAdaperType);
+            Assert.NotNull(mapAdapterType);
 
-            var adaper = Activator.CreateInstance(mapAdaperType, typeof(ScalarReader), 100);
+            var adapter = Activator.CreateInstance(mapAdapterType, typeof(ScalarReader), 100);
 
-            var createMapMethod = mapAdaperType
+            var createMapMethod = mapAdapterType
                 .GetMethod("CreateMap", BindingFlags.Public | BindingFlags.Instance)
                 .MakeGenericMethod(typeof(T));
 
-            var mapper = createMapMethod.Invoke(adaper, null);
+            var mapper = createMapMethod.Invoke(adapter, null);
 
             var mapMethod = mapper.GetType().GetMethod("Map", BindingFlags.Public | BindingFlags.Instance);
 

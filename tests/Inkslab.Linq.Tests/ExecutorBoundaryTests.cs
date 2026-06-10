@@ -351,7 +351,7 @@ namespace Inkslab.Linq.Tests
         }
 
         // ─────────────────────────────────────────────────────────────
-        // #7  DatabaseExecutor.MapAdaper — 无参构造函数缺失时的行为
+        // #7  DatabaseExecutor.MapAdapter — 无参构造函数缺失时的行为
         // ─────────────────────────────────────────────────────────────
 
         /// <summary>
@@ -359,14 +359,14 @@ namespace Inkslab.Linq.Tests
         /// CreateMap 应回退到使用第一个公开带参构造函数逐列映射。
         /// </summary>
         [Fact]
-        public void MapAdaper_NoParameterlessCtor_UsesFirstPublicCtor()
+        public void MapAdapter_NoParameterlessCtor_UsesFirstPublicCtor()
         {
-            var (adaper, adaperType) = CreateMapAdaper<SingleColInt32Reader>();
+            var (adapter, adapterType) = CreateMapAdapter<SingleColInt32Reader>();
 
-            var createMapMethod = adaperType.GetMethod("CreateMap")
+            var createMapMethod = adapterType.GetMethod("CreateMap")
                 .MakeGenericMethod(typeof(NoDefaultCtorEntity));
 
-            var mapper = Assert.IsAssignableFrom<object>(createMapMethod.Invoke(adaper, null));
+            var mapper = Assert.IsAssignableFrom<object>(createMapMethod.Invoke(adapter, null));
             Assert.NotNull(mapper);
         }
 
@@ -375,14 +375,14 @@ namespace Inkslab.Linq.Tests
         /// CreateMap 应能成功创建 mapper（通过带参构造路径）。
         /// </summary>
         [Fact]
-        public void MapAdaper_RecordType_MapperCreatedSuccessfully()
+        public void MapAdapter_RecordType_MapperCreatedSuccessfully()
         {
-            var (adaper, adaperType) = CreateMapAdaper<SingleColInt32Reader>();
+            var (adapter, adapterType) = CreateMapAdapter<SingleColInt32Reader>();
 
-            var createMapMethod = adaperType.GetMethod("CreateMap")
+            var createMapMethod = adapterType.GetMethod("CreateMap")
                 .MakeGenericMethod(typeof(IntRecord));
 
-            var mapper = createMapMethod.Invoke(adaper, null);
+            var mapper = createMapMethod.Invoke(adapter, null);
             Assert.NotNull(mapper);
         }
 
@@ -391,14 +391,14 @@ namespace Inkslab.Linq.Tests
         /// 调用 Map 时应返回列[0]的整数值（通过 FakeReader 驱动）。
         /// </summary>
         [Fact]
-        public void MapAdaper_SimpleType_MapReturnsColumnZeroValue()
+        public void MapAdapter_SimpleType_MapReturnsColumnZeroValue()
         {
-            var (adaper, adaperType) = CreateMapAdaper<SingleColInt32Reader>();
+            var (adapter, adapterType) = CreateMapAdapter<SingleColInt32Reader>();
 
-            var createMapMethod = adaperType.GetMethod("CreateMap")
+            var createMapMethod = adapterType.GetMethod("CreateMap")
                 .MakeGenericMethod(typeof(int));
 
-            var mapper = createMapMethod.Invoke(adaper, null);
+            var mapper = createMapMethod.Invoke(adapter, null);
             Assert.NotNull(mapper);
 
             var mapMethod = mapper.GetType().GetMethod("Map");
@@ -414,14 +414,14 @@ namespace Inkslab.Linq.Tests
         /// Nullable&lt;int&gt; 对应 MakeSimpleNull 路径：列为 null 时 Map 返回 null（即 default(int?)）。
         /// </summary>
         [Fact]
-        public void MapAdaper_NullableInt_NullColumn_ReturnsNull()
+        public void MapAdapter_NullableInt_NullColumn_ReturnsNull()
         {
-            var (adaper, adaperType) = CreateMapAdaper<NullableInt32Reader>();
+            var (adapter, adapterType) = CreateMapAdapter<NullableInt32Reader>();
 
-            var createMapMethod = adaperType.GetMethod("CreateMap")
+            var createMapMethod = adapterType.GetMethod("CreateMap")
                 .MakeGenericMethod(typeof(int?));
 
-            var mapper = createMapMethod.Invoke(adaper, null);
+            var mapper = createMapMethod.Invoke(adapter, null);
             Assert.NotNull(mapper);
 
             var mapMethod = mapper.GetType().GetMethod("Map");
@@ -433,7 +433,7 @@ namespace Inkslab.Linq.Tests
         }
 
         // ─────────────────────────────────────────────────────────────
-        // #8  DatabaseExecutor.MapAdaper — 列名大小写不敏感映射
+        // #8  DatabaseExecutor.MapAdapter — 列名大小写不敏感映射
         // ─────────────────────────────────────────────────────────────
 
         /// <summary>
@@ -441,14 +441,14 @@ namespace Inkslab.Linq.Tests
         /// 仍应成功映射（依赖 switch + OrdinalIgnoreCase 比较器）。
         /// </summary>
         [Fact]
-        public void MapAdaper_ColumnNameCaseMismatch_MapsSuccessfully()
+        public void MapAdapter_ColumnNameCaseMismatch_MapsSuccessfully()
         {
-            var (adaper, adaperType) = CreateMapAdaper<UpperCaseNameReader>();
+            var (adapter, adapterType) = CreateMapAdapter<UpperCaseNameReader>();
 
-            var createMapMethod = adaperType.GetMethod("CreateMap")
+            var createMapMethod = adapterType.GetMethod("CreateMap")
                 .MakeGenericMethod(typeof(SimpleNameEntity));
 
-            var mapper = createMapMethod.Invoke(adaper, null);
+            var mapper = createMapMethod.Invoke(adapter, null);
             var mapMethod = mapper.GetType().GetMethod("Map");
 
             var reader = new UpperCaseNameReader("Alice");
@@ -809,14 +809,14 @@ namespace Inkslab.Linq.Tests
         // Helpers
         // ─────────────────────────────────────────────────────────────
 
-        private static (object adaper, Type adaperType) CreateMapAdaper<TReader>()
+        private static (object adapter, Type adapterType) CreateMapAdapter<TReader>()
             where TReader : DbDataReader
         {
             var databaseExecutorType = typeof(DatabaseExecutor);
-            var mapAdaperType = databaseExecutorType.GetNestedType("MapAdaper", BindingFlags.NonPublic);
+            var mapAdapterType = databaseExecutorType.GetNestedType("MapAdapter", BindingFlags.NonPublic);
 
-            var adaper = Activator.CreateInstance(mapAdaperType, typeof(TReader), 100);
-            return (adaper, mapAdaperType);
+            var adapter = Activator.CreateInstance(mapAdapterType, typeof(TReader), 100);
+            return (adapter, mapAdapterType);
         }
 
         private static object CreateDbGridReader(DbDataReader fakeReader)
@@ -825,8 +825,8 @@ namespace Inkslab.Linq.Tests
             var gridReaderType = databaseExecutorType.GetNestedType("DbGridReader", BindingFlags.NonPublic)
                 ?? throw new InvalidOperationException("Cannot find nested type DbGridReader via reflection.");
 
-            var mapAdaperType = databaseExecutorType.GetNestedType("MapAdaper", BindingFlags.NonPublic);
-            var adaper = Activator.CreateInstance(mapAdaperType, fakeReader.GetType(), 100);
+            var mapAdapterType = databaseExecutorType.GetNestedType("MapAdapter", BindingFlags.NonPublic);
+            var adapter = Activator.CreateInstance(mapAdapterType, fakeReader.GetType(), 100);
 
             var commandSql = new CommandSql("SELECT 1");
 
@@ -841,9 +841,9 @@ namespace Inkslab.Linq.Tests
 
             var ctor = ctors[0];
 
-            // DbGridReader(DbConnection, DbCommand, DbDataReader, CommandSql, MapAdaper)
+            // DbGridReader(DbConnection, DbCommand, DbDataReader, CommandSql, MapAdapter)
             // DbConnection and DbCommand are null — we only read IsConsumed and call Read<T>(RowStyle)
-            return ctor.Invoke(new object[] { null, null, fakeReader, commandSql, adaper });
+            return ctor.Invoke(new object[] { null, null, fakeReader, commandSql, adapter });
         }
 
         private static Repository<User> CreateStubRepository()
@@ -1001,7 +1001,7 @@ namespace Inkslab.Linq.Tests
             private readonly string _value;
             private bool _advanced;
 
-            // 无参构造函数，满足 CreateMapAdaper<TReader>() 反射实例化需求
+            // 无参构造函数，满足 CreateMapAdapter<TReader>() 反射实例化需求
             public UpperCaseNameReader() { }
             public UpperCaseNameReader(string value) => _value = value;
 
@@ -1076,7 +1076,7 @@ namespace Inkslab.Linq.Tests
             public override string GetString(int ordinal) => throw new NotImplementedException();
         }
 
-        /// <summary>仅包含带参构造函数的实体（无无参构造函数），用于测试 MapAdaper 回退逻辑。</summary>
+        /// <summary>仅包含带参构造函数的实体（无无参构造函数），用于测试 MapAdapter 回退逻辑。</summary>
         private class NoDefaultCtorEntity
         {
             public int Id { get; }

@@ -130,12 +130,12 @@ namespace Inkslab.Linq
                     {
                         if (reader.HasRows)
                         {
-                            var adaper = GetOrAddAdaper(
+                            var adapter = GetOrAddAdapter(
                                 reader.GetType(),
                                 databaseStrings.Engine
                             );
 
-                            var map = adaper.CreateMap<T>();
+                            var map = adapter.CreateMap<T>();
 
                             if (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
                             {
@@ -165,7 +165,7 @@ namespace Inkslab.Linq
                             throw new NoElementException(commandSql.NoElementError);
                         }
 
-                        throw new InvalidOperationException(
+                        throw new NoElementException(
                             "The input sequence contains no elements."
                         );
                     }
@@ -221,9 +221,9 @@ namespace Inkslab.Linq
 
                 reader = await command.ExecuteReaderAsync(behavior, cancellationToken).ConfigureAwait(false);
 
-                var adaper = GetOrAddAdaper(reader.GetType(), databaseStrings.Engine);
+                var adapter = GetOrAddAdapter(reader.GetType(), databaseStrings.Engine);
 
-                return new AsyncDbGridReader(dbConnection, command, reader, commandSql, adaper);
+                return new AsyncDbGridReader(dbConnection, command, reader, commandSql, adapter);
             }
             catch
             {
@@ -386,12 +386,12 @@ namespace Inkslab.Linq
                     {
                         if (reader.HasRows)
                         {
-                            var adaper = _adapters.GetOrAdd(
+                            var adapter = _adapters.GetOrAdd(
                                 reader.GetType(),
-                                type => new MapAdaper(type, _options.GetMappingCapacity(_connectionStrings.Engine))
+                                type => new MapAdapter(type, _options.GetMappingCapacity(_connectionStrings.Engine))
                             );
 
-                            var map = adaper.CreateMap<T>();
+                            var map = adapter.CreateMap<T>();
 
                             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
                             {
@@ -611,15 +611,15 @@ namespace Inkslab.Linq
             private readonly DbCommand _command;
             private readonly DbDataReader _reader;
             private readonly CommandSql _commandSql;
-            private readonly MapAdaper _adaper;
+            private readonly MapAdapter _adapter;
 
-            public AsyncDbGridReader(DbConnection connection, DbCommand command, DbDataReader reader, CommandSql commandSql, MapAdaper adaper)
+            public AsyncDbGridReader(DbConnection connection, DbCommand command, DbDataReader reader, CommandSql commandSql, MapAdapter adapter)
             {
                 _connection = connection;
                 _command = command;
                 _reader = reader;
                 _commandSql = commandSql;
-                _adaper = adaper;
+                _adapter = adapter;
             }
 
             public bool IsConsumed { get; private set; }
@@ -637,7 +637,7 @@ namespace Inkslab.Linq
 
                 if (await _reader.ReadAsync(cancellationToken).ConfigureAwait(false) && _reader.FieldCount > 0)
                 {
-                    var map = _adaper.CreateMap<T>();
+                    var map = _adapter.CreateMap<T>();
 
                     result = map.Map(_reader);
 
@@ -677,7 +677,7 @@ namespace Inkslab.Linq
             {
                 try
                 {
-                    var map = _adaper.CreateMap<T>();
+                    var map = _adapter.CreateMap<T>();
 
                     while (index == _gridIndex && await _reader.ReadAsync(cancellationToken).ConfigureAwait(false))
                     {

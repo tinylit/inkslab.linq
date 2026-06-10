@@ -65,22 +65,22 @@ namespace Inkslab.Linq.Tests
             public override string GetString(int ordinal) => throw new NotImplementedException();
         }
 
-        private static (object adaper, Type adaperType) CreateMapAdaper()
+        private static (object adapter, Type adapterType) CreateMapAdapter()
         {
             var databaseExecutorType = typeof(DatabaseExecutor);
-            var mapAdaperType = databaseExecutorType.GetNestedType("MapAdaper", BindingFlags.NonPublic);
+            var mapAdapterType = databaseExecutorType.GetNestedType("MapAdapter", BindingFlags.NonPublic);
 
-            Assert.NotNull(mapAdaperType);
+            Assert.NotNull(mapAdapterType);
 
-            var adaper = Activator.CreateInstance(mapAdaperType, typeof(DecimalColumnFakeReader), 100);
-            return (adaper, mapAdaperType);
+            var adapter = Activator.CreateInstance(mapAdapterType, typeof(DecimalColumnFakeReader), 100);
+            return (adapter, mapAdapterType);
         }
 
-        private static object CreateMapper<T>(object adaper, Type adaperType)
+        private static object CreateMapper<T>(object adapter, Type adapterType)
         {
-            var createMapMethod = adaperType.GetMethod("CreateMap", BindingFlags.Public | BindingFlags.Instance)
+            var createMapMethod = adapterType.GetMethod("CreateMap", BindingFlags.Public | BindingFlags.Instance)
                                             .MakeGenericMethod(typeof(T));
-            return createMapMethod.Invoke(adaper, null);
+            return createMapMethod.Invoke(adapter, null);
         }
 
         /// <summary>
@@ -90,8 +90,8 @@ namespace Inkslab.Linq.Tests
         [Fact]
         public void Map_TypeMismatch_ExceptionMessageContainsPropertyAndColumnName()
         {
-            var (adaper, adaperType) = CreateMapAdaper();
-            var mapper = CreateMapper<OrderEntity>(adaper, adaperType);
+            var (adapter, adapterType) = CreateMapAdapter();
+            var mapper = CreateMapper<OrderEntity>(adapter, adapterType);
 
             var mapMethod = mapper.GetType().GetMethod("Map", BindingFlags.Public | BindingFlags.Instance);
             var reader = new DecimalColumnFakeReader();

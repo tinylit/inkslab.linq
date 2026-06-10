@@ -13,7 +13,7 @@ namespace Inkslab.Linq
 {
     public partial class DatabaseExecutor
     {
-        private class MapAdaper
+        private class MapAdapter
         {
             private static readonly MethodInfo _equals;
             private static readonly MethodInfo _typeCode;
@@ -212,13 +212,13 @@ namespace Inkslab.Linq
                 }
             };
 
-            static MapAdaper()
+            static MapAdapter()
             {
                 _errorCtor = typeof(NotSupportedException).GetConstructor(new[] { Types.String });
 
                 _errorOutOfRangeCtor = typeof(IndexOutOfRangeException).GetConstructor(new[] { Types.String });
 
-                _equals = typeof(MapAdaper).GetMethod(
+                _equals = typeof(MapAdapter).GetMethod(
                     nameof(Equals),
                     BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.DeclaredOnly
                 );
@@ -244,24 +244,24 @@ namespace Inkslab.Linq
 
             /// <summary>
             /// 编译好的 Mapper 工厂委托缓存（消除反射开销）。
-            /// Key: 实体类型，Value: (MapAdaper) => IDbMapper 工厂委托。
+            /// Key: 实体类型，Value: (MapAdapter) => IDbMapper 工厂委托。
             /// </summary>
-            private static readonly ConcurrentDictionary<Type, Func<MapAdaper, IDbMapper>> _mapperFactories =
-                new ConcurrentDictionary<Type, Func<MapAdaper, IDbMapper>>();
+            private static readonly ConcurrentDictionary<Type, Func<MapAdapter, IDbMapper>> _mapperFactories =
+                new ConcurrentDictionary<Type, Func<MapAdapter, IDbMapper>>();
 
             /// <summary>
             /// 为指定类型编译 Mapper 工厂方法（使用表达式树，避免运行时反射）。
             /// </summary>
-            private static Func<MapAdaper, IDbMapper> CompileMapperFactory(Type entityType)
+            private static Func<MapAdapter, IDbMapper> CompileMapperFactory(Type entityType)
             {
                 // 构建表达式树: adapter => new DbMapperGen<T>(adapter).CreateMap()
-                var adapterParam = Parameter(typeof(MapAdaper), "adapter");
+                var adapterParam = Parameter(typeof(MapAdapter), "adapter");
 
                 // DbMapperGen<T>
                 var genType = typeof(DbMapperGen<>).MakeGenericType(entityType);
 
                 // new DbMapperGen<T>(adapter)
-                var genCtor = genType.GetConstructor(new[] { typeof(MapAdaper) });
+                var genCtor = genType.GetConstructor(new[] { typeof(MapAdapter) });
                 var newGen = New(genCtor, adapterParam);
 
                 // .CreateMap()
@@ -272,7 +272,7 @@ namespace Inkslab.Linq
                 var converted = Expression.Convert(callCreateMap, typeof(IDbMapper));
 
                 // 编译成委托
-                var lambda = Lambda<Func<MapAdaper, IDbMapper>>(converted, adapterParam);
+                var lambda = Lambda<Func<MapAdapter, IDbMapper>>(converted, adapterParam);
                 return lambda.Compile();
             }
 
@@ -290,7 +290,7 @@ namespace Inkslab.Linq
                 return string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
             }
 
-            public MapAdaper(Type type, int capacity)
+            public MapAdapter(Type type, int capacity)
             {
                 var types = new[] { Types.Int32 };
 
@@ -631,11 +631,11 @@ namespace Inkslab.Linq
 
         private class DbMapperGen<T>
         {
-            private readonly MapAdaper _adaper;
+            private readonly MapAdapter _adapter;
 
-            public DbMapperGen(MapAdaper adaper)
+            public DbMapperGen(MapAdapter adapter)
             {
-                _adaper = adaper;
+                _adapter = adapter;
             }
 
             private Func<DbDataReader, T> MakeSimple(Type type)
@@ -644,15 +644,15 @@ namespace Inkslab.Linq
 
                 var iVar = Constant(0);
 
-                var dbVar = _adaper.DbVariable();
+                var dbVar = _adapter.DbVariable();
 
                 var bodyExp = UncheckedValue(type, dbVar, iVar);
 
                 var lambdaExp = Lambda<Func<DbDataReader, T>>(
                     Block(
                         new[] { dbVar },
-                        Assign(dbVar, _adaper.Convert(paramterExp)),
-                        Condition(_adaper.IsDbNull(dbVar, iVar), Default(type), bodyExp)
+                        Assign(dbVar, _adapter.Convert(paramterExp)),
+                        Condition(_adapter.IsDbNull(dbVar, iVar), Default(type), bodyExp)
                     ),
                     paramterExp
                 );
@@ -666,7 +666,7 @@ namespace Inkslab.Linq
 
                 var iVar = Constant(0);
 
-                var dbVar = _adaper.DbVariable();
+                var dbVar = _adapter.DbVariable();
 
                 var nullableCtor = nullableType.GetConstructor(new[] { type });
 
@@ -675,9 +675,9 @@ namespace Inkslab.Linq
                 var lambdaExp = Lambda<Func<DbDataReader, T>>(
                     Block(
                         new[] { dbVar },
-                        Assign(dbVar, _adaper.Convert(paramterExp)),
+                        Assign(dbVar, _adapter.Convert(paramterExp)),
                         Condition(
-                            _adaper.IsDbNull(dbVar, iVar),
+                            _adapter.IsDbNull(dbVar, iVar),
                             Default(nullableType),
                             New(nullableCtor, bodyExp)
                         )
@@ -728,7 +728,7 @@ namespace Inkslab.Linq
 
                 var paramterExp = Parameter(typeof(DbDataReader));
 
-                var dbVar = _adaper.DbVariable();
+                var dbVar = _adapter.DbVariable();
 
                 var iVar = Parameter(typeof(int));
 
@@ -737,7 +737,7 @@ namespace Inkslab.Linq
                 var list = new List<Expression>
                 {
                     Assign(iVar, Constant(0)),
-                    Assign(dbVar, _adaper.Convert(paramterExp)),
+                    Assign(dbVar, _adapter.Convert(paramterExp)),
                     Assign(instanceExp, New(constructorInfo))
                 };
 
@@ -766,9 +766,9 @@ namespace Inkslab.Linq
                 LabelTarget continue_label = Label(typeof(void));
 
                 var body = Switch(
-                    _adaper.GetName(dbVar, iVar),
+                    _adapter.GetName(dbVar, iVar),
                     null,
-                    MapAdaper.IgnoreCaseEquals,
+                    MapAdapter.IgnoreCaseEquals,
                     listCases
                 );
 
@@ -810,7 +810,7 @@ namespace Inkslab.Linq
             {
                 var paramterExp = Parameter(typeof(DbDataReader));
 
-                var dbVar = _adaper.DbVariable();
+                var dbVar = _adapter.DbVariable();
 
                 var parameterInfos = constructorInfo.GetParameters();
 
@@ -826,7 +826,7 @@ namespace Inkslab.Linq
 
                     arguments.Add(
                         Condition(
-                            _adaper.IsDbNull(dbVar, iVar),
+                            _adapter.IsDbNull(dbVar, iVar),
                             parameterInfo.ParameterType.IsValueType
                                 ? Default(parameterInfo.ParameterType)
                                 : Constant(null, parameterInfo.ParameterType),
@@ -838,7 +838,7 @@ namespace Inkslab.Linq
                 var lambdaExp = Lambda<Func<DbDataReader, T>>(
                     Block(
                         new[] { dbVar },
-                        Assign(dbVar, _adaper.Convert(paramterExp)),
+                        Assign(dbVar, _adapter.Convert(paramterExp)),
                         convert.Invoke(New(constructorInfo, arguments))
                     ),
                     paramterExp
@@ -876,8 +876,8 @@ namespace Inkslab.Linq
                 }
 
                 Expression body = isEnum
-                    ? _adaper.ToSolveEnum(nonullableType, propertyType, dbVar, iVar)
-                    : _adaper.ToSolve(propertyType, dbVar, iVar);
+                    ? _adapter.ToSolveEnum(nonullableType, propertyType, dbVar, iVar)
+                    : _adapter.ToSolve(propertyType, dbVar, iVar);
 
                 if (isNullable)
                 {
@@ -899,12 +899,12 @@ namespace Inkslab.Linq
                 Expression body = UncheckedValue(propType, dbVar, iVar);
 
                 var exVar = Parameter(typeof(InvalidCastException), "ex");
-                var messageExpr = Call(MapAdaper.ConcatArray,
+                var messageExpr = Call(MapAdapter.ConcatArray,
                     NewArrayInit(Types.String,
                         Constant("映射失败，列 "),
-                        _adaper.GetName(dbVar, iVar),
+                        _adapter.GetName(dbVar, iVar),
                         Constant("("),
-                        Property(_adaper.GetFieldType(dbVar, iVar), MapAdaper.TypeName),
+                        Property(_adapter.GetFieldType(dbVar, iVar), MapAdapter.TypeName),
                         Constant(") → 属性 "),
                         Constant(propertyItem.Name),
                         Constant("("),
@@ -915,7 +915,7 @@ namespace Inkslab.Linq
                 var wrappedBody = TryCatch(
                     body,
                     Catch(exVar,
-                        Throw(New(MapAdaper.InvalidCastWithInnerCtor, messageExpr, exVar), propType)
+                        Throw(New(MapAdapter.InvalidCastWithInnerCtor, messageExpr, exVar), propType)
                     )
                 );
 
@@ -923,7 +923,7 @@ namespace Inkslab.Linq
 
                 return SwitchCase(
                     IfThen(
-                        Not(_adaper.IsDbNull(dbVar, iVar)),
+                        Not(_adapter.IsDbNull(dbVar, iVar)),
                         Assign(Property(instanceExp, propertyItem), wrappedBody)
                     ),
                     testValues

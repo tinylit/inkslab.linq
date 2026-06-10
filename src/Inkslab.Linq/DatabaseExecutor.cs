@@ -16,7 +16,7 @@ namespace Inkslab.Linq
     /// </summary>
     public partial class DatabaseExecutor : IDatabaseExecutor
     {
-        private static readonly ConcurrentDictionary<Type, MapAdaper> _adapters = new ConcurrentDictionary<Type, MapAdaper>();
+        private static readonly ConcurrentDictionary<Type, MapAdapter> _adapters = new ConcurrentDictionary<Type, MapAdapter>();
         private readonly IDbConnectionPipeline _connectionPipeline;
         private readonly DatabaseExecutorOptions _options;
         private readonly ILogger<DatabaseExecutor> _logger;
@@ -39,15 +39,15 @@ namespace Inkslab.Linq
         #region 通用辅助方法
 
         /// <summary>
-        /// 获取或创建指定 reader 类型对应的 MapAdaper，使用当前引擎的配置容量。
+        /// 获取或创建指定 reader 类型对应的 MapAdapter，使用当前引擎的配置容量。
         /// </summary>
-        private MapAdaper GetOrAddAdaper(Type readerType, DatabaseEngine engine)
+        private MapAdapter GetOrAddAdapter(Type readerType, DatabaseEngine engine)
         {
             return _adapters.GetOrAdd(readerType, type =>
             {
                 var capacity = _options.GetMappingCapacity(engine);
 
-                return new MapAdaper(type, capacity);
+                return new MapAdapter(type, capacity);
             });
         }
 
@@ -116,8 +116,8 @@ namespace Inkslab.Linq
 
             if (reader.HasRows)
             {
-                var adaper = GetOrAddAdaper(reader.GetType(), engine);
-                var map = adaper.CreateMap<T>();
+                var adapter = GetOrAddAdapter(reader.GetType(), engine);
+                var map = adapter.CreateMap<T>();
 
                 while (reader.Read())
                 {
@@ -140,8 +140,8 @@ namespace Inkslab.Linq
         {
             if (reader.HasRows)
             {
-                var adaper = GetOrAddAdaper(reader.GetType(), engine);
-                var map = adaper.CreateMap<T>();
+                var adapter = GetOrAddAdapter(reader.GetType(), engine);
+                var map = adapter.CreateMap<T>();
 
                 if (reader.Read())
                 {
@@ -166,7 +166,7 @@ namespace Inkslab.Linq
                 throw new NoElementException(commandSql.NoElementError);
             }
 
-            throw new InvalidOperationException("The input sequence contains no elements.");
+            throw new NoElementException("The input sequence contains no elements.");
         }
 
         /// <summary>
@@ -282,9 +282,9 @@ namespace Inkslab.Linq
 
                 reader = command.ExecuteReader(behavior);
 
-                var adaper = GetOrAddAdaper(reader.GetType(), databaseStrings.Engine);
+                var adapter = GetOrAddAdapter(reader.GetType(), databaseStrings.Engine);
 
-                return new DbGridReader(dbConnection, command, reader, commandSql, adaper);
+                return new DbGridReader(dbConnection, command, reader, commandSql, adapter);
             }
             catch
             {
@@ -623,15 +623,15 @@ namespace Inkslab.Linq
             private readonly DbCommand _command;
             private readonly DbDataReader _reader;
             private readonly CommandSql _commandSql;
-            private readonly MapAdaper _adaper;
+            private readonly MapAdapter _adapter;
 
-            public DbGridReader(DbConnection connection, DbCommand command, DbDataReader reader, CommandSql commandSql, MapAdaper adaper)
+            public DbGridReader(DbConnection connection, DbCommand command, DbDataReader reader, CommandSql commandSql, MapAdapter adapter)
             {
                 _connection = connection;
                 _command = command;
                 _reader = reader;
                 _commandSql = commandSql;
-                _adaper = adaper;
+                _adapter = adapter;
             }
 
             public bool IsConsumed { get; private set; }
@@ -649,7 +649,7 @@ namespace Inkslab.Linq
 
                 if (_reader.Read() && _reader.FieldCount > 0)
                 {
-                    var map = _adaper.CreateMap<T>();
+                    var map = _adapter.CreateMap<T>();
 
                     result = map.Map(_reader);
 
@@ -695,7 +695,7 @@ namespace Inkslab.Linq
             {
                 try
                 {
-                    var map = _adaper.CreateMap<T>();
+                    var map = _adapter.CreateMap<T>();
 
                     while (index == _gridIndex && _reader.Read())
                     {

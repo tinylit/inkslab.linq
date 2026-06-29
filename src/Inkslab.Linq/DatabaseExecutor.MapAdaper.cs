@@ -396,6 +396,21 @@ namespace Inkslab.Linq
                     return Call(dbVar, originalFn, iVar);
                 }
 
+                //? 布尔：字段为 bool 时直接读取；字段为整型时仅 0/1 合法（0→false、1→true），
+                //? 其它值按“数值越界”抛出，避免被读取器的 InvalidCastException 伪装成“类型不匹配”。
+                if (propertyType == Types.Boolean)
+                {
+                    var typeArg = Variable(typeof(Type));
+
+                    return Block(new[] { typeArg },
+                        Assign(typeArg, Call(dbVar, _getFieldType, iVar)),
+                        Condition(Equal(typeArg, Constant(Types.Boolean)),
+                            Call(dbVar, originalFn, iVar),
+                            ToSolveBoolByTransform(dbVar, iVar, typeArg)
+                        )
+                    );
+                }
+
                 //? 字符/字符串，或登记了类型转换表的数值类型：先比对数据库字段类型，
                 //? 与属性类型一致时直接读取；不一致时走类型转换（不丢失精度的小转大、任意类型 ToString 等）。
                 if (propertyType == Types.Char || propertyType == Types.String || _typeTransforms.ContainsKey(propertyType))
@@ -613,6 +628,77 @@ namespace Inkslab.Linq
                 expressions.Add(valueVar);
 
                 return Block(propertyType, variables, expressions);
+            }
+
+            //? 可作为布尔来源的整型字段类型（按底层数值读取后再判定 0/1）。
+            private static readonly Type[] _boolSourceTypes =
+            {
+                typeof(byte), typeof(sbyte), typeof(short), typeof(ushort),
+                typeof(int), typeof(uint), typeof(long), typeof(ulong)
+            };
+
+            /// <summary>
+            /// 非布尔字段 → 布尔属性：整型按底层数值读取，文本/字符按字面量读取；
+            /// 值为 0 或 "0"/'0' 映射为 <see langword="false"/>、1 或 "1"/'1' 映射为 <see langword="true"/>；
+            /// 其它值抛“数值越界”，无法识别的字段类型抛“类型不被支持”。
+            /// </summary>
+            private Expression ToSolveBoolByTransform(ParameterExpression dbVar, Expression iVar, ParameterExpression typeArg)
+            {
+                var valueVar = Variable(Types.Boolean);
+
+                var throwUnsupported = Throw(New(_errorCtor, MappingErrorMessage(Types.Boolean, dbVar, iVar, typeArg, " 类型不被支持！")));
+
+                var switchCases = new List<SwitchCase>(_boolSourceTypes.Length + 2);
+
+                Expression ThrowOutOfRange() =>
+                    Throw(New(_errorOutOfRangeCtor, MappingErrorMessage(Types.Boolean, dbVar, iVar, typeArg, " 值超出范围！")));
+
+                //? 真假取值映射：等于 falseValue → false、等于 trueValue → true，否则数值越界。
+                Expression MapTrueFalse(ParameterExpression sourceVar, MethodInfo readFn, Expression falseValue, Expression trueValue) =>
+                    Block(new[] { sourceVar },
+                        Assign(sourceVar, Call(dbVar, readFn, iVar)),
+                        IfThenElse(Equal(sourceVar, falseValue),
+                            Assign(valueVar, Constant(false)),
+                            IfThenElse(Equal(sourceVar, trueValue),
+                                Assign(valueVar, Constant(true)),
+                                ThrowOutOfRange()))
+                    );
+
+                foreach (var key in _boolSourceTypes)
+                {
+                    if (!_typeMap.TryGetValue(key, out var transformFn))
+                    {
+                        continue;
+                    }
+
+                    switchCases.Add(SwitchCase(
+                        MapTrueFalse(Variable(key), transformFn, Constant(System.Convert.ChangeType(0, key), key), Constant(System.Convert.ChangeType(1, key), key)),
+                        Constant(Type.GetTypeCode(key))
+                    ));
+                }
+
+                //? 文本来源："0" → false、"1" → true。
+                if (_typeMap.TryGetValue(Types.String, out var getStringFn))
+                {
+                    switchCases.Add(SwitchCase(
+                        MapTrueFalse(Variable(Types.String), getStringFn, Constant("0"), Constant("1")),
+                        Constant(TypeCode.String)
+                    ));
+                }
+
+                //? 字符来源：'0' → false、'1' → true。
+                if (_typeMap.TryGetValue(Types.Char, out var getCharFn))
+                {
+                    switchCases.Add(SwitchCase(
+                        MapTrueFalse(Variable(Types.Char), getCharFn, Constant('0'), Constant('1')),
+                        Constant(TypeCode.Char)
+                    ));
+                }
+
+                return Block(Types.Boolean, new[] { valueVar },
+                    Switch(typeof(void), Call(_typeCode, typeArg), throwUnsupported, null, switchCases.ToArray()),
+                    valueVar
+                );
             }
 
             public Expression IsDbNull(ParameterExpression dbVar, Expression iVar) =>

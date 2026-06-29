@@ -331,5 +331,120 @@ namespace Inkslab.Linq.Tests
             Assert.Contains("col(Int64)", inner.Message);
             Assert.Contains("属性(Int32)", inner.Message);
         }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // 7. 布尔：整型字段 0/1 → bool（0→false、1→true），其它值报数值越界
+        // ─────────────────────────────────────────────────────────────────────
+
+        [Fact]
+        public void Int32Field_One_ToBoolProperty_IsTrue()
+        {
+            Assert.True(MapScalar<bool>(typeof(int), 1));
+        }
+
+        [Fact]
+        public void Int32Field_Zero_ToBoolProperty_IsFalse()
+        {
+            Assert.False(MapScalar<bool>(typeof(int), 0));
+        }
+
+        [Fact]
+        public void BoolField_ToBoolProperty_ExactMatch()
+        {
+            Assert.True(MapScalar<bool>(typeof(bool), true));
+            Assert.False(MapScalar<bool>(typeof(bool), false));
+        }
+
+        [Fact]
+        public void ByteField_One_ToBoolProperty_IsTrue()
+        {
+            Assert.True(MapScalar<bool>(typeof(byte), (byte)1));
+        }
+
+        [Fact]
+        public void Int64Field_Zero_ToBoolProperty_IsFalse()
+        {
+            Assert.False(MapScalar<bool>(typeof(long), 0L));
+        }
+
+        [Fact]
+        public void NullableBool_FromInt_One_IsTrue()
+        {
+            Assert.Equal(true, MapScalar<bool?>(typeof(int), 1));
+        }
+
+        [Fact]
+        public void NullableBool_FromInt_Zero_IsFalse()
+        {
+            Assert.Equal(false, MapScalar<bool?>(typeof(int), 0));
+        }
+
+        [Fact]
+        public void NullableBool_FromNull_IsNull()
+        {
+            Assert.Null(MapScalar<bool?>(typeof(int), null));
+        }
+
+        [Fact]
+        public void StringField_One_ToBoolProperty_IsTrue()
+        {
+            Assert.True(MapScalar<bool>(typeof(string), "1"));
+        }
+
+        [Fact]
+        public void StringField_Zero_ToBoolProperty_IsFalse()
+        {
+            Assert.False(MapScalar<bool>(typeof(string), "0"));
+        }
+
+        [Fact]
+        public void StringField_One_ToNullableBoolProperty_IsTrue()
+        {
+            Assert.Equal(true, MapScalar<bool?>(typeof(string), "1"));
+        }
+
+        [Fact]
+        public void CharField_One_ToBoolProperty_IsTrue()
+        {
+            Assert.True(MapScalar<bool>(typeof(char), '1'));
+        }
+
+        [Fact]
+        public void CharField_Zero_ToBoolProperty_IsFalse()
+        {
+            Assert.False(MapScalar<bool>(typeof(char), '0'));
+        }
+
+        [Fact]
+        public void StringField_OutOfRange_ToBoolProperty_ThrowsOutOfRange()
+        {
+            var ex = Assert.Throws<TargetInvocationException>(() => MapScalar<bool>(typeof(string), "2"));
+
+            var inner = ex.InnerException;
+
+            Assert.NotNull(inner);
+            Assert.IsType<IndexOutOfRangeException>(inner);
+            Assert.Contains("属性(Boolean)", inner.Message);
+            Assert.Contains("值超出范围", inner.Message);
+        }
+
+        /// <summary>
+        /// 整型字段值非 0/1 时，按“数值越界”抛 <see cref="IndexOutOfRangeException"/>，
+        /// 异常消息沿用统一的列映射格式，且不被伪装成“类型不匹配”。
+        /// </summary>
+        [Fact]
+        public void Int32Field_OutOfRange_ToBoolProperty_ThrowsOutOfRange()
+        {
+            var ex = Assert.Throws<TargetInvocationException>(() => MapScalar<bool>(typeof(int), 2));
+
+            var inner = ex.InnerException;
+
+            Assert.NotNull(inner);
+            Assert.IsType<IndexOutOfRangeException>(inner);
+            Assert.StartsWith("映射失败，列 ", inner.Message);
+            Assert.Contains("col(Int32)", inner.Message);
+            Assert.Contains("属性(Boolean)", inner.Message);
+            Assert.Contains("值超出范围", inner.Message);
+        }
     }
 }

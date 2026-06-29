@@ -42,6 +42,11 @@
 			<Pack>True</Pack>
 			<PackagePath></PackagePath>
 		</None>
+		<!-- 按模块拆分的文档（README.<模块>.md），随包发布至包根目录 -->
+		<None Include="..\..\README.*.md">
+			<Pack>True</Pack>
+			<PackagePath></PackagePath>
+		</None>
 	</ItemGroup>
 
 	<ItemGroup>
@@ -98,4 +103,12 @@
 			</ItemGroup>
 		</When>
 	</Choose>
+	<!-- 打包后，将根目录的 README.<模块>.md 文档按项目名复制到包输出目录的子目录中（如 .nupkgs\Inkslab.Linq\、.nupkgs\Inkslab.Linq.MySql\）。不含主 README.md。 -->
+	<Target Name="CopyModuleDocsToPackageOutput" AfterTargets="Pack" Condition="'$(IsPackable)' != 'false'">
+		<ItemGroup>
+			<_ModuleDocs Include="$(MSBuildThisFileDirectory)README.*.md" />
+		</ItemGroup>
+		<Copy SourceFiles="@(_ModuleDocs)"
+			  DestinationFolder="$(PackageOutputPath)\$(MSBuildProjectName)" />
+	</Target>
 </Project>

@@ -47,7 +47,7 @@ namespace Inkslab.Linq
             {
                 var capacity = _options.GetMappingCapacity(engine);
 
-                return new MapAdapter(type, capacity);
+                return new MapAdapter(type, capacity, engine);
             });
         }
 

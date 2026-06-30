@@ -388,7 +388,7 @@ namespace Inkslab.Linq
                         {
                             var adapter = _adapters.GetOrAdd(
                                 reader.GetType(),
-                                type => new MapAdapter(type, _options.GetMappingCapacity(_connectionStrings.Engine))
+                                type => new MapAdapter(type, _options.GetMappingCapacity(_connectionStrings.Engine), _connectionStrings.Engine)
                             );
 
                             var map = adapter.CreateMap<T>();

@@ -279,6 +279,7 @@ namespace Inkslab.Linq
             private readonly Lfu<Type, IDbMapper> _mappers;
 
             private readonly Type _type;
+            private readonly DatabaseEngine _engine;
             private readonly MethodInfo _isDbNull;
             private readonly MethodInfo _getName;
             private readonly MethodInfo _getValue;
@@ -290,11 +291,13 @@ namespace Inkslab.Linq
                 return string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
             }
 
-            public MapAdapter(Type type, int capacity)
+            public MapAdapter(Type type, int capacity, DatabaseEngine engine)
             {
                 var types = new[] { Types.Int32 };
 
                 _type = type;
+
+                _engine = engine;
 
                 _getName = type.GetMethod("GetName", types);
 
@@ -610,6 +613,49 @@ namespace Inkslab.Linq
                     );
                 }
 
+                //? Oracle：NUMBER 经 ADO.NET 常以 decimal/double/float 返回，整型属性需支持浮点来源；
+                //? 严格校验小数部分为 0 且落在目标整型区间内，否则按“数值越界”抛出（绝不静默截断）。
+                bool integerCode = code is TypeCode.SByte or TypeCode.Byte or TypeCode.Int16 or TypeCode.UInt16
+                    or TypeCode.Int32 or TypeCode.UInt32 or TypeCode.Int64 or TypeCode.UInt64;
+
+                if (_engine == DatabaseEngine.Oracle && integerCode)
+                {
+                    foreach (var floatingKey in _oracleFloatingSourceTypes)
+                    {
+                        if (transforms.ContainsKey(floatingKey) || !_typeMap.TryGetValue(floatingKey, out var floatingFn))
+                        {
+                            continue;
+                        }
+
+                        var floatingVar = Variable(floatingKey);
+
+                        variables.Add(floatingVar);
+
+                        var one = Constant(System.Convert.ChangeType(1, floatingKey), floatingKey);
+
+                        var zero = Constant(System.Convert.ChangeType(0, floatingKey), floatingKey);
+
+                        //? 小数部分必须为 0（取模为 0），否则视为越界。
+                        var noFraction = Equal(Modulo(floatingVar, one), zero);
+
+                        //? 区间校验：以来源浮点类型比较目标整型的 [MinValue, MaxValue]。
+                        var inRange = AndAlso(
+                            GreaterThanOrEqual(floatingVar, Expression.Convert(Field(null, propertyType, "MinValue"), floatingKey)),
+                            LessThanOrEqual(floatingVar, Expression.Convert(Field(null, propertyType, "MaxValue"), floatingKey))
+                        );
+
+                        switchCases.Add(SwitchCase(
+                            Block(
+                                Assign(floatingVar, Call(dbVar, floatingFn, iVar)),
+                                IfThenElse(AndAlso(noFraction, inRange),
+                                    Assign(valueVar, Expression.Convert(floatingVar, propertyType)),
+                                    throwOutUnary)
+                            ),
+                            Constant(Type.GetTypeCode(floatingKey))
+                        ));
+                    }
+                }
+
                 //? 字段类型未登记在转换表中：若属性类型自身可被读取器直接读取（originalFn 非空），
                 //? 则回退为直接读取（与历史行为一致，由读取器自行决定成功或抛 InvalidCastException）；
                 //? 否则抛出友好的不支持异常。
@@ -635,6 +681,12 @@ namespace Inkslab.Linq
             {
                 typeof(byte), typeof(sbyte), typeof(short), typeof(ushort),
                 typeof(int), typeof(uint), typeof(long), typeof(ulong)
+            };
+
+            //? Oracle 的 NUMBER 经 ADO.NET 常以 decimal/double/float 返回，作为 bool/整型的浮点来源（仅 Oracle 启用）。
+            private static readonly Type[] _oracleFloatingSourceTypes =
+            {
+                typeof(float), typeof(double), typeof(decimal)
             };
 
             /// <summary>
@@ -693,6 +745,23 @@ namespace Inkslab.Linq
                         MapTrueFalse(Variable(Types.Char), getCharFn, Constant('0'), Constant('1')),
                         Constant(TypeCode.Char)
                     ));
+                }
+
+                //? Oracle：bool 列（如 NUMBER(1)）常以 decimal/double/float 返回，0 → false、1 → true，含小数或其它值按越界抛出。
+                if (_engine == DatabaseEngine.Oracle)
+                {
+                    foreach (var floatingKey in _oracleFloatingSourceTypes)
+                    {
+                        if (!_typeMap.TryGetValue(floatingKey, out var floatingFn))
+                        {
+                            continue;
+                        }
+
+                        switchCases.Add(SwitchCase(
+                            MapTrueFalse(Variable(floatingKey), floatingFn, Constant(System.Convert.ChangeType(0, floatingKey), floatingKey), Constant(System.Convert.ChangeType(1, floatingKey), floatingKey)),
+                            Constant(Type.GetTypeCode(floatingKey))
+                        ));
+                    }
                 }
 
                 return Block(Types.Boolean, new[] { valueVar },

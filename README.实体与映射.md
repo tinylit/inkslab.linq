@@ -62,6 +62,15 @@ public class User
   - 浮点/定点加宽：`float` → `double`，`int`/`long`/`float`/`double` → `decimal`，`decimal` → `double`/`float`。
 - **反向「大转小」**（如 `long` → `int`）：执行运行时**区间校验**，值在范围内则转换，**超出范围抛出友好异常（绝不静默截断）**。
 
+### Oracle `NUMBER` 特例（浮点/定点 → 整型 / `bool`）
+
+Oracle 的 `NUMBER` 列经 ADO.NET 常以 `decimal`/`double`/`float` 返回，因此整型属性与 `bool` 属性需要支持「浮点/定点来源」。**该映射仅在 `DatabaseEngine.Oracle` 下启用，其它引擎遇到同样的来源类型仍按「类型不被支持」抛出。**
+
+- **浮点/定点 → 整型**（`sbyte`/`byte`/`short`/`ushort`/`int`/`uint`/`long`/`ulong`）：严格校验**小数部分必须为 0**，且数值**落在目标整型的 `[MinValue, MaxValue]` 区间内**，满足则转换，否则按「数值越界」抛出友好异常（绝不静默截断）。
+- **浮点/定点 → `bool`**（含 `bool?`）：`0` → `false`、`1` → `true`；含小数或其它值（如 `0.5`、`2`）一律按「数值越界」抛出。
+
+> 例：`NUMBER(1)` 常用于布尔语义，`5.0m → int` 合法，而 `5.5m → int`、`2.0m → bool` 均会抛出异常。
+
 ### 任意类型 → `string`
 
 实体属性为 `string` 而数据库字段为其它类型（`int`、`long`、`decimal`、`bool`、`DateTime`、`Guid` 等）时，框架自动调用其 `ToString()` 完成转换。

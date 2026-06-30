@@ -78,14 +78,14 @@ namespace Inkslab.Linq.Tests
             public override long GetChars(int ordinal, long dataOffset, char[] buffer, int bufferOffset, int length) => throw new NotImplementedException();
         }
 
-        private static T MapScalar<T>(Type fieldType, object value)
+        private static T MapScalar<T>(Type fieldType, object value, DatabaseEngine engine = DatabaseEngine.MySQL)
         {
             var databaseExecutorType = typeof(DatabaseExecutor);
             var mapAdapterType = databaseExecutorType.GetNestedType("MapAdapter", BindingFlags.NonPublic);
 
             Assert.NotNull(mapAdapterType);
 
-            var adapter = Activator.CreateInstance(mapAdapterType, typeof(ScalarReader), 100);
+            var adapter = Activator.CreateInstance(mapAdapterType, typeof(ScalarReader), 100, engine);
 
             var createMapMethod = mapAdapterType
                 .GetMethod("CreateMap", BindingFlags.Public | BindingFlags.Instance)
@@ -445,6 +445,137 @@ namespace Inkslab.Linq.Tests
             Assert.Contains("col(Int32)", inner.Message);
             Assert.Contains("属性(Boolean)", inner.Message);
             Assert.Contains("值超出范围", inner.Message);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // 8. Oracle：浮点/定点字段（NUMBER 经 ADO.NET 常以 decimal/double/float 返回）
+        //    → bool / 整型，仅在 DatabaseEngine.Oracle 启用；
+        //    严格校验：小数部分非 0 一律按“数值越界”抛出，绝不静默截断。
+        // ─────────────────────────────────────────────────────────────────────
+
+        [Fact]
+        public void Oracle_DecimalField_One_ToBoolProperty_IsTrue()
+        {
+            Assert.True(MapScalar<bool>(typeof(decimal), 1.0m, DatabaseEngine.Oracle));
+        }
+
+        [Fact]
+        public void Oracle_DecimalField_Zero_ToBoolProperty_IsFalse()
+        {
+            Assert.False(MapScalar<bool>(typeof(decimal), 0.0m, DatabaseEngine.Oracle));
+        }
+
+        [Fact]
+        public void Oracle_DoubleField_One_ToBoolProperty_IsTrue()
+        {
+            Assert.True(MapScalar<bool>(typeof(double), 1.0d, DatabaseEngine.Oracle));
+        }
+
+        [Fact]
+        public void Oracle_FloatField_One_ToBoolProperty_IsTrue()
+        {
+            Assert.True(MapScalar<bool>(typeof(float), 1.0f, DatabaseEngine.Oracle));
+        }
+
+        [Fact]
+        public void Oracle_NullableBool_FromDecimal_One_IsTrue()
+        {
+            Assert.Equal(true, MapScalar<bool?>(typeof(decimal), 1.0m, DatabaseEngine.Oracle));
+        }
+
+        [Fact]
+        public void Oracle_DecimalField_Fraction_ToBoolProperty_ThrowsOutOfRange()
+        {
+            var ex = Assert.Throws<TargetInvocationException>(() => MapScalar<bool>(typeof(decimal), 0.5m, DatabaseEngine.Oracle));
+
+            var inner = ex.InnerException;
+
+            Assert.NotNull(inner);
+            Assert.IsType<IndexOutOfRangeException>(inner);
+            Assert.Contains("属性(Boolean)", inner.Message);
+            Assert.Contains("值超出范围", inner.Message);
+        }
+
+        [Fact]
+        public void Oracle_DecimalField_Two_ToBoolProperty_ThrowsOutOfRange()
+        {
+            var ex = Assert.Throws<TargetInvocationException>(() => MapScalar<bool>(typeof(decimal), 2.0m, DatabaseEngine.Oracle));
+
+            var inner = ex.InnerException;
+
+            Assert.NotNull(inner);
+            Assert.IsType<IndexOutOfRangeException>(inner);
+            Assert.Contains("值超出范围", inner.Message);
+        }
+
+        [Fact]
+        public void Oracle_DecimalField_ToIntProperty_NoFraction()
+        {
+            Assert.Equal(5, MapScalar<int>(typeof(decimal), 5.0m, DatabaseEngine.Oracle));
+        }
+
+        [Fact]
+        public void Oracle_DecimalField_ToLongProperty_NoFraction()
+        {
+            Assert.Equal(100L, MapScalar<long>(typeof(decimal), 100.0m, DatabaseEngine.Oracle));
+        }
+
+        [Fact]
+        public void Oracle_DoubleField_ToIntProperty_NoFraction()
+        {
+            Assert.Equal(7, MapScalar<int>(typeof(double), 7.0d, DatabaseEngine.Oracle));
+        }
+
+        [Fact]
+        public void Oracle_FloatField_ToIntProperty_NoFraction()
+        {
+            Assert.Equal(3, MapScalar<int>(typeof(float), 3.0f, DatabaseEngine.Oracle));
+        }
+
+        [Fact]
+        public void Oracle_NullableInt_FromDecimal_NoFraction()
+        {
+            Assert.Equal(9, MapScalar<int?>(typeof(decimal), 9.0m, DatabaseEngine.Oracle));
+        }
+
+        [Fact]
+        public void Oracle_DecimalField_Fraction_ToIntProperty_ThrowsOutOfRange()
+        {
+            var ex = Assert.Throws<TargetInvocationException>(() => MapScalar<int>(typeof(decimal), 5.5m, DatabaseEngine.Oracle));
+
+            var inner = ex.InnerException;
+
+            Assert.NotNull(inner);
+            Assert.IsType<IndexOutOfRangeException>(inner);
+            Assert.StartsWith("映射失败，列 ", inner.Message);
+            Assert.Contains("col(Decimal)", inner.Message);
+            Assert.Contains("属性(Int32)", inner.Message);
+            Assert.Contains("值超出范围", inner.Message);
+        }
+
+        [Fact]
+        public void Oracle_DecimalField_OutOfRange_ToIntProperty_ThrowsOutOfRange()
+        {
+            var ex = Assert.Throws<TargetInvocationException>(() => MapScalar<int>(typeof(decimal), 5_000_000_000m, DatabaseEngine.Oracle));
+
+            var inner = ex.InnerException;
+
+            Assert.NotNull(inner);
+            Assert.IsType<IndexOutOfRangeException>(inner);
+            Assert.Contains("值超出范围", inner.Message);
+        }
+
+        // 回归：仅 Oracle 启用浮点→bool/整型；其它引擎不得套用该映射。
+        [Fact]
+        public void NonOracle_DecimalField_ToBoolProperty_NotSupported()
+        {
+            var ex = Assert.Throws<TargetInvocationException>(() => MapScalar<bool>(typeof(decimal), 1.0m, DatabaseEngine.MySQL));
+
+            var inner = ex.InnerException;
+
+            Assert.NotNull(inner);
+            Assert.IsType<NotSupportedException>(inner);
+            Assert.Contains("类型不被支持", inner.Message);
         }
     }
 }

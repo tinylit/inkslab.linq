@@ -3,7 +3,7 @@
 		<TargetFrameworks Condition="'$(LibraryFrameworks)'==''">netstandard2.1;net6.0;net8.0;net10.0</TargetFrameworks>
 		<TargetFrameworks Condition="'$(LibraryFrameworks)'!=''">$(LibraryFrameworks)</TargetFrameworks>
 		<!-- 版本 -->
-		<Version>1.2.83</Version>
+		<Version>2.0.0</Version>
 		<!-- 语法提示 -->
 		<Features>strict</Features>
 		<!-- .NET Standard 保留 C# 9；其他目标使用框架对应的稳定语言版本。 -->
@@ -34,10 +34,6 @@
 		<DockerfileContext>..\..</DockerfileContext>
 		<!-- 生成 xml 文件。 -->
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
-		<DocumentationFile Condition="$(Configuration) == 'Release' AND $(RuntimeIdentifier) == ''">
-			bin/$(Configuration)/$(TargetFramework)/publish/$(MSBuildProjectName).xml</DocumentationFile>
-		<DocumentationFile Condition="$(Configuration) == 'Release' AND $(RuntimeIdentifier) != ''">
-			bin/$(Configuration)/$(TargetFramework)/$(RuntimeIdentifier)/publish/$(MSBuildProjectName).xml</DocumentationFile>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -95,7 +91,7 @@
 			<ItemGroup>
 				<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
 				<PackageReference Include="xunit" Version="2.9.0" />
-				<PackageReference Include="xunitPlus" Version="1.2.12" />
+				<PackageReference Include="xunitPlus" Version="1.2.15" />
 				<PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
 					<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 					<PrivateAssets>all</PrivateAssets>
@@ -107,12 +103,4 @@
 			</ItemGroup>
 		</When>
 	</Choose>
-	<!-- 打包后，将根目录的 README.<模块>.md 文档按项目名复制到包输出目录的子目录中（如 .nupkgs\Inkslab.Linq\、.nupkgs\Inkslab.Linq.MySql\）。不含主 README.md。 -->
-	<Target Name="CopyModuleDocsToPackageOutput" AfterTargets="Pack" Condition="'$(IsPackable)' != 'false'">
-		<ItemGroup>
-			<_ModuleDocs Include="$(MSBuildThisFileDirectory)README.*.md" />
-		</ItemGroup>
-		<Copy SourceFiles="@(_ModuleDocs)"
-			  DestinationFolder="$(PackageOutputPath)\$(MSBuildProjectName)" />
-	</Target>
 </Project>

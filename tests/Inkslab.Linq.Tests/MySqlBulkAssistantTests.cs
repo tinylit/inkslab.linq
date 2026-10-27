@@ -13,7 +13,7 @@ namespace Inkslab.Linq.Tests
     /// </summary>
     public class MySqlBulkAssistantTests
     {
-        private const string ConnectionString = "server=mysql.local.com;uid=root;pwd=yyy@123*;database=framework;AllowLoadLocalInfile=true;Charset=utf8mb4;";
+        private const string ConnectionString = "server=mysql.local.com;uid=root;pwd=Yyy@123*;database=framework;AllowLoadLocalInfile=true;Charset=utf8mb4;";
 
         /// <summary>
         /// 测试打乱列顺序后批量写入是否正确（同步方法）。

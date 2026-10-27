@@ -13,7 +13,7 @@ namespace Combination.Tests
 
         public class PostgreSqlPromotionConnectionStrings : IConnectionStrings
     {
-        public string Strings { get; } = "Host=postgresql.local.com;Port=5432;Database=hys_envent_bus;User Id=root;Password=pgsql@123;Timezone=Asia/Shanghai;";
+        public string Strings { get; } = "Host=npgsql.local.com;Port=5432;Database=hys_envent_bus;User Id=root;Password=pgsql@123;Timezone=Asia/Shanghai;";
     }
 
 
@@ -26,7 +26,7 @@ namespace Combination.Tests
         public override void ConfigureServices(IServiceCollection services, HostBuilderContext context)
         {
             services.UseMySql()
-                .UseLinq("server=mysql.local.com;uid=root;pwd=yyy@123*;database=framework;AllowLoadLocalInfile=true");
+                .UseLinq("server=mysql.local.com;uid=root;pwd=Yyy@123*;database=framework;AllowLoadLocalInfile=true");
 
             services.UseSqlServer()
                 .UseDatabase<SqlServerPromotionConnectionStrings>();

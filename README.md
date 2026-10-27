@@ -3,7 +3,7 @@
 高性能 .NET LINQ-to-SQL ORM 框架，支持 MySQL、SQL Server、PostgreSQL 多数据库引擎，提供类型安全的查询构建、仓储模式、事务管理和批量操作能力。
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.2.78-green.svg)](Directory.Build.props)
+[![Version](https://img.shields.io/badge/version-2.0.0-green.svg)](Directory.Build.props)
 [![.NET](https://img.shields.io/badge/.NET-6.0%20%7C%208.0%20%7C%2010.0%20%7C%20Standard%202.1-purple.svg)](Directory.Build.props)
 [![GitHub Issues](https://img.shields.io/github/issues-raw/tinylit/inkslab.linq)](../../issues)
 

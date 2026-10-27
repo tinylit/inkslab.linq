@@ -1,0 +1,19 @@
+<Project>
+  <Target Name="RequireReleasePackage" BeforeTargets="Pack;GenerateNuspec"
+          Condition="'$(IsPackable)' != 'false'">
+    <Error Condition="'$(Configuration)' != 'Release'"
+           Text="NuGet packages must be built with Configuration=Release." />
+    <Error Condition="'@(InternalsVisibleTo)' != ''"
+           Text="NuGet packages must not contain InternalsVisibleTo items." />
+  </Target>
+
+  <!-- 模块文档同时随包发布，并复制到各项目的包输出子目录。 -->
+  <Target Name="CopyModuleDocsToPackageOutput" AfterTargets="Pack"
+          Condition="'$(IsPackable)' != 'false'">
+    <ItemGroup>
+      <_ModuleDocs Include="$(MSBuildThisFileDirectory)README.*.md" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_ModuleDocs)"
+          DestinationFolder="$(PackageOutputPath)/$(MSBuildProjectName)" />
+  </Target>
+</Project>

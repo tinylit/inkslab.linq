@@ -8,9 +8,10 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{8DC8AE30-1F46-4918-A519-E2382F78071A}"
 	ProjectSection(SolutionItems) = preProject
 		.editorconfig = .editorconfig
-		appveyor.yml = appveyor.yml
 		build.ps1 = build.ps1
 		Directory.Build.props = Directory.Build.props
+		Directory.Build.targets = Directory.Build.targets
+		global.json = global.json
 		inkslab-mini.jpg = inkslab-mini.jpg
 		inkslab-original.jpg = inkslab-original.jpg
 		inkslab.jpg = inkslab.jpg

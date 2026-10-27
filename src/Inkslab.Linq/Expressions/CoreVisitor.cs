@@ -59,8 +59,8 @@ namespace Inkslab.Linq.Expressions
                 {
                     ByList(node);
                 }
-                else if (name == nameof(ICollection<int>.Contains)
-                         && (typeDefinition == typeof(HashSet<>) || typeDefinition.IsLike(typeof(ICollection<>), TypeLikeKind.IsGenericTypeDefinition)))
+                else if (name == nameof(string.Contains)
+                    && (typeDefinition == typeof(HashSet<>) || typeDefinition.IsLike(typeof(ICollection<>), TypeLikeKind.IsGenericTypeDefinition)))
                 {
                     ByContains(node);
                 }
@@ -73,7 +73,7 @@ namespace Inkslab.Linq.Expressions
                     throw new NotSupportedException(NotSupportedErrorMsg(node));
                 }
             }
-            else if (node.Method.Name == nameof(string.Contains) && declaringType == typeof(MemoryExtensions))
+            else if (node.Method.Name == nameof(string.Contains) && declaringType == Types.MemoryExtensions)
             {
                 ByContains(node);
             }

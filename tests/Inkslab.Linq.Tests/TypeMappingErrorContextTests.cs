@@ -72,7 +72,7 @@ namespace Inkslab.Linq.Tests
 
             Assert.NotNull(mapAdapterType);
 
-            var adapter = Activator.CreateInstance(mapAdapterType, typeof(DecimalColumnFakeReader), 100);
+            var adapter = Activator.CreateInstance(mapAdapterType, typeof(DecimalColumnFakeReader), 100, DatabaseEngine.SqlServer);
             return (adapter, mapAdapterType);
         }
 

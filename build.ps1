@@ -1,13 +1,12 @@
 [CmdletBinding(PositionalBinding = $false)]
 param(
-    [bool] $CreatePackages = $true
+    [bool] $CreatePackages = $true,
+    [switch] $SkipRestore,
+    [switch] $SkipTests
 )
 
-Write-Host "Run Parameters:" -ForegroundColor Cyan
-Write-Host "  CreatePackages: $CreatePackages"
-Write-Host "  dotnet --version:" (dotnet --version)
-
-$packageOutputFolder = "$PSScriptRoot\.nupkgs"
+$ErrorActionPreference = 'Stop'
+$packageOutputFolder = Join-Path $PSScriptRoot '.nupkgs'
 $projectsToBuild =
     'Inkslab.Transactions',
     'Inkslab.Linq',
@@ -15,17 +14,32 @@ $projectsToBuild =
     'Inkslab.Linq.SqlServer',
     'Inkslab.Linq.PostgreSQL'
 
-mkdir -Force $packageOutputFolder | Out-Null
-Write-Host "Clearing existing $packageOutputFolder..." -NoNewline
-Get-ChildItem $packageOutputFolder | Remove-Item
-Write-Host "done." -ForegroundColor "Green"
-
-Write-Host "Building all packages" -ForegroundColor "Green"
-if ($CreatePackages) {
-	foreach ($project in $projectsToBuild) {
-		Write-Host "Packing $project (dotnet pack)..." -ForegroundColor "Magenta"
-		dotnet pack ".\src\$project\$project.csproj" -c Release --no-build -o $packageOutputFolder /p:NoPackageAnalysis=true  /p:CI=true
-		Write-Host "Packaged $project (dotnet pack)..." -ForegroundColor "Green"
-	}
+function Invoke-CheckedDotnet {
+    & dotnet @args
+    if ($LASTEXITCODE -ne 0) {
+        throw "dotnet failed with exit code $LASTEXITCODE."
+    }
 }
-Write-Host "Build Complete." -ForegroundColor "Green"
+
+Push-Location $PSScriptRoot
+try {
+    if (-not $SkipRestore) {
+        Invoke-CheckedDotnet restore inkslab.linq.sln
+    }
+    Invoke-CheckedDotnet build inkslab.linq.sln -c Release --no-restore
+    if (-not $SkipTests) {
+        Invoke-CheckedDotnet test inkslab.linq.sln -c Release --no-build --no-restore
+    }
+    if ($CreatePackages) {
+        foreach ($project in $projectsToBuild) {
+            Invoke-CheckedDotnet pack "src/$project/$project.csproj" -c Release --no-build --no-restore -o $packageOutputFolder
+        }
+        $packageVersion = & dotnet msbuild 'src/Inkslab.Linq/Inkslab.Linq.csproj' -nologo -getProperty:Version
+        if ($LASTEXITCODE -ne 0) { throw 'Cannot determine package version.' }
+        & (Join-Path $PSScriptRoot 'tools/Test-Packages.ps1') -PackageDirectory $packageOutputFolder -Version $packageVersion.Trim()
+    }
+    Write-Host 'Build Complete.' -ForegroundColor Green
+}
+finally {
+    Pop-Location
+}

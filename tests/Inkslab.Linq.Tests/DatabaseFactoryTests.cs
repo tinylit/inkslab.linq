@@ -54,7 +54,7 @@ namespace Inkslab.Linq.Tests
         [Fact]
         public async Task IntegrationAsync_FirstOrDefaultAsync()
         {
-            const string connStr = "server=mysql.local.com;uid=root;pwd=yyy@123*;database=framework;AllowLoadLocalInfile=true;Charset=utf8mb4;";
+            const string connStr = "server=mysql.local.com;uid=root;pwd=Yyy@123*;database=framework;AllowLoadLocalInfile=true;Charset=utf8mb4;";
 
             var db = _factory.Create(DatabaseEngine.MySQL, connStr);
 

@@ -815,7 +815,7 @@ namespace Inkslab.Linq.Tests
             var databaseExecutorType = typeof(DatabaseExecutor);
             var mapAdapterType = databaseExecutorType.GetNestedType("MapAdapter", BindingFlags.NonPublic);
 
-            var adapter = Activator.CreateInstance(mapAdapterType, typeof(TReader), 100);
+            var adapter = Activator.CreateInstance(mapAdapterType, typeof(TReader), 100, DatabaseEngine.MySQL);
             return (adapter, mapAdapterType);
         }
 
@@ -826,7 +826,7 @@ namespace Inkslab.Linq.Tests
                 ?? throw new InvalidOperationException("Cannot find nested type DbGridReader via reflection.");
 
             var mapAdapterType = databaseExecutorType.GetNestedType("MapAdapter", BindingFlags.NonPublic);
-            var adapter = Activator.CreateInstance(mapAdapterType, fakeReader.GetType(), 100);
+            var adapter = Activator.CreateInstance(mapAdapterType, fakeReader.GetType(), 100, DatabaseEngine.MySQL);
 
             var commandSql = new CommandSql("SELECT 1");
 

@@ -106,6 +106,11 @@ namespace Inkslab.Linq
         public static readonly Type IEnumerableGeneric = typeof(IEnumerable<>);
 
         /// <summary>
+        /// <see cref="System.MemoryExtensions"/>
+        /// </summary>
+        public static readonly Type MemoryExtensions = typeof(MemoryExtensions);
+
+        /// <summary>
         /// <see cref="object"/>
         /// </summary>
         public static readonly Type Object = typeof(object);

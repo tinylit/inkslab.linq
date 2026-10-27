@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Inkslab.Linq.Exceptions;
 using Xunit;
 using XunitPlus;
 
@@ -99,12 +100,12 @@ namespace Inkslab.Linq.Tests
         }
 
         /// <summary>
-        /// 验证异步 FirstAsync 无数据时抛出 "contains no elements" 而非 "more than one element"。
+        /// 验证异步 FirstAsync 无数据时抛出 NoElementException，消息包含 "no elements"。
         /// </summary>
         [Fact]
         public async Task FirstAsync_NoData_ThrowsCorrectNoElementsMessageAsync()
         {
-            var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            var ex = await Assert.ThrowsAsync<NoElementException>(
                 () => _users.Where(x => x.Id == int.MinValue).OrderBy(x => x.Id).FirstAsync());
 
             Assert.Contains("no elements", ex.Message, StringComparison.OrdinalIgnoreCase);

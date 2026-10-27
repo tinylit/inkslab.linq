@@ -4,7 +4,17 @@
 
 ---
 
-## v1.2.78 (当前版本)
+## v2.0.0 (当前版本)
+
+> 版本号参见 [Directory.Build.props](Directory.Build.props)
+
+- 五个 NuGet 包统一升级到 `2.0.0`，核心库依赖升级到 `Inkslab 2.0.1`。
+- 对齐 Inkslab 发布流程：固定 .NET 10 SDK 补丁系列，还原、Release 构建、测试、打包及包内容校验；任一步骤失败立即停止。
+- 禁止 Debug 打包，保留四个目标框架的 DLL、XML 文档和模块说明。
+
+---
+
+## v1.2.78
 
 > 版本号参见 [Directory.Build.props](Directory.Build.props)
 

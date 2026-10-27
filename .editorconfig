@@ -1,5 +1,9 @@
 ﻿root = true
 
+[*.ps1]
+# Windows PowerShell 5.1 needs a BOM to read non-ASCII UTF-8 correctly.
+charset = utf-8-bom
+
 [*.{cs,vb}]
 #### 诊断抑制 ####
 

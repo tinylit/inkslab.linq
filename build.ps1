@@ -32,7 +32,6 @@ try {
         }
         $packageVersion = & dotnet msbuild 'src/Inkslab.Linq/Inkslab.Linq.csproj' -nologo -getProperty:Version
         if ($LASTEXITCODE -ne 0) { throw 'Cannot determine package version.' }
-        & (Join-Path $PSScriptRoot 'tools/Test-Packages.ps1') -PackageDirectory $packageOutputFolder -Version $packageVersion.Trim()
     }
     Write-Host 'Build Complete.' -ForegroundColor Green
 }

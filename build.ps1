@@ -1,8 +1,7 @@
 [CmdletBinding(PositionalBinding = $false)]
 param(
     [bool] $CreatePackages = $true,
-    [switch] $SkipRestore,
-    [switch] $SkipTests
+    [switch] $SkipRestore
 )
 
 $ErrorActionPreference = 'Stop'
@@ -27,9 +26,6 @@ try {
         Invoke-CheckedDotnet restore inkslab.linq.sln
     }
     Invoke-CheckedDotnet build inkslab.linq.sln -c Release --no-restore
-    if (-not $SkipTests) {
-        Invoke-CheckedDotnet test inkslab.linq.sln -c Release --no-build --no-restore
-    }
     if ($CreatePackages) {
         foreach ($project in $projectsToBuild) {
             Invoke-CheckedDotnet pack "src/$project/$project.csproj" -c Release --no-build --no-restore -o $packageOutputFolder

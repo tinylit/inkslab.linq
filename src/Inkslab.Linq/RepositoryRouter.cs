@@ -75,7 +75,12 @@ namespace Inkslab.Linq
                 ExpressionType.Constant when body is ConstantExpression constant
                     => constant.Value switch
                     {
+#if NET10_0_OR_GREATER
+                        // 集合表达式直接构造只读 Span，避免 params char[] 分配。
+                        string text => text.Split((ReadOnlySpan<char>)[',', ' ']),
+#else
                         string text => text.Split(',', ' '),
+#endif
                         string[] arr => arr,
                         _ => throw new NotImplementedException(),
                     },

@@ -1,13 +1,16 @@
 <Project>
 	<PropertyGroup>
-		<TargetFrameworks Condition="'$(LibraryFrameworks)'==''">netstandard2.1;net6.0;</TargetFrameworks>
+		<TargetFrameworks Condition="'$(LibraryFrameworks)'==''">netstandard2.1;net6.0;net8.0;net10.0</TargetFrameworks>
 		<TargetFrameworks Condition="'$(LibraryFrameworks)'!=''">$(LibraryFrameworks)</TargetFrameworks>
 		<!-- 版本 -->
 		<Version>1.2.83</Version>
 		<!-- 语法提示 -->
 		<Features>strict</Features>
-		<!-- 语法版本 -->
+		<!-- .NET Standard 保留 C# 9；其他目标使用框架对应的稳定语言版本。 -->
 		<LangVersion>9.0</LangVersion>
+		<LangVersion Condition="'$(TargetFramework)' == 'net6.0'">10.0</LangVersion>
+		<LangVersion Condition="'$(TargetFramework)' == 'net8.0'">12.0</LangVersion>
+		<LangVersion Condition="'$(TargetFramework)' == 'net10.0'">14.0</LangVersion>
 		<!-- 提升警告为异常 -->
 		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
@@ -47,6 +50,7 @@
 			<Pack>True</Pack>
 			<PackagePath></PackagePath>
 		</None>
+		<None Include="..\..\docs\多目标编译与性能.md" Pack="true" PackagePath="docs/" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -69,8 +73,8 @@
 	</PropertyGroup>
 
 	<PropertyGroup Condition="$(IsTestProject)">
-		<TargetFramework>net6.0</TargetFramework>
-		<TargetFrameworks>net6.0</TargetFrameworks>
+		<TargetFrameworks Condition="'$(TestFrameworks)' == ''">net6.0;net8.0;net10.0</TargetFrameworks>
+		<TargetFrameworks Condition="'$(TestFrameworks)' != ''">$(TestFrameworks)</TargetFrameworks>
 		<IsPackable>false</IsPackable>
 		<Features>suggest</Features>
 		<NoWarn>$(NoWarn);xUnit1041;MSB3106;</NoWarn>

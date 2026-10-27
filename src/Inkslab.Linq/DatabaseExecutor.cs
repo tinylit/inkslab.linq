@@ -54,11 +54,11 @@ namespace Inkslab.Linq
         /// <summary>
         /// 记录命令调试日志
         /// </summary>
-        private void LogCommandIfDebug(CommandSql commandSql)
+        private static void LogCommandIfDebug(ILogger logger, CommandSql commandSql)
         {
-            if (_logger.IsEnabled(LogLevel.Debug))
+            if (logger.IsEnabled(LogLevel.Debug))
             {
-                _logger.LogDebug(commandSql.ToString());
+                logger.LogDebug(commandSql.ToString());
             }
         }
 
@@ -198,7 +198,7 @@ namespace Inkslab.Linq
         /// <inheritdoc/>
         public int Execute(IConnection databaseStrings, CommandSql commandSql)
         {
-            LogCommandIfDebug(commandSql);
+            LogCommandIfDebug(_logger, commandSql);
 
             return ExecuteWithConnection(databaseStrings, (dbConnection, _) =>
             {
@@ -215,7 +215,7 @@ namespace Inkslab.Linq
         /// <inheritdoc/>
         public List<T> Query<T>(IConnection databaseStrings, CommandSql commandSql)
         {
-            LogCommandIfDebug(commandSql);
+            LogCommandIfDebug(_logger, commandSql);
 
             CommandBehavior behavior = CommandBehavior.SequentialAccess | CommandBehavior.SingleResult;
 
@@ -242,10 +242,7 @@ namespace Inkslab.Linq
         /// <inheritdoc/>
         public IDbGridReader QueryMultiple(IConnection databaseStrings, CommandSql commandSql)
         {
-            if (_logger.IsEnabled(LogLevel.Debug))
-            {
-                _logger.LogDebug(commandSql.ToString());
-            }
+            LogCommandIfDebug(_logger, commandSql);
 
             CommandBehavior behavior = CommandBehavior.SequentialAccess;
 
@@ -296,7 +293,7 @@ namespace Inkslab.Linq
         /// <inheritdoc/>
         public T Read<T>(IConnection databaseStrings, CommandSql<T> commandSql)
         {
-            LogCommandIfDebug(commandSql);
+            LogCommandIfDebug(_logger, commandSql);
 
             CommandBehavior behavior = CommandBehavior.SequentialAccess | CommandBehavior.SingleResult;
 
@@ -452,10 +449,7 @@ namespace Inkslab.Linq
             {
                 ApplyTimeoutPolicy(commandSql);
 
-                if (_logger.IsEnabled(LogLevel.Debug))
-                {
-                    _logger.LogDebug(commandSql.ToString());
-                }
+                LogCommandIfDebug(_logger, commandSql);
 
                 using var command = _connection.CreateCommand();
                 ConfigureCommand(command, commandSql);
@@ -526,10 +520,7 @@ namespace Inkslab.Linq
                     ? Math.Min(_commandTimeout - (int)(_stopwatch.ElapsedMilliseconds / 1000), commandSql.Timeout.Value)
                     : _commandTimeout - (int)(_stopwatch.ElapsedMilliseconds / 1000);
 
-                if (_logger.IsEnabled(LogLevel.Debug))
-                {
-                    _logger.LogDebug(commandSql.ToString());
-                }
+                LogCommandIfDebug(_logger, commandSql);
 
                 using (var command = _connection.CreateCommand())
                 {

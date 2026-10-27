@@ -9,12 +9,20 @@ namespace Inkslab.Linq
     /// <summary>
     /// 命令SQL。
     /// </summary>
-    public class CommandSql
+    public partial class CommandSql
     {
         /// <summary>
         /// 参数。
         /// </summary>
+#if NET8_0_OR_GREATER
+        private static readonly Regex _pattern = ParameterPattern();
+
+        // 在构建 NuGet 时生成匹配器，避免首次使用时动态编译正则表达式。
+        [GeneratedRegex(@"(?<![\p{L}\p{N}@_])[?:@](?<name>[\p{L}\p{N}_][\p{L}\p{N}@_]*)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+        private static partial Regex ParameterPattern();
+#else
         private static readonly Regex _pattern = new Regex(@"(?<![\p{L}\p{N}@_])[?:@](?<name>[\p{L}\p{N}_][\p{L}\p{N}@_]*)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+#endif
 
         /// <summary>
         /// 构造函数。

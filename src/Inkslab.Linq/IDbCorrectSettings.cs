@@ -22,11 +22,12 @@
         /// <summary>
         /// T-SQL(分页)。
         /// </summary>
-        /// <param name="sql">SQL。</param>
+        /// <param name="sql">SQL，不能为 null 或空字符串。</param>
         /// <param name="take">获取“<paramref name="take"/>”条数据。</param>
         /// <param name="skip">跳过“<paramref name="skip"/>”条数据。</param>
-        /// <param name="orderBy">排序。</param>
+        /// <param name="orderBy">排序，为 null 或空字符串时不拼接排序及其前置空格。</param>
         /// <returns>T-SQL（分页）。</returns>
+        /// <exception cref="System.ArgumentException"><paramref name="sql"/> 为 null 或空字符串。</exception>
         string ToSQL(string sql, int take, int skip, string orderBy);
     }
 }

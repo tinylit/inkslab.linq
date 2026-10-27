@@ -22,10 +22,7 @@ namespace Inkslab.Linq
             CancellationToken cancellationToken = default
         )
         {
-            if (_logger.IsEnabled(LogLevel.Debug))
-            {
-                _logger.LogDebug(commandSql.ToString());
-            }
+            LogCommandIfDebug(_logger, commandSql);
 
             await using var dbConnection = _connectionPipeline.Get(databaseStrings);
 
@@ -72,12 +69,7 @@ namespace Inkslab.Linq
         /// <inheritdoc/>
         public IAsyncEnumerable<T> QueryAsync<T>(IConnection databaseStrings, CommandSql commandSql)
         {
-            if (_logger.IsEnabled(LogLevel.Debug))
-            {
-                _logger.LogDebug(commandSql.ToString());
-            }
-
-            return new AsyncEnumerable<T>(databaseStrings, _connectionPipeline, commandSql, _options);
+            return new AsyncEnumerable<T>(databaseStrings, _connectionPipeline, commandSql, _options, _logger);
         }
 
         /// <inheritdoc/>
@@ -87,10 +79,7 @@ namespace Inkslab.Linq
             CancellationToken cancellationToken = default
         )
         {
-            if (_logger.IsEnabled(LogLevel.Debug))
-            {
-                _logger.LogDebug(commandSql.ToString());
-            }
+            LogCommandIfDebug(_logger, commandSql);
 
             CommandBehavior behavior =
                 CommandBehavior.SequentialAccess | CommandBehavior.SingleResult;
@@ -181,10 +170,7 @@ namespace Inkslab.Linq
         /// <inheritdoc/>
         public async Task<IAsyncDbGridReader> QueryMultipleAsync(IConnection databaseStrings, CommandSql commandSql, CancellationToken cancellationToken = default)
         {
-            if (_logger.IsEnabled(LogLevel.Debug))
-            {
-                _logger.LogDebug(commandSql.ToString());
-            }
+            LogCommandIfDebug(_logger, commandSql);
 
             CommandBehavior behavior = CommandBehavior.SequentialAccess;
 
@@ -345,17 +331,21 @@ namespace Inkslab.Linq
             private readonly IDbConnectionPipeline _connectionPipeline;
             private readonly CommandSql _commandSql;
             private readonly Options.DatabaseExecutorOptions _options;
+            private readonly ILogger<DatabaseExecutor> _logger;
 
-            public AsyncEnumerable(IConnection databaseStrings, IDbConnectionPipeline connectionPipeline, CommandSql commandSql, Options.DatabaseExecutorOptions options)
+            public AsyncEnumerable(IConnection databaseStrings, IDbConnectionPipeline connectionPipeline, CommandSql commandSql, Options.DatabaseExecutorOptions options, ILogger<DatabaseExecutor> logger)
             {
                 _connectionStrings = databaseStrings;
                 _connectionPipeline = connectionPipeline;
                 _commandSql = commandSql;
                 _options = options;
+                _logger = logger;
             }
 
             public async IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default)
             {
+                LogCommandIfDebug(_logger, _commandSql);
+
                 await using var connection = _connectionPipeline.Get(_connectionStrings);
 
                 CommandBehavior behavior = CommandBehavior.SequentialAccess | CommandBehavior.SingleResult;
@@ -433,10 +423,7 @@ namespace Inkslab.Linq
 
             public async Task<int> ExecuteAsync(CommandSql commandSql)
             {
-                if (_logger.IsEnabled(LogLevel.Debug))
-                {
-                    _logger.LogDebug(commandSql.ToString());
-                }
+                LogCommandIfDebug(_logger, commandSql);
 
                 using (var command = _connection.CreateCommand())
                 {
@@ -521,10 +508,7 @@ namespace Inkslab.Linq
                     ? Math.Min(_commandTimeout - (int)(_stopwatch.ElapsedMilliseconds / 1000), commandSql.Timeout.Value)
                     : _commandTimeout - (int)(_stopwatch.ElapsedMilliseconds / 1000);
 
-                if (_logger.IsEnabled(LogLevel.Debug))
-                {
-                    _logger.LogDebug(commandSql.ToString());
-                }
+                LogCommandIfDebug(_logger, commandSql);
 
                 using (var command = _connection.CreateCommand())
                 {

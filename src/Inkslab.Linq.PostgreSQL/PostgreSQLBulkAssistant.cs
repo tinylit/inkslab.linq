@@ -3,6 +3,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Text;
 using System;
+using System.Collections.Generic;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
 
 namespace Inkslab.Linq.PostgreSQL
@@ -13,6 +16,7 @@ namespace Inkslab.Linq.PostgreSQL
     public class PostgreSQLBulkAssistant : IDatabaseBulkCopy
     {
         private readonly NpgsqlConnection _connection;
+        private readonly ILogger<PostgreSQLBulkAssistant> _logger;
 
         private int _bulkCopyTimeout = 30;
 
@@ -20,8 +24,37 @@ namespace Inkslab.Linq.PostgreSQL
         /// 构造函数。
         /// </summary>
         public PostgreSQLBulkAssistant(NpgsqlConnection connection)
+            : this(connection, NullLogger<PostgreSQLBulkAssistant>.Instance)
+        {
+        }
+
+        /// <summary>
+        /// 使用指定日志记录器创建批量复制助手。
+        /// </summary>
+        /// <param name="connection">数据库连接。</param>
+        /// <param name="logger">日志记录器。</param>
+        public PostgreSQLBulkAssistant(NpgsqlConnection connection, ILogger<PostgreSQLBulkAssistant> logger)
         {
             _connection = connection;
+            _logger = logger ?? NullLogger<PostgreSQLBulkAssistant>.Instance;
+        }
+
+        private static void LogCommandIfDebug(ILogger logger, string text, NpgsqlParameterCollection parameters = null)
+        {
+            if (logger.IsEnabled(LogLevel.Debug))
+            {
+                Dictionary<string, object> values = null;
+                if (parameters != null)
+                {
+                    values = new Dictionary<string, object>(parameters.Count);
+                    foreach (NpgsqlParameter parameter in parameters)
+                    {
+                        values.Add(parameter.ParameterName, parameter.Value);
+                    }
+                }
+
+                logger.LogDebug(new CommandSql(text, values).ToString());
+            }
         }
 
         /// <inheritdoc/>
@@ -44,6 +77,8 @@ namespace Inkslab.Linq.PostgreSQL
 
             // 生成COPY命令
             var copyCommand = GenerateCopyCommand(dt);
+
+            LogCommandIfDebug(_logger, copyCommand);
 
             try
             {
@@ -91,6 +126,8 @@ namespace Inkslab.Linq.PostgreSQL
 
             // 生成COPY命令
             var copyCommand = GenerateCopyCommand(dt);
+
+            LogCommandIfDebug(_logger, copyCommand);
 
             try
             {
@@ -374,14 +411,27 @@ namespace Inkslab.Linq.PostgreSQL
         {
             private readonly NpgsqlConnection _connection;
             private readonly NpgsqlTransaction _transaction;
+            private readonly ILogger<PostgreSQLBulkAssistant> _logger;
 
             /// <summary>
             /// 构造函数。
             /// </summary>
             public PostgreSQLBulk(NpgsqlConnection connection, NpgsqlTransaction transaction)
+                : this(connection, transaction, NullLogger<PostgreSQLBulkAssistant>.Instance)
+            {
+            }
+
+            /// <summary>
+            /// 使用指定日志记录器创建事务内批量写入助手。
+            /// </summary>
+            /// <param name="connection">数据库连接。</param>
+            /// <param name="transaction">事务。</param>
+            /// <param name="logger">日志记录器。</param>
+            public PostgreSQLBulk(NpgsqlConnection connection, NpgsqlTransaction transaction, ILogger<PostgreSQLBulkAssistant> logger)
             {
                 _connection = connection;
                 _transaction = transaction;
+                _logger = logger ?? NullLogger<PostgreSQLBulkAssistant>.Instance;
             }
 
             private int _bulkCopyTimeout = 30;
@@ -429,6 +479,8 @@ namespace Inkslab.Linq.PostgreSQL
 
                         GenerateBatchInsertCommand(command, dt, offset, currentBatchSize);
 
+                        LogCommandIfDebug(_logger, command.CommandText, command.Parameters);
+
                         int affected = command.ExecuteNonQuery();
 
                         totalAffected += affected;
@@ -471,6 +523,8 @@ namespace Inkslab.Linq.PostgreSQL
                         command.CommandTimeout = _bulkCopyTimeout;
 
                         GenerateBatchInsertCommand(command, dt, offset, currentBatchSize);
+
+                        LogCommandIfDebug(_logger, command.CommandText, command.Parameters);
 
                         int affected = await command.ExecuteNonQueryAsync(cancellationToken);
                         totalAffected += affected;

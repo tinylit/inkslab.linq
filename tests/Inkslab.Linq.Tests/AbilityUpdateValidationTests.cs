@@ -59,6 +59,24 @@ namespace Inkslab.Linq.Tests
             );
         }
 
+        [Fact]
+        public void Set_CommaSeparatedFields_ValidatesSelectedPrice()
+        {
+            var entity = new ValidatedProduct { Id = 1, Name = "Valid", Price = -1 };
+            Assert.Throws<ValidationException>(() => CreateRouter()
+                .AsUpdateable(new[] { entity }, null, null)
+                .Set(x => "Name,Price").Execute());
+        }
+
+        [Fact]
+        public void Set_SpaceSeparatedFields_ValidatesSelectedPrice()
+        {
+            var entity = new ValidatedProduct { Id = 1, Name = "Valid", Price = -1 };
+            Assert.Throws<ValidationException>(() => CreateRouter()
+                .AsUpdateable(new[] { entity }, null, null)
+                .Set(x => "Name Price").Execute());
+        }
+
         // ─────────────────────────────────────────────────────────────────
         // 1. SET 字段（更新字段）验证
         // ─────────────────────────────────────────────────────────────────

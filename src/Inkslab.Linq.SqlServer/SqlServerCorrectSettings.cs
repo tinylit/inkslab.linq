@@ -1,4 +1,9 @@
-﻿using System.Text;
+﻿#if NET6_0_OR_GREATER
+using System.Globalization;
+#else
+using System.Text;
+#endif
+using System;
 
 namespace Inkslab.Linq.SqlServer
 {
@@ -16,12 +21,33 @@ namespace Inkslab.Linq.SqlServer
         /// <inheritdoc/>
         public virtual string ToSQL(string sql, int take, int skip, string orderBy)
         {
-            var sb = new StringBuilder(sql.Length + orderBy.Length + (take > 0 ? 40 : 18));
+            if (string.IsNullOrEmpty(sql))
+            {
+                throw new ArgumentException("SQL 不能为 null 或空字符串。", nameof(sql));
+            }
 
-            sb.Append(sql)
-               .Append(' ')
-               .Append(orderBy)
-               .Append(" OFFSET ")
+#if NET6_0_OR_GREATER
+            if (orderBy?.Length > 0)
+            {
+                return take > 0
+                    ? string.Create(CultureInfo.CurrentCulture, $"{sql} {orderBy} OFFSET {skip} ROWS FETCH NEXT {take} ROWS ONLY")
+                    : string.Create(CultureInfo.CurrentCulture, $"{sql} {orderBy} OFFSET {skip} ROWS");
+            }
+
+            return take > 0
+                ? string.Create(CultureInfo.CurrentCulture, $"{sql} OFFSET {skip} ROWS FETCH NEXT {take} ROWS ONLY")
+                : string.Create(CultureInfo.CurrentCulture, $"{sql} OFFSET {skip} ROWS");
+#else
+            var sb = new StringBuilder(sql.Length + (orderBy?.Length ?? 0) + (take > 0 ? 40 : 18));
+
+            sb.Append(sql);
+
+            if (orderBy?.Length > 0)
+            {
+                sb.Append(' ').Append(orderBy);
+            }
+
+            sb.Append(" OFFSET ")
                .Append(skip)
                .Append(" ROWS");
 
@@ -33,6 +59,7 @@ namespace Inkslab.Linq.SqlServer
             }
 
             return sb.ToString();
+#endif
         }
     }
 }

@@ -197,6 +197,8 @@ dotnet_style_allow_multiple_blank_lines_experimental = true:silent
 dotnet_style_allow_statement_immediately_after_block_experimental = true:silent
 dotnet_style_coalesce_expression = true:suggestion
 dotnet_style_collection_initializer = true:suggestion
+# 共享源文件兼容 C# 9/10；现代集合表达式仅用于有分配收益的条件编译分支。
+dotnet_style_prefer_collection_expression = never
 dotnet_style_explicit_tuple_names = true:suggestion
 dotnet_style_namespace_match_folder = true:suggestion
 dotnet_style_null_propagation = true:suggestion

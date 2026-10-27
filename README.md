@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-1.2.78-green.svg)](Directory.Build.props)
-[![.NET](https://img.shields.io/badge/.NET-6.0%20%7C%20Standard%202.1-purple.svg)](Directory.Build.props)
+[![.NET](https://img.shields.io/badge/.NET-6.0%20%7C%208.0%20%7C%2010.0%20%7C%20Standard%202.1-purple.svg)](Directory.Build.props)
 [![GitHub Issues](https://img.shields.io/github/issues-raw/tinylit/inkslab.linq)](../../issues)
 
 ---
@@ -19,6 +19,12 @@
 ---
 
 ## 快速开始
+
+所有五个 NuGet 包均包含 `netstandard2.1`、`net6.0`、`net8.0`、`net10.0` 资产，
+分别使用 C# 9、10、12、14 编译；NuGet 自动选择与应用匹配的资产。
+从源码构建完整解决方案需要 .NET 10 SDK，运行测试需要 .NET 6/8/10 运行时。
+现代目标通过条件编译启用插值字符串处理器、正则源码生成和 Span 集合表达式，
+详见 [多目标编译与性能说明](docs/多目标编译与性能.md)。
 
 ### 安装 NuGet 包
 

@@ -1,4 +1,9 @@
-﻿using System.Text;
+﻿#if NET6_0_OR_GREATER
+using System.Globalization;
+#else
+using System.Text;
+#endif
+using System;
 
 namespace Inkslab.Linq.MySql
 {
@@ -14,12 +19,34 @@ namespace Inkslab.Linq.MySql
         /// <inheritdoc/>
         public virtual string ToSQL(string sql, int take, int skip, string orderBy)
         {
-            var sb = new StringBuilder(sql.Length + orderBy.Length + 18);
+            if (string.IsNullOrEmpty(sql))
+            {
+                throw new ArgumentException("SQL 不能为 null 或空字符串。", nameof(sql));
+            }
 
-            sb.Append(sql)
-                .Append(' ')
-                .Append(orderBy)
-                .Append(" LIMIT ");
+#if NET6_0_OR_GREATER
+            // 插值处理器直接生成结果字符串，避免 StringBuilder 及其缓冲区分配。
+            if (orderBy?.Length > 0)
+            {
+                return skip > 0
+                    ? string.Create(CultureInfo.CurrentCulture, $"{sql} {orderBy} LIMIT {skip},{take}")
+                    : string.Create(CultureInfo.CurrentCulture, $"{sql} {orderBy} LIMIT {take}");
+            }
+
+            return skip > 0
+                ? string.Create(CultureInfo.CurrentCulture, $"{sql} LIMIT {skip},{take}")
+                : string.Create(CultureInfo.CurrentCulture, $"{sql} LIMIT {take}");
+#else
+            var sb = new StringBuilder(sql.Length + (orderBy?.Length ?? 0) + 18);
+
+            sb.Append(sql);
+
+            if (orderBy?.Length > 0)
+            {
+                sb.Append(' ').Append(orderBy);
+            }
+
+            sb.Append(" LIMIT ");
 
             if (skip > 0)
             {
@@ -29,6 +56,7 @@ namespace Inkslab.Linq.MySql
 
             return sb.Append(take)
                 .ToString();
+#endif
         }
     }
 }

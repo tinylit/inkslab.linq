@@ -26,7 +26,7 @@ dotnet test --filter "FullyQualifiedName~TestClassName.MethodName"
 
 ## Architecture
 
-**Inkslab.Linq** is a LINQ-to-SQL ORM framework targeting .NET 6.0 and .NET Standard 2.1, with C# 9.0 (`strict` mode). It translates LINQ expression trees into database-specific SQL at runtime.
+**Inkslab.Linq** is a LINQ-to-SQL ORM framework targeting .NET Standard 2.1 and .NET 6/8/10, with C# 9/10/12/14 respectively (`strict` mode). Building all targets requires the .NET 10 SDK; tests target .NET 6/8/10 and require those runtimes. It translates LINQ expression trees into database-specific SQL at runtime.
 
 ### Project layout
 

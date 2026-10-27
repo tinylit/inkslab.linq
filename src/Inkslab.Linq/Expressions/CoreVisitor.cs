@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 using System.Text;
 using Inkslab.Linq.Enums;
 using Inkslab.Linq.Exceptions;
@@ -39,7 +40,7 @@ namespace Inkslab.Linq.Expressions
         protected override void MethodCall(MethodCallExpression node)
         {
             var declaringType = node.Method.DeclaringType ?? throw new NotSupportedException(NotSupportedErrorMsg(node));
-            
+
             if (declaringType == Types.Queryable || declaringType == Types.QueryableExtentions)
             {
                 LinqCall(node);
@@ -71,6 +72,10 @@ namespace Inkslab.Linq.Expressions
                 {
                     throw new NotSupportedException(NotSupportedErrorMsg(node));
                 }
+            }
+            else if (node.Method.Name == nameof(string.Contains) && declaringType == typeof(MemoryExtensions))
+            {
+                ByContains(node);
             }
             else if (declaringType == Types.String)
             {

@@ -24,6 +24,21 @@ namespace Inkslab.Linq.Tests
         private static IQueryable<UserEx> MySqlUserEx()
             => LinqAnalyzer.From<UserEx>(DatabaseEngine.MySQL, new MySqlAdapter());
 
+        [Fact]
+        public void Contains_ArrayCapturedInClosure_ShouldTranslateWithoutReflectionSpanInvoke()
+        {
+            var targetIds = new[] { 1, 2, 3 };
+
+            var command = MySqlUsers()
+                .Where(x => targetIds.Contains(x.Id))
+                .ToSql();
+
+            Assert.Contains("IN", command.Text, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("1", command.Text);
+            Assert.Contains("2", command.Text);
+            Assert.Contains("3", command.Text);
+        }
+
         // ══════════════════════════════════════════════
         // 1. NULL 常量与可空类型
         // ══════════════════════════════════════════════

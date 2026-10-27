@@ -137,6 +137,16 @@ namespace System.Linq.Expressions
                 LambdaExpression lambda when lambda.Body is ConstantExpression body => body.Value,
                 LambdaExpression lambda when lambda.Body is MemberExpression memberBody && TryEvaluateMember(memberBody, out var lambdaMemberValue) => lambdaMemberValue,
                 LambdaExpression lambda => lambda.Compile().DynamicInvoke(),
+                // C# 12+ may lower array.Contains into ReadOnlySpan<T>.op_Implicit(array).
+                // ref struct results cannot be returned through reflection DynamicInvoke;
+                // the span consumer can cast the original array itself.
+                MethodCallExpression methodCall
+                    when methodCall.Method.IsSpecialName
+                         && methodCall.Method.Name == "op_Implicit"
+                         && methodCall.Method.ReturnType.IsByRefLike
+                    => methodCall.Arguments.Count == 1
+                        ? methodCall.Arguments[0].GetValueFromExpression()
+                        : throw new NotSupportedException(),
                 UnaryExpression unary when unary.NodeType == ExpressionType.Quote => unary.Operand.GetValueFromExpression(),
                 UnaryExpression unary when unary.NodeType == ExpressionType.Convert && unary.Operand is MemberExpression memberOperand && TryEvaluateMember(memberOperand, out var convertedValue) => ConvertValue(convertedValue, unary.Type),
                 _ => Expression.Lambda(node).Compile().DynamicInvoke(),
@@ -160,6 +170,16 @@ namespace System.Linq.Expressions
                 LambdaExpression lambda when lambda.Body is MemberExpression memberBody && TryEvaluateMember(memberBody, out var lambdaMemberValue) => (T)lambdaMemberValue,
                 LambdaExpression lambda when lambda.Parameters.Count == 0 => (T)lambda.Compile().DynamicInvoke(),
                 LambdaExpression => throw new NotSupportedException(),
+                // C# 12+ may lower array.Contains into ReadOnlySpan<T>.op_Implicit(array).
+                // ref struct results cannot be returned through reflection DynamicInvoke;
+                // the span consumer can cast the original array itself.
+                MethodCallExpression methodCall
+                    when methodCall.Method.IsSpecialName
+                         && methodCall.Method.Name == "op_Implicit"
+                         && methodCall.Method.ReturnType.IsByRefLike
+                    => methodCall.Arguments.Count == 1
+                        ? methodCall.Arguments[0].GetValueFromExpression<T>()
+                        : throw new NotSupportedException(),
                 UnaryExpression unary when unary.NodeType == ExpressionType.Quote => unary.Operand.GetValueFromExpression<T>(),
                 _ => Expression.Lambda<Func<T>>(node)
                     .Compile()
